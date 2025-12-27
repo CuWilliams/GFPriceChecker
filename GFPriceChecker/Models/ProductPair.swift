@@ -73,6 +73,13 @@ final class ProductPair {
     /// - Note: Important for CRA audit trail and documentation requirements
     var verified: Bool
 
+    /// Optional receipt that verifies this product pair
+    ///
+    /// When a product pair is verified with a receipt, this establishes a relationship
+    /// to the Receipt object for audit trail purposes.
+    /// - Note: Optional - product pairs can exist without receipt verification (manual entry)
+    var receipt: Receipt?
+
     // MARK: - Computed Properties
 
     /// The price differential between gluten-free and non-gluten-free products
@@ -103,6 +110,7 @@ final class ProductPair {
     ///   - category: Product category (optional)
     ///   - notes: Additional notes (optional)
     ///   - verified: Receipt verification status (default: false)
+    ///   - receipt: Associated receipt for verification (optional)
     init(
         gfProductName: String,
         gfPrice: Decimal,
@@ -118,7 +126,8 @@ final class ProductPair {
         createdDate: Date = Date(),
         category: String? = nil,
         notes: String? = nil,
-        verified: Bool = false
+        verified: Bool = false,
+        receipt: Receipt? = nil
     ) {
         self.gfProductName = gfProductName
         self.gfPrice = gfPrice
@@ -137,6 +146,7 @@ final class ProductPair {
         self.category = category
         self.notes = notes
         self.verified = verified
+        self.receipt = receipt
     }
 }
 

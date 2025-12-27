@@ -15,7 +15,8 @@ struct GFPriceCheckerApp: App {
             ContentView()
         }
         .modelContainer(for: [
-            ProductPair.self
+            ProductPair.self,
+            Receipt.self
         ])
     }
 }
