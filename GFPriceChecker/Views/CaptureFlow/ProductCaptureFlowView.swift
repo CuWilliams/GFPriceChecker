@@ -35,6 +35,9 @@ struct ProductCaptureFlowView: View {
     /// Loading state during OCR processing
     @State private var isProcessingOCR = false
 
+    /// Loading state during save operation
+    @State private var isSaving = false
+
     // GF Product Data
     @State private var gfImage: UIImage?
     @State private var gfImageUUID: String?
@@ -407,18 +410,23 @@ struct ProductCaptureFlowView: View {
 
                 // Save Button
                 Button {
-                    Task {
-                        await saveProductPair()
-                    }
+                    saveProductPair()
                 } label: {
-                    Text("Save Product Pair")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green)
-                        .cornerRadius(12)
+                    HStack {
+                        if isSaving {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        }
+                        Text(isSaving ? "Saving..." : "Save Product Pair")
+                            .font(.headline)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(isSaving ? Color.gray : Color.green)
+                    .cornerRadius(12)
                 }
+                .disabled(isSaving)
             }
             .padding()
         }
@@ -491,11 +499,14 @@ struct ProductCaptureFlowView: View {
     }
 
     /// Saves the product pair to SwiftData
-    private func saveProductPair() async {
+    private func saveProductPair() {
         guard let gfPrice = Decimal(string: gfPriceText),
               let nonGFPrice = Decimal(string: nonGFPriceText) else {
+            print("❌ Invalid price format")
             return
         }
+
+        isSaving = true
 
         let productPair = ProductPair(
             gfProductName: gfProductName.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -515,12 +526,17 @@ struct ProductCaptureFlowView: View {
 
         modelContext.insert(productPair)
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            print("✅ Saved ProductPair: \(productPair.gfProductName) vs \(productPair.nonGFProductName)")
+            print("   Differential: $\(productPair.differential)")
 
-        print("✅ Saved ProductPair: \(productPair.gfProductName) vs \(productPair.nonGFProductName)")
-        print("   Differential: $\(productPair.differential)")
-
-        dismiss()
+            isSaving = false
+            dismiss()
+        } catch {
+            print("❌ Save failed: \(error.localizedDescription)")
+            isSaving = false
+        }
     }
 }
 
