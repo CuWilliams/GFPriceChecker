@@ -28,6 +28,11 @@ struct ProductPairListView: View {
     @Query(sort: \ProductPair.createdDate, order: .reverse)
     private var productPairs: [ProductPair]
 
+    // MARK: - State
+
+    /// Controls the visibility of the manual entry sheet
+    @State private var showingManualEntry = false
+
     // MARK: - Body
 
     var body: some View {
@@ -41,6 +46,18 @@ struct ProductPairListView: View {
             }
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingManualEntry = true
+                    } label: {
+                        Label("Add Product", systemImage: "plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingManualEntry) {
+                ManualProductEntryView()
+            }
         }
     }
 

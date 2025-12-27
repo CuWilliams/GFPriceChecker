@@ -172,7 +172,7 @@ Finalize SwiftData model container setup with error handling and demonstrate env
 ## Session 4: Product Pair List View
 **Date:** December 27, 2024
 **Branch:** `claude/create-productpair-model-RUHC3`
-**Status:** In Progress
+**Status:** ✅ Complete
 
 ### Objective
 Create a SwiftUI view to display all product pairs from SwiftData with proper styling, empty states, and sorting.
@@ -205,6 +205,62 @@ Create a SwiftUI view to display all product pairs from SwiftData with proper st
 - Verification indicator: SF Symbol checkmark.circle.fill
 - Category badge: rounded capsule with category name
 - Sorting: newest first for easy access to recent entries
+
+### User Modifications
+- No changes made in Xcode
+- Verified clean build with no errors
+- Confirmed empty state and previews work correctly
+
+---
+
+## Session 5: Manual Product Entry Form
+**Date:** December 27, 2024
+**Branch:** `claude/create-productpair-model-RUHC3`
+**Status:** In Progress
+
+### Objective
+Create a manual entry form for adding new product pairs with validation and proper user experience.
+
+### Tasks Completed
+- [x] Updated claude.md for Session 5
+- [x] Created Views/CaptureFlow/ folder structure
+- [x] Created ManualProductEntryView.swift with form
+- [x] Updated ProductPairListView with + button and sheet
+- [x] Verified clean build
+
+### Implementation Details
+
+#### ManualProductEntryView
+**File:** `Views/CaptureFlow/ManualProductEntryView.swift`
+
+**Features:**
+1. **Three-Section Form:**
+   - Section 1: Gluten-Free Product (name, price, size, category)
+   - Section 2: Non-Gluten-Free Product (name, price, size)
+   - Section 3: Optional (notes)
+2. **Category Picker:** Common categories with predefined options
+3. **Validation:**
+   - Product names required (non-empty)
+   - Prices required and must be > 0
+   - Inline error messages for invalid input
+4. **Currency Formatting:** TextField with proper decimal input
+5. **SwiftData Integration:** Save to modelContext on submit
+6. **Sheet Presentation:** Dismiss on cancel or after save
+
+**Design Decisions:**
+- Form with grouped sections for clarity
+- Validation feedback shown inline (red text)
+- Save button disabled until valid input
+- Currency input as String, converted to Decimal
+- Common categories: Bread, Pasta, Flour, Crackers, Cookies, Cereal, Pizza, Sauce
+
+#### ProductPairListView Updates
+**Modifications to:** `Views/Library/ProductPairListView.swift`
+
+**Added:**
+- Toolbar with + button
+- Sheet presentation for ManualProductEntryView
+- State management for sheet visibility
 
 ---
 
