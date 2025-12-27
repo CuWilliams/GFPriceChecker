@@ -8,15 +8,21 @@
 import SwiftUI
 import SwiftData
 
-/// Form for manually entering a new product pair
+/// Form for manually entering or editing a product pair
 ///
 /// Allows users to input gluten-free and non-gluten-free product information
 /// with validation, category selection, and optional notes.
+/// When a productPair is provided, the form operates in edit mode.
 struct ManualProductEntryView: View {
+
+    // MARK: - Properties
+
+    /// Optional product pair to edit (nil for new entry)
+    let productPair: ProductPair?
 
     // MARK: - Environment
 
-    /// SwiftData model context for saving new product pairs
+    /// SwiftData model context for saving product pairs
     @Environment(\.modelContext) private var modelContext
 
     /// Dismiss action to close the sheet
@@ -123,8 +129,11 @@ struct ManualProductEntryView: View {
                     Text("Notes (Optional)")
                 }
             }
-            .navigationTitle("Add Product Pair")
+            .navigationTitle(productPair == nil ? "Add Product Pair" : "Edit Product Pair")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                populateFieldsIfEditing()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -139,6 +148,32 @@ struct ManualProductEntryView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Initialization
+
+    /// Default initializer for new product entry
+    init(productPair: ProductPair? = nil) {
+        self.productPair = productPair
+    }
+
+    /// Populates form fields if editing an existing product
+    private func populateFieldsIfEditing() {
+        guard let productPair = productPair else { return }
+
+        // GF Product
+        gfProductName = productPair.gfProductName
+        gfPriceText = String(describing: productPair.gfPrice)
+        gfSize = productPair.gfSize ?? ""
+
+        // Non-GF Product
+        nonGFProductName = productPair.nonGFProductName
+        nonGFPriceText = String(describing: productPair.nonGFPrice)
+        nonGFSize = productPair.nonGFSize ?? ""
+
+        // Optional fields
+        category = productPair.category ?? "None"
+        notes = productPair.notes ?? ""
     }
 
     // MARK: - Validation Messages
@@ -243,20 +278,32 @@ struct ManualProductEntryView: View {
             return
         }
 
-        // Create new ProductPair
-        let productPair = ProductPair(
-            gfProductName: gfProductName.trimmingCharacters(in: .whitespacesAndNewlines),
-            gfPrice: gfPrice,
-            gfSize: gfSize.isEmpty ? nil : gfSize.trimmingCharacters(in: .whitespacesAndNewlines),
-            nonGFProductName: nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines),
-            nonGFPrice: nonGFPrice,
-            nonGFSize: nonGFSize.isEmpty ? nil : nonGFSize.trimmingCharacters(in: .whitespacesAndNewlines),
-            category: category == "None" ? nil : category,
-            notes: notes.isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
+        if let existingProductPair = productPair {
+            // Edit mode: Update existing product pair
+            existingProductPair.gfProductName = gfProductName.trimmingCharacters(in: .whitespacesAndNewlines)
+            existingProductPair.gfPrice = gfPrice
+            existingProductPair.gfSize = gfSize.isEmpty ? nil : gfSize.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Insert into SwiftData
-        modelContext.insert(productPair)
+            existingProductPair.nonGFProductName = nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines)
+            existingProductPair.nonGFPrice = nonGFPrice
+            existingProductPair.nonGFSize = nonGFSize.isEmpty ? nil : nonGFSize.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            existingProductPair.category = category == "None" ? nil : category
+            existingProductPair.notes = notes.isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            // Create mode: Insert new product pair
+            let newProductPair = ProductPair(
+                gfProductName: gfProductName.trimmingCharacters(in: .whitespacesAndNewlines),
+                gfPrice: gfPrice,
+                gfSize: gfSize.isEmpty ? nil : gfSize.trimmingCharacters(in: .whitespacesAndNewlines),
+                nonGFProductName: nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines),
+                nonGFPrice: nonGFPrice,
+                nonGFSize: nonGFSize.isEmpty ? nil : nonGFSize.trimmingCharacters(in: .whitespacesAndNewlines),
+                category: category == "None" ? nil : category,
+                notes: notes.isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            modelContext.insert(newProductPair)
+        }
 
         // Dismiss the sheet
         dismiss()

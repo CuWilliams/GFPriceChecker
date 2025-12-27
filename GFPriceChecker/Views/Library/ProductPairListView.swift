@@ -89,7 +89,9 @@ struct ProductPairListView: View {
     private var productListView: some View {
         List {
             ForEach(productPairs) { productPair in
-                ProductPairRow(productPair: productPair)
+                NavigationLink(destination: ProductPairDetailView(productPair: productPair)) {
+                    ProductPairRow(productPair: productPair)
+                }
             }
         }
         .listStyle(.insetGrouped)
