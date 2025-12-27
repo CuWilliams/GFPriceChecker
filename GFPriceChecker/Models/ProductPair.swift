@@ -7,6 +7,8 @@
 
 import Foundation
 import SwiftData
+import UIKit
+import SwiftUI
 
 /// Represents a comparison between a gluten-free product and its non-gluten-free equivalent
 ///

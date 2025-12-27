@@ -75,10 +75,10 @@
 		825601C62F005464009B5949 = {
 			isa = PBXGroup;
 			children = (
-				825601D12F005464009B5949 /* GFPriceChecker */,
 				825601E12F005467009B5949 /* GFPriceCheckerTests */,
 				825601EB2F005467009B5949 /* GFPriceCheckerUITests */,
 				825601D02F005464009B5949 /* Products */,
+				825601D12F005464009B5949 /* GFPriceChecker */,
 			);
 			sourceTree = "<group>";
 		};
@@ -400,11 +400,15 @@
 				DEVELOPMENT_TEAM = PL3LWTG3XY;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "GFPriceChecker needs camera access to scan product labels and receipts for price tracking.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "GFPriceChecker saves product photos to help you track price differentials.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GFPriceChecker needs photo access to save and retrieve product and receipt images.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -432,11 +436,15 @@
 				DEVELOPMENT_TEAM = PL3LWTG3XY;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "GFPriceChecker needs camera access to scan product labels and receipts for price tracking.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "GFPriceChecker saves product photos to help you track price differentials.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GFPriceChecker needs photo access to save and retrieve product and receipt images.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
