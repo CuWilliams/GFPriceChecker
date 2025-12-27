@@ -43,8 +43,8 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            // Capture Tab - Future: ProductCaptureFlowView
-            Text("Capture")
+            // Capture Tab - Document Scanner
+            ProductImageCaptureView()
                 .tabItem {
                     Label("Capture", systemImage: "camera")
                 }
