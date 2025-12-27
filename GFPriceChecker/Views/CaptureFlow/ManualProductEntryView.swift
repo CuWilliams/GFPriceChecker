@@ -152,34 +152,36 @@ struct ManualProductEntryView: View {
     /// Returns validation error messages for a product type
     @ViewBuilder
     private func validationMessages(for productType: ProductType) -> some View {
-        let nameError: String?
-        let priceError: String?
+        let errors = getValidationErrors(for: productType)
 
-        switch productType {
-        case .gfProduct:
-            nameError = gfProductName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "Product name is required"
-                : nil
-            priceError = validatePrice(gfPriceText)
-        case .nonGFProduct:
-            nameError = nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? "Product name is required"
-                : nil
-            priceError = validatePrice(nonGFPriceText)
+        if let nameError = errors.nameError {
+            Text(nameError)
+                .font(.caption)
+                .foregroundStyle(.red)
         }
 
-        Group {
-            if let nameError {
-                Text(nameError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
+        if let priceError = errors.priceError {
+            Text(priceError)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+    }
 
-            if let priceError {
-                Text(priceError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
+    /// Gets validation errors for a product type
+    private func getValidationErrors(for productType: ProductType) -> (nameError: String?, priceError: String?) {
+        switch productType {
+        case .gfProduct:
+            let nameError = gfProductName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "Product name is required"
+                : nil
+            let priceError = validatePrice(gfPriceText)
+            return (nameError, priceError)
+        case .nonGFProduct:
+            let nameError = nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "Product name is required"
+                : nil
+            let priceError = validatePrice(nonGFPriceText)
+            return (nameError, priceError)
         }
     }
 
