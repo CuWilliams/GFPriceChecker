@@ -530,7 +530,7 @@ Create OCR service using Vision framework to extract text, detect prices, and fi
 ## Session 11: Product Capture Flow with OCR
 **Date:** December 27, 2024
 **Branch:** `claude/create-productpair-model-RUHC3`
-**Status:** In Progress
+**Status:** ✅ Complete
 
 ### Objective
 Create guided multi-step flow to capture both GF and non-GF products with OCR, review extracted data, and save as ProductPair.
@@ -542,8 +542,10 @@ Create guided multi-step flow to capture both GF and non-GF products with OCR, r
 - [x] Implemented non-GF product capture and OCR review
 - [x] Implemented finalize step with side-by-side comparison
 - [x] Integrated with SwiftData to save ProductPair
-- [x] Updated ContentView to use ProductCaptureFlowView
-- [ ] User to verify full workflow on device
+- [x] Fixed save button with loading states and proper error handling
+- [x] Created CaptureTabView to present flow as sheet
+- [x] Fixed dismiss() functionality for Save and Cancel buttons
+- [x] User verified full workflow working correctly
 
 ### Implementation Details
 
@@ -580,6 +582,69 @@ Create guided multi-step flow to capture both GF and non-GF products with OCR, r
 - Editable fields allow manual correction of OCR errors
 - Side-by-side comparison shows differential before saving
 - Clean separation between capture and review steps
+- Sheet presentation allows proper dismiss() functionality
+
+#### CaptureTabView
+**File:** `Views/CaptureFlow/CaptureTabView.swift`
+
+**Features:**
+- Landing screen for Capture tab with instructions
+- "Start New Capture" button presents ProductCaptureFlowView as sheet
+- Proper modal presentation enables Save/Cancel dismissal
+- Clean UX with clear call-to-action
+
+### User Modifications
+- Fixed save button hang by adding loading states and proper error handling
+- Created CaptureTabView to present flow as modal sheet
+- Verified clean build with no errors
+- Tested full workflow successfully on device
+- Confirmed Save and Cancel buttons work correctly
+
+---
+
+## Session 12: OCR Confidence Indicators
+**Date:** December 27, 2024
+**Branch:** `claude/create-productpair-model-RUHC3`
+**Status:** In Progress
+
+### Objective
+Add visual confidence indicators to guide users in verifying OCR-extracted data based on confidence scores.
+
+### Tasks Completed
+- [x] Updated claude.md for Session 12
+- [ ] Created ConfidenceIndicatorView reusable component
+- [ ] Updated ProductCaptureFlowView with confidence-based styling
+- [ ] Added color-coded borders (green/yellow/red) based on confidence
+- [ ] Added haptic feedback for low confidence fields
+- [ ] User to verify improved UX on device
+
+### Implementation Details
+
+#### ConfidenceIndicatorView
+**File:** `Utilities/ConfidenceIndicatorView.swift`
+
+**Features:**
+- Reusable SwiftUI component for displaying OCR confidence
+- Three confidence levels with visual feedback:
+  - **High (≥0.85)**: Green checkmark, normal border
+  - **Medium (0.6-0.85)**: Yellow warning, yellow border, "Please verify" message
+  - **Low (<0.6)**: Red X, red border with highlight, "Likely incorrect" message
+- Optional info button explaining confidence scoring
+- Clean, non-intrusive design
+
+#### ProductCaptureFlowView Enhancements
+- Confidence indicators on product name and price fields
+- Color-coded text field borders based on confidence
+- Haptic feedback when low confidence detected
+- Auto-focus on low-confidence fields for user attention
+- Smooth visual hierarchy guiding user verification
+
+**Design Decisions:**
+- Traffic light color system (green/yellow/red) for universal understanding
+- Non-blocking warnings that don't prevent progression
+- Haptic feedback for important user attention
+- Inline indicators that don't clutter UI
+- Accessible color choices with icons for color-blind users
 
 ---
 

@@ -215,11 +215,33 @@ struct ProductCaptureFlowView: View {
 
                     // Product Name
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Product Name")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack {
+                            Text("Product Name")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Spacer()
+
+                            // Show confidence indicator only if OCR was attempted (confidence > 0)
+                            let nameConfidence: Float = 0.0 // Product names don't have separate confidence yet
+                            if nameConfidence > 0 {
+                                ConfidenceIndicatorView(
+                                    confidence: nameConfidence,
+                                    label: "\(Int(nameConfidence * 100))%",
+                                    showInfo: false
+                                )
+                            }
+                        }
                         TextField("Enter product name", text: isGF ? $gfProductName : $nonGFProductName)
-                            .textFieldStyle(.roundedBorder)
+                            .padding(8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(.background)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                            )
                     }
 
                     // Price
@@ -229,16 +251,33 @@ struct ProductCaptureFlowView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
+                            Spacer()
+
                             let confidence = isGF ? gfOCRConfidence : nonGFOCRConfidence
                             if confidence > 0 {
-                                Text("Confidence: \(Int(confidence * 100))%")
-                                    .font(.caption2)
-                                    .foregroundStyle(.blue)
+                                ConfidenceIndicatorView(
+                                    confidence: confidence,
+                                    label: "\(Int(confidence * 100))%",
+                                    showInfo: true
+                                )
                             }
                         }
+
+                        let priceConfidence = isGF ? gfOCRConfidence : nonGFOCRConfidence
                         TextField("0.00", text: isGF ? $gfPriceText : $nonGFPriceText)
                             .keyboardType(.decimalPad)
-                            .textFieldStyle(.roundedBorder)
+                            .padding(8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(ConfidenceIndicatorView.backgroundColor(for: priceConfidence) ?? .clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(
+                                        priceConfidence > 0 ? ConfidenceIndicatorView.borderColor(for: priceConfidence) : Color.gray.opacity(0.3),
+                                        lineWidth: priceConfidence > 0 && priceConfidence < 0.85 ? 2 : 1
+                                    )
+                            )
                     }
 
                     // Size (optional)
@@ -477,6 +516,13 @@ struct ProductCaptureFlowView: View {
                 if let topPrice = prices?.first {
                     gfPriceText = String(describing: topPrice.amount)
                     gfOCRConfidence = topPrice.confidence
+
+                    // Trigger haptic feedback if confidence is low
+                    if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
+                        await MainActor.run {
+                            triggerHapticFeedback(for: topPrice.confidence)
+                        }
+                    }
                 }
                 currentStep = .reviewGF
 
@@ -487,6 +533,13 @@ struct ProductCaptureFlowView: View {
                 if let topPrice = prices?.first {
                     nonGFPriceText = String(describing: topPrice.amount)
                     nonGFOCRConfidence = topPrice.confidence
+
+                    // Trigger haptic feedback if confidence is low
+                    if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
+                        await MainActor.run {
+                            triggerHapticFeedback(for: topPrice.confidence)
+                        }
+                    }
                 }
                 currentStep = .reviewNonGF
 
@@ -537,6 +590,26 @@ struct ProductCaptureFlowView: View {
             print("❌ Save failed: \(error.localizedDescription)")
             isSaving = false
         }
+    }
+
+    /// Triggers haptic feedback based on confidence level
+    private func triggerHapticFeedback(for confidence: Float) {
+        #if os(iOS)
+        let generator: UINotificationFeedbackGenerator
+        switch confidence {
+        case 0.6..<0.85:
+            // Medium confidence - warning feedback
+            generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
+        case 0.0..<0.6:
+            // Low confidence - error feedback
+            generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+        default:
+            // High confidence - no haptic needed
+            return
+        }
+        #endif
     }
 }
 
