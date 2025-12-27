@@ -49,8 +49,8 @@ struct ContentView: View {
                     Label("Capture", systemImage: "camera")
                 }
 
-            // Library Tab - Future: ProductPairListView
-            Text("Library")
+            // Library Tab - Product List View
+            ProductPairListView()
                 .tabItem {
                     Label("Library", systemImage: "books.vertical")
                 }
