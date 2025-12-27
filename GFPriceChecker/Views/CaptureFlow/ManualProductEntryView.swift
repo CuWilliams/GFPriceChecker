@@ -168,16 +168,18 @@ struct ManualProductEntryView: View {
             priceError = validatePrice(nonGFPriceText)
         }
 
-        if let nameError {
-            Text(nameError)
-                .font(.caption)
-                .foregroundStyle(.red)
-        }
+        Group {
+            if let nameError {
+                Text(nameError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
 
-        if let priceError {
-            Text(priceError)
-                .font(.caption)
-                .foregroundStyle(.red)
+            if let priceError {
+                Text(priceError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
     }
 
