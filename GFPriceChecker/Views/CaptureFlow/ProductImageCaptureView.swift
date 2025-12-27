@@ -27,6 +27,11 @@ struct ProductImageCaptureView: View {
     /// Loading state during save operation
     @State private var isSaving = false
 
+    /// OCR extracted data
+    @State private var extractedPrices: [PriceMatch] = []
+    @State private var extractedProductName: String?
+    @State private var isProcessingOCR = false
+
     // MARK: - Body
 
     var body: some View {
@@ -72,6 +77,13 @@ struct ProductImageCaptureView: View {
                 DocumentScannerView { image in
                     capturedImage = image
                     savedImageUUID = nil // Reset saved state when new image captured
+
+                    // Run OCR on captured image
+                    if let image = image {
+                        Task {
+                            await runOCR(on: image)
+                        }
+                    }
                 }
             }
         }
@@ -101,30 +113,112 @@ struct ProductImageCaptureView: View {
     // MARK: - Captured Image View
 
     private func capturedImageView(_ image: UIImage) -> some View {
-        VStack(spacing: 16) {
-            // Image preview
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(maxHeight: 400)
-                .cornerRadius(12)
-                .shadow(radius: 4)
-                .padding()
+        ScrollView {
+            VStack(spacing: 16) {
+                // Image preview
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: 300)
+                    .cornerRadius(12)
+                    .shadow(radius: 4)
+                    .padding()
 
-            // Status message
-            if let uuid = savedImageUUID {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    Text("Saved with ID: \(uuid.prefix(8))...")
+                // OCR Results Section
+                if isProcessingOCR {
+                    HStack {
+                        ProgressView()
+                        Text("Processing OCR...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                } else {
+                    ocrResultsView
+                }
+
+                // Status message
+                if let uuid = savedImageUUID {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Saved with ID: \(uuid.prefix(8))...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal)
+                }
+
+                Spacer()
+            }
+        }
+    }
+
+    // MARK: - OCR Results View
+
+    @ViewBuilder
+    private var ocrResultsView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("OCR Results")
+                .font(.headline)
+                .padding(.horizontal)
+
+            // Product Name
+            if let productName = extractedProductName {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Product Name:")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text(productName)
+                        .font(.body)
+                        .fontWeight(.medium)
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
                 .padding(.horizontal)
             }
 
-            Spacer()
+            // Prices
+            if !extractedPrices.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Detected Prices:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    ForEach(Array(extractedPrices.enumerated()), id: \.offset) { index, priceMatch in
+                        HStack {
+                            Text("$\(priceMatch.amount)")
+                                .font(.body)
+                                .fontWeight(.medium)
+
+                            Spacer()
+
+                            Text("Confidence: \(Int(priceMatch.confidence * 100))%")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(8)
+                .padding(.horizontal)
+            }
+
+            // No results message
+            if extractedProductName == nil && extractedPrices.isEmpty && !isProcessingOCR {
+                Text("No text or prices detected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            }
         }
+        .padding(.vertical)
     }
 
     // MARK: - Actions
@@ -151,6 +245,43 @@ struct ProductImageCaptureView: View {
         } else {
             print("❌ Failed to save image")
         }
+    }
+
+    /// Runs OCR on the captured image to extract product name and prices
+    private func runOCR(on image: UIImage) async {
+        isProcessingOCR = true
+        extractedPrices = []
+        extractedProductName = nil
+
+        do {
+            // Extract product name
+            let productName = try await OCRService.shared.findProductName(in: image)
+            extractedProductName = productName
+
+            if let productName = productName {
+                print("✅ Product Name: \(productName)")
+            } else {
+                print("⚠️ No product name detected")
+            }
+
+            // Extract prices
+            let prices = try await OCRService.shared.findPrices(in: image)
+            extractedPrices = prices
+
+            if !prices.isEmpty {
+                print("✅ Detected \(prices.count) price(s):")
+                for (index, price) in prices.enumerated() {
+                    print("   \(index + 1). $\(price.amount) (confidence: \(Int(price.confidence * 100))%)")
+                }
+            } else {
+                print("⚠️ No prices detected")
+            }
+
+        } catch {
+            print("❌ OCR Error: \(error.localizedDescription)")
+        }
+
+        isProcessingOCR = false
     }
 }
 
