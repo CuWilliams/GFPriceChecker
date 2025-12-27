@@ -470,7 +470,7 @@ Integrate iOS VisionKit document scanner for capturing product images and receip
 ## Session 10: OCR Service - Text Extraction
 **Date:** December 27, 2024
 **Branch:** `claude/create-productpair-model-RUHC3`
-**Status:** In Progress
+**Status:** ✅ Complete
 
 ### Objective
 Create OCR service using Vision framework to extract text, detect prices, and find product names from images.
@@ -481,7 +481,8 @@ Create OCR service using Vision framework to extract text, detect prices, and fi
 - [x] Implemented price detection with regex patterns
 - [x] Implemented product name extraction
 - [x] Enhanced ProductImageCaptureView with OCR display
-- [ ] User to verify functionality with test images on device
+- [x] User verified clean build (required SwiftUI import for preview)
+- [x] User tested on device - OCR needs fine-tuning (deferred to Phase 6)
 
 ### Implementation Details
 
@@ -517,6 +518,68 @@ Create OCR service using Vision framework to extract text, detect prices, and fi
 - Confidence thresholds to ensure quality
 - Struct definitions for type-safe return values
 - Focus areas for better product name detection
+
+### User Modifications
+- Added `import SwiftUI` to OCRService.swift for Preview support
+- Verified clean build with no errors
+- Tested OCR on product without price tag - no text detected
+- **Note:** OCR fine-tuning deferred to Phase 6 (may need confidence adjustments, orientation handling, expanded regex patterns)
+
+---
+
+## Session 11: Product Capture Flow with OCR
+**Date:** December 27, 2024
+**Branch:** `claude/create-productpair-model-RUHC3`
+**Status:** In Progress
+
+### Objective
+Create guided multi-step flow to capture both GF and non-GF products with OCR, review extracted data, and save as ProductPair.
+
+### Tasks Completed
+- [x] Updated claude.md for Session 11
+- [x] Created ProductCaptureFlowView with step-based navigation
+- [x] Implemented GF product capture and OCR review
+- [x] Implemented non-GF product capture and OCR review
+- [x] Implemented finalize step with side-by-side comparison
+- [x] Integrated with SwiftData to save ProductPair
+- [x] Updated ContentView to use ProductCaptureFlowView
+- [ ] User to verify full workflow on device
+
+### Implementation Details
+
+#### ProductCaptureFlowView
+**File:** `Views/CaptureFlow/ProductCaptureFlowView.swift`
+
+**Features:**
+1. **Multi-Step Flow:**
+   - Step 1: Introduction with instructions
+   - Step 2: Capture GF product with DocumentScannerView
+   - Step 3: Review GF product with OCR-extracted data (editable)
+   - Step 4: Capture non-GF product
+   - Step 5: Review non-GF product (editable)
+   - Step 6: Finalize with side-by-side comparison and save
+2. **OCR Integration:**
+   - Automatic OCR after each capture
+   - Pre-populated editable fields from OCR results
+   - Confidence indicators for extracted data
+   - Retake option if OCR fails
+3. **Data Management:**
+   - Stores images via ImageStorageService
+   - Creates ProductPair with all data
+   - Inserts into SwiftData
+   - Navigates back to library after save
+4. **User Experience:**
+   - Clear step indicators
+   - Loading states during OCR
+   - Validation before allowing next step
+   - Cancel option at any step
+
+**Design Decisions:**
+- Enum-based step management for type safety
+- State machine pattern for flow control
+- Editable fields allow manual correction of OCR errors
+- Side-by-side comparison shows differential before saving
+- Clean separation between capture and review steps
 
 ---
 
