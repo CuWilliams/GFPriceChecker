@@ -206,6 +206,7 @@ final class ReceiptParserService {
     /// Extracts line items (product + price) from receipt text
     ///
     /// Searches for lines containing both text and a price in $X.XX format.
+    /// Handles both single-line format (product $X.XX) and multi-line format (product on one line, price on next).
     ///
     /// - Parameter text: Raw receipt OCR text
     /// - Returns: Array of ReceiptLineItem objects
@@ -213,53 +214,89 @@ final class ReceiptParserService {
         var lineItems: [ReceiptLineItem] = []
         let lines = text.components(separatedBy: .newlines)
 
+        print("🔍 ReceiptParser: extractLineItems processing \(lines.count) lines")
+
         // Pattern to match price at end of line: $X.XX
-        let pricePattern = #"\$(\d{1,3}\.\d{2})\s*$"#
-        guard let priceRegex = try? NSRegularExpression(pattern: pricePattern, options: []) else {
+        let priceAtEndPattern = #"\$(\d{1,3}\.\d{2})\s*$"#
+        guard let priceAtEndRegex = try? NSRegularExpression(pattern: priceAtEndPattern, options: []) else {
             return []
         }
 
-        for line in lines {
-            let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // Skip very short lines or lines that look like headers/footers
-            guard trimmedLine.count >= 5,
-                  !isHeaderOrFooterLine(trimmedLine) else {
-                continue
-            }
-
-            // Check if line contains a price
-            let range = NSRange(trimmedLine.startIndex..., in: trimmedLine)
-            guard let priceMatch = priceRegex.firstMatch(in: trimmedLine, options: [], range: range),
-                  let priceRange = Range(priceMatch.range(at: 1), in: trimmedLine) else {
-                continue
-            }
-
-            let priceString = String(trimmedLine[priceRange])
-            guard let price = Decimal(string: priceString) else {
-                continue
-            }
-
-            // Extract product name (everything before the price)
-            let productNameEndIndex = trimmedLine.index(trimmedLine.startIndex, offsetBy: priceMatch.range.location)
-            let productName = String(trimmedLine[..<productNameEndIndex])
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // Skip if product name is empty or too short
-            guard productName.count >= 2 else {
-                continue
-            }
-
-            // Confidence based on line quality
-            let confidence = calculateLineConfidence(line: trimmedLine, productName: productName, price: price)
-
-            lineItems.append(ReceiptLineItem(
-                productName: productName,
-                price: price,
-                confidence: confidence
-            ))
+        // Pattern to match standalone price line: X.XX or $X.XX
+        let standalonePricePattern = #"^\s*\$?(\d{1,3}\.\d{2})\s*$"#
+        guard let standalonePriceRegex = try? NSRegularExpression(pattern: standalonePricePattern, options: []) else {
+            return []
         }
 
+        var i = 0
+        while i < lines.count {
+            let currentLine = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Skip very short lines or header/footer lines
+            if currentLine.count < 2 || isHeaderOrFooterLine(currentLine) {
+                i += 1
+                continue
+            }
+
+            // Check if current line has price at end (single-line format)
+            let range = NSRange(currentLine.startIndex..., in: currentLine)
+            if let priceMatch = priceAtEndRegex.firstMatch(in: currentLine, options: [], range: range),
+               let priceRange = Range(priceMatch.range(at: 1), in: currentLine) {
+
+                let priceString = String(currentLine[priceRange])
+                if let price = Decimal(string: priceString) {
+                    // Extract product name (everything before the price)
+                    let productNameEndIndex = currentLine.index(currentLine.startIndex, offsetBy: priceMatch.range.location)
+                    let productName = String(currentLine[..<productNameEndIndex])
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if productName.count >= 2 {
+                        let confidence = calculateLineConfidence(line: currentLine, productName: productName, price: price)
+                        lineItems.append(ReceiptLineItem(
+                            productName: productName,
+                            price: price,
+                            confidence: confidence
+                        ))
+                        print("🔍 ReceiptParser: Found single-line item: \(productName) - $\(price)")
+                    }
+                }
+                i += 1
+                continue
+            }
+
+            // Check if next line is a standalone price (multi-line format)
+            if i + 1 < lines.count {
+                let nextLine = lines[i + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+                let nextRange = NSRange(nextLine.startIndex..., in: nextLine)
+
+                if let priceMatch = standalonePriceRegex.firstMatch(in: nextLine, options: [], range: nextRange),
+                   let priceRange = Range(priceMatch.range(at: 1), in: nextLine) {
+
+                    let priceString = String(nextLine[priceRange])
+                    if let price = Decimal(string: priceString) {
+                        // Current line is product name, next line is price
+                        let productName = currentLine
+
+                        // Validate product name
+                        if productName.count >= 2 && !isHeaderOrFooterLine(productName) {
+                            let confidence = calculateLineConfidence(line: currentLine + " " + nextLine, productName: productName, price: price)
+                            lineItems.append(ReceiptLineItem(
+                                productName: productName,
+                                price: price,
+                                confidence: confidence
+                            ))
+                            print("🔍 ReceiptParser: Found multi-line item: \(productName) - $\(price)")
+                            i += 2  // Skip both lines
+                            continue
+                        }
+                    }
+                }
+            }
+
+            i += 1
+        }
+
+        print("🔍 ReceiptParser: Total line items extracted: \(lineItems.count)")
         return lineItems
     }
 
