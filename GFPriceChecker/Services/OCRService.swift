@@ -8,6 +8,8 @@
 import Foundation
 import Vision
 import UIKit
+import VisionKit
+import SwiftUI
 
 /// Result of price detection from OCR
 struct PriceMatch {
