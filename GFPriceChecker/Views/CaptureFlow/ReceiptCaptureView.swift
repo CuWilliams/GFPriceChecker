@@ -85,7 +85,9 @@ struct ReceiptCaptureView: View {
             }
             .sheet(isPresented: $showingScanner) {
                 DocumentScannerView { image in
-                    handleScannedReceipt(image)
+                    if let image = image {
+                        handleScannedReceipt(image)
+                    }
                 }
             }
             .alert("Error", isPresented: $showingAlert) {
