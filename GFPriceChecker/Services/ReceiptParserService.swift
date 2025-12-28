@@ -206,20 +206,23 @@ final class ReceiptParserService {
     /// Extracts line items (product + price) from receipt text
     ///
     /// Searches for lines containing both text and a price in $X.XX format.
+    /// Supports both single-line format (PRODUCT $X.XX) and multi-line format (PRODUCT on line 1, X.XX on line 2).
     ///
     /// - Parameter text: Raw receipt OCR text
     /// - Returns: Array of ReceiptLineItem objects
     func extractLineItems(from text: String) -> [ReceiptLineItem] {
         var lineItems: [ReceiptLineItem] = []
         let lines = text.components(separatedBy: .newlines)
+        var processedLineIndices = Set<Int>()
 
+        // PASS 1: Extract single-line items (existing logic)
         // Pattern to match price at end of line: $X.XX
         let pricePattern = #"\$(\d{1,3}\.\d{2})\s*$"#
         guard let priceRegex = try? NSRegularExpression(pattern: pricePattern, options: []) else {
             return []
         }
 
-        for line in lines {
+        for (index, line) in lines.enumerated() {
             let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
 
             // Skip very short lines or lines that look like headers/footers
@@ -258,6 +261,63 @@ final class ReceiptParserService {
                 price: price,
                 confidence: confidence
             ))
+
+            processedLineIndices.insert(index)
+        }
+
+        // PASS 2: Extract multi-line items (PRODUCT on line N, PRICE on line N+1)
+        // Pattern for standalone price: optional $, digits, decimal point, 2 digits
+        let standalonePricePattern = #"^\s*\$?(\d{1,3}\.\d{2})\s*$"#
+        guard let standalonePriceRegex = try? NSRegularExpression(pattern: standalonePricePattern, options: []) else {
+            return lineItems
+        }
+
+        for index in 0..<lines.count - 1 {
+            // Skip if already processed in single-line pass
+            if processedLineIndices.contains(index) || processedLineIndices.contains(index + 1) {
+                continue
+            }
+
+            let currentLine = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            let nextLine = lines[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Check if next line is a standalone price
+            let nextRange = NSRange(nextLine.startIndex..., in: nextLine)
+            guard let priceMatch = standalonePriceRegex.firstMatch(in: nextLine, options: [], range: nextRange),
+                  let priceRange = Range(priceMatch.range(at: 1), in: nextLine) else {
+                continue
+            }
+
+            // Check if current line could be a product name
+            guard currentLine.count >= 3,
+                  !isHeaderOrFooterLine(currentLine),
+                  !currentLine.contains("$") else { // Should not already have a price
+                continue
+            }
+
+            let priceString = String(nextLine[priceRange])
+            guard let price = Decimal(string: priceString) else {
+                continue
+            }
+
+            // Additional validation: price should be reasonable for a grocery item
+            guard price >= 0.50 && price <= 200.0 else {
+                continue
+            }
+
+            let productName = currentLine
+
+            // Confidence slightly lower for multi-line items
+            let confidence = calculateLineConfidence(line: currentLine, productName: productName, price: price) * 0.9
+
+            lineItems.append(ReceiptLineItem(
+                productName: productName,
+                price: price,
+                confidence: confidence
+            ))
+
+            processedLineIndices.insert(index)
+            processedLineIndices.insert(index + 1)
         }
 
         return lineItems
