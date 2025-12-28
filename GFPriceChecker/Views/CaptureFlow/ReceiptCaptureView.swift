@@ -384,10 +384,31 @@ struct ReceiptCaptureView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .disabled(confirmedMatchCount == 0)
 
-                Text("\(confirmedMatchCount) of \(matchResults.count) products matched")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // Status text
+                if lineItems.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("No receipt items detected - try rescanning")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+
+                    Button {
+                        // Go back to scan step
+                        currentStep = .scanReceipt
+                    } label: {
+                        Label("Rescan Receipt", systemImage: "camera")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Text("\(confirmedMatchCount) of \(matchResults.count) products matched")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding()
             .background(Color(.systemGroupedBackground))
@@ -585,6 +606,23 @@ struct ReceiptCaptureView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+            } else {
+                // No line items extracted - OCR failed
+                VStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title2)
+                        .foregroundStyle(.orange)
+
+                    Text("No receipt items detected")
+                        .font(.caption)
+                        .fontWeight(.medium)
+
+                    Text("The receipt scan didn't extract any line items. Try rescanning with better lighting.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
             }
         }
         .padding()
