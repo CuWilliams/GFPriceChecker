@@ -57,35 +57,52 @@ final class OCRService {
     /// - Returns: Array of text observations with bounding boxes
     /// - Throws: OCRError if recognition fails
     func extractText(from image: UIImage) async throws -> [VNRecognizedTextObservation] {
+        print("🔍 OCRService: extractText called")
+
         guard let cgImage = image.cgImage else {
+            print("🔍 OCRService: ERROR - cgImage is nil")
             throw OCRError.invalidImage
         }
 
+        print("🔍 OCRService: cgImage obtained, size: \(cgImage.width)x\(cgImage.height)")
+
         return try await withCheckedThrowingContinuation { continuation in
+            print("🔍 OCRService: Creating VNRecognizeTextRequest")
+
             let request = VNRecognizeTextRequest { request, error in
+                print("🔍 OCRService: VNRecognizeTextRequest callback fired")
+
                 if let error = error {
+                    print("🔍 OCRService: ERROR in request - \(error)")
                     continuation.resume(throwing: OCRError.recognitionFailed(error))
                     return
                 }
 
                 guard let observations = request.results as? [VNRecognizedTextObservation] else {
+                    print("🔍 OCRService: ERROR - No observations or wrong type")
                     continuation.resume(throwing: OCRError.noTextDetected)
                     return
                 }
 
+                print("🔍 OCRService: Successfully got \(observations.count) observations")
                 continuation.resume(returning: observations)
             }
 
             // Configure for accurate recognition
+            print("🔍 OCRService: Configuring request")
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["en-US"]
             request.usesLanguageCorrection = true
 
+            print("🔍 OCRService: Creating VNImageRequestHandler")
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
             do {
+                print("🔍 OCRService: Performing Vision request...")
                 try handler.perform([request])
+                print("🔍 OCRService: Vision request performed (callback should fire)")
             } catch {
+                print("🔍 OCRService: ERROR performing request - \(error)")
                 continuation.resume(throwing: OCRError.recognitionFailed(error))
             }
         }
@@ -198,7 +215,11 @@ final class OCRService {
     /// - Returns: Full text content with line breaks
     /// - Throws: OCRError if recognition fails
     func extractReceiptText(from image: UIImage) async throws -> String {
+        print("🔍 OCRService: extractReceiptText called")
+        print("🔍 OCRService: Image size: \(image.size)")
+
         let observations = try await extractText(from: image)
+        print("🔍 OCRService: Got \(observations.count) text observations")
 
         // Sort observations by vertical position (top to bottom)
         // VisionKit uses bottom-left origin, so higher y values are at top

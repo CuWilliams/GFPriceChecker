@@ -764,24 +764,37 @@ struct ReceiptCaptureView: View {
 
     /// Handles scanned receipt image
     private func handleScannedReceipt(_ image: UIImage) {
+        print("🎯 DEBUG: handleScannedReceipt called")
+        print("🎯 DEBUG: Image size: \(image.size)")
+
         receiptImage = image
         showingScanner = false
         isProcessingOCR = true
 
         Task {
+            print("🎯 DEBUG: Starting processReceipt task")
             await processReceipt(image)
+            print("🎯 DEBUG: processReceipt task completed")
         }
     }
 
     /// Processes receipt with OCR and fuzzy matching
     private func processReceipt(_ image: UIImage) async {
+        print("🎯 DEBUG: processReceipt started")
+        print("🎯 DEBUG: About to call OCRService.extractReceiptText")
+
         do {
             // Extract full receipt text
+            print("🎯 DEBUG: Calling extractReceiptText...")
             let fullText = try await OCRService.shared.extractReceiptText(from: image)
+            print("🎯 DEBUG: extractReceiptText completed")
+            print("🎯 DEBUG: Extracted text length: \(fullText.count) characters")
+
             receiptText = fullText
 
             print("📄 Receipt OCR extracted:")
             print(fullText)
+            print("📄 End of OCR text")
 
             // Parse receipt components
             let parser = ReceiptParserService.shared
@@ -828,6 +841,11 @@ struct ReceiptCaptureView: View {
             currentStep = .reviewMatches
 
         } catch {
+            print("🎯 DEBUG: ERROR CAUGHT in processReceipt")
+            print("🎯 DEBUG: Error type: \(type(of: error))")
+            print("🎯 DEBUG: Error description: \(error)")
+            print("🎯 DEBUG: Localized description: \(error.localizedDescription)")
+
             isProcessingOCR = false
             alertMessage = "Failed to process receipt: \(error.localizedDescription)"
             showingAlert = true
