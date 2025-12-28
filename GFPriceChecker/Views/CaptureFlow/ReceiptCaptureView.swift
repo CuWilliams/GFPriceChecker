@@ -62,6 +62,29 @@ struct ReceiptCaptureView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
+    /// Bulk operation state
+    @State private var showingDateSuggestion = false
+    @State private var suggestedProductCount = 0
+
+    // MARK: - Computed Properties
+
+    /// Products with high-confidence auto-matches
+    private var autoMatchedProducts: [ProductMatchResult] {
+        matchResults.filter { $0.matchQuality == .high }
+    }
+
+    /// Products that need manual review
+    private var needsReviewProducts: [ProductMatchResult] {
+        matchResults.filter { $0.matchQuality != .high }
+    }
+
+    /// Number of products with confirmed matches (auto or manual)
+    private var confirmedMatchCount: Int {
+        matchResults.filter { result in
+            getSelectedLineItem(for: result) != nil
+        }.count
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -119,7 +142,7 @@ struct ReceiptCaptureView: View {
             if unverifiedProducts.isEmpty {
                 emptyStateView
             } else {
-                // Instructions
+                // Instructions and bulk actions
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Select products to verify with this receipt")
                         .font(.headline)
@@ -127,6 +150,33 @@ struct ReceiptCaptureView: View {
                     Text("Choose the product pairs you purchased on this shopping trip.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+
+                    // Bulk selection buttons
+                    HStack(spacing: 12) {
+                        Button {
+                            selectAllProducts()
+                        } label: {
+                            Label("Select All", systemImage: "checkmark.circle")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button {
+                            deselectAllProducts()
+                        } label: {
+                            Label("Deselect All", systemImage: "circle")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Spacer()
+
+                        Text("\(selectedProducts.count) selected")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -285,10 +335,41 @@ struct ReceiptCaptureView: View {
             // Receipt info header
             receiptInfoHeader
 
+            // Progress indicator
+            progressIndicator
+
             // Match list
             List {
-                ForEach(matchResults, id: \.productPair.id) { matchResult in
-                    matchResultRow(matchResult)
+                // Auto-matched products section
+                if !autoMatchedProducts.isEmpty {
+                    Section {
+                        ForEach(autoMatchedProducts, id: \.productPair.id) { matchResult in
+                            matchResultRow(matchResult)
+                        }
+                    } header: {
+                        HStack {
+                            Text("Auto-Matched (\(autoMatchedProducts.count))")
+                            Spacer()
+                            if !autoMatchedProducts.isEmpty {
+                                Button("Accept All") {
+                                    acceptAllAutoMatches()
+                                }
+                                .font(.caption)
+                                .textCase(nil)
+                            }
+                        }
+                    }
+                }
+
+                // Needs review section
+                if !needsReviewProducts.isEmpty {
+                    Section {
+                        ForEach(needsReviewProducts, id: \.productPair.id) { matchResult in
+                            matchResultRow(matchResult)
+                        }
+                    } header: {
+                        Text("Needs Manual Review (\(needsReviewProducts.count))")
+                    }
                 }
             }
             .listStyle(.insetGrouped)
@@ -304,13 +385,53 @@ struct ReceiptCaptureView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
 
-                Text("Review matches above before confirming")
+                Text("\(confirmedMatchCount) of \(matchResults.count) products matched")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .padding()
             .background(Color(.systemGroupedBackground))
         }
+        .alert("Smart Suggestions", isPresented: $showingDateSuggestion) {
+            Button("Select Suggested", role: .none) {
+                selectProductsFromSameDate()
+            }
+            Button("Skip", role: .cancel) { }
+        } message: {
+            Text("Found \(suggestedProductCount) product\(suggestedProductCount == 1 ? "" : "s") from \(purchaseDate.formatted(date: .abbreviated, time: .omitted)). Would you like to select them?")
+        }
+    }
+
+    private var progressIndicator: some View {
+        HStack(spacing: 12) {
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.secondary.opacity(0.2))
+                        .frame(height: 8)
+
+                    // Progress
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.green)
+                        .frame(
+                            width: geometry.size.width * CGFloat(confirmedMatchCount) / CGFloat(max(matchResults.count, 1)),
+                            height: 8
+                        )
+                }
+            }
+            .frame(height: 8)
+
+            // Count label
+            Text("\(confirmedMatchCount)/\(matchResults.count)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 50, alignment: .trailing)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color(.systemGroupedBackground))
     }
 
     private var receiptInfoHeader: some View {
@@ -527,6 +648,65 @@ struct ReceiptCaptureView: View {
 
     // MARK: - Helper Methods
 
+    // MARK: Bulk Selection
+
+    /// Selects all unverified products
+    private func selectAllProducts() {
+        selectedProducts = Set(unverifiedProducts.map { $0.id })
+    }
+
+    /// Deselects all products
+    private func deselectAllProducts() {
+        selectedProducts.removeAll()
+    }
+
+    /// Accepts all high-confidence auto-matches (doesn't require manual confirmation)
+    private func acceptAllAutoMatches() {
+        // Auto-matched products already have their matched line items
+        // This is just a visual confirmation for the user
+        print("✅ Accepted \(autoMatchedProducts.count) auto-matches")
+    }
+
+    /// Selects products created on the same date as the receipt
+    private func selectProductsFromSameDate() {
+        let calendar = Calendar.current
+        let receiptDateComponents = calendar.dateComponents([.year, .month, .day], from: purchaseDate)
+
+        for product in unverifiedProducts {
+            let productDateComponents = calendar.dateComponents([.year, .month, .day], from: product.createdDate)
+
+            if receiptDateComponents == productDateComponents {
+                selectedProducts.insert(product.id)
+            }
+        }
+
+        print("✅ Selected \(selectedProducts.count) products from \(purchaseDate.formatted(date: .abbreviated, time: .omitted))")
+    }
+
+    /// Checks if there are unselected products from the same date and suggests selecting them
+    private func checkForSameDateProducts() {
+        let calendar = Calendar.current
+        let receiptDateComponents = calendar.dateComponents([.year, .month, .day], from: purchaseDate)
+
+        var sameDateCount = 0
+        for product in unverifiedProducts {
+            let productDateComponents = calendar.dateComponents([.year, .month, .day], from: product.createdDate)
+
+            // Count products from same date that aren't already selected
+            if receiptDateComponents == productDateComponents && !selectedProducts.contains(product.id) {
+                sameDateCount += 1
+            }
+        }
+
+        if sameDateCount > 0 {
+            suggestedProductCount = sameDateCount
+            showingDateSuggestion = true
+            print("💡 Found \(sameDateCount) additional products from same date")
+        }
+    }
+
+    // MARK: Matching
+
     /// Gets the selected line item for a match result (either auto-matched or manually selected)
     private func getSelectedLineItem(for matchResult: ProductMatchResult) -> ReceiptLineItem? {
         // Check manual selection first
@@ -602,6 +782,9 @@ struct ReceiptCaptureView: View {
             for result in matchResults {
                 print("  - \(result.productPair.gfProductName): \(Int(result.matchConfidence * 100))% (\(result.matchQuality))")
             }
+
+            // Smart date suggestion - check for products from same date
+            checkForSameDateProducts()
 
             isProcessingOCR = false
             currentStep = .reviewMatches

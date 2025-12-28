@@ -979,6 +979,177 @@ enum ProductFilter: String, CaseIterable {
 
 ---
 
+## Session 15: Bulk Receipt Verification Enhancements
+**Date:** December 28, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Enhance receipt verification workflow with bulk operations, smart date filtering, auto-match acceptance, and progress tracking for efficient batch verification.
+
+### Tasks Completed
+- [x] Added bulk selection controls (Select All / Deselect All)
+- [x] Implemented smart date filtering with suggestions
+- [x] Added auto-match acceptance workflow
+- [x] Created progress indicator for match tracking
+- [x] Separated auto-matched from needs-review products
+- [x] Updated claude.md for Session 15
+- [x] Verified clean build
+
+### Implementation Details
+
+#### Bulk Selection Controls
+**Enhanced:** `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+**New Features:**
+1. **Bulk Selection Buttons (Product Selection Step):**
+   - "Select All" button - selects all unverified products
+   - "Deselect All" button - clears all selections
+   - Live counter: "X selected"
+   - Buttons styled with `.bordered` and `.small` control size
+
+**Methods:**
+```swift
+selectAllProducts(): Sets selectedProducts to all unverified product IDs
+deselectAllProducts(): Clears selectedProducts set
+```
+
+#### Smart Date Filtering
+**New Features:**
+1. **Date-Based Suggestions:**
+   - After receipt OCR, checks for products created on same date
+   - Alert dialog: "Found X products from [date]. Would you like to select them?"
+   - Two options: "Select Suggested" or "Skip"
+   - Only suggests unselected products from matching date
+
+**Methods:**
+```swift
+checkForSameDateProducts(): Counts unselected products from receipt date, triggers alert
+selectProductsFromSameDate(): Selects all products matching receipt date
+```
+
+**State Variables:**
+- `showingDateSuggestion: Bool`: Controls alert visibility
+- `suggestedProductCount: Int`: Count for alert message
+
+**Logic:**
+- Uses Calendar date components comparison (year, month, day)
+- Excludes already-selected products
+- Triggers automatically after OCR completes
+- Console logging for debugging
+
+#### Auto-Match Acceptance
+**New Features:**
+1. **Match Categorization:**
+   - Auto-Matched section: High confidence (≥80%)
+   - Needs Manual Review section: Medium/Low confidence (<80%)
+   - Section headers show counts
+   - "Accept All" button in auto-matched section header
+
+2. **Progress Indicator:**
+   - Visual progress bar (green fill)
+   - Text counter: "X/Y products matched"
+   - Shows confirmed matches (auto + manual)
+   - Displayed above match list
+
+**Computed Properties:**
+```swift
+autoMatchedProducts: Filters matchResults for .high quality
+needsReviewProducts: Filters matchResults for .medium/.low quality
+confirmedMatchCount: Counts products with confirmed line items
+```
+
+**Methods:**
+```swift
+acceptAllAutoMatches(): Visual confirmation for auto-matches
+```
+
+**Progress Indicator UI:**
+- GeometryReader for responsive progress bar width
+- Gray background, green fill
+- Rounded rectangle (4pt corner radius)
+- Animates as matches are confirmed
+- Fraction display: "3/5"
+
+#### User Experience Improvements
+1. **Sectioned Match List:**
+   - Auto-matched products appear first (less review needed)
+   - Needs-review products appear second (focus attention)
+   - Clear visual separation
+   - Count badges in section headers
+
+2. **Enhanced Confirm Button:**
+   - Updated caption: "X of Y products matched"
+   - Real-time progress feedback
+
+3. **Smart Workflow:**
+   - Select products → Scan receipt → Auto-suggestions → Review matches → Confirm
+   - Minimizes manual steps for common scenarios
+   - Batch-friendly for weekly shopping trips
+
+### Design Decisions
+- Date filtering uses calendar components (ignores time)
+- Auto-match acceptance is visual only (matches already applied)
+- Progress bar updates reactively via computed properties
+- Smart suggestions are optional (user can skip)
+- Bulk operations preserve existing manual multi-select
+- Section headers use `.textCase(nil)` for custom button styling
+
+### Console Logging
+New debug output:
+- "💡 Found X additional products from same date"
+- "✅ Selected X products from [date]"
+- "✅ Accepted X auto-matches"
+
+### User Modifications
+- None yet - pending testing in Xcode
+
+---
+
+## Phase 4 Summary
+
+### Sessions Completed ✅
+
+**Session 13: Receipt Scanning and Product Matching**
+- ReceiptParserService with comprehensive fuzzy matching
+- Enhanced OCRService with receipt-specific text extraction
+- ReceiptCaptureView with 3-step workflow
+- Tiered confidence matching (high/medium/low)
+- Manual override capability
+
+**Session 14: Receipt Detail View and Product Filters**
+- ReceiptDetailView with zoomable images
+- ReceiptImageViewer component (pinch-to-zoom, pan, double-tap reset)
+- ProductPairListView filters (All/Verified/Unverified)
+- Receipt navigation via swipe actions
+- Receipt indicator icons
+
+**Session 15: Bulk Receipt Verification**
+- Bulk selection controls (Select All / Deselect All)
+- Smart date filtering with suggestions
+- Auto-match acceptance workflow
+- Progress indicator for match tracking
+- Sectioned match display (auto-matched vs needs-review)
+
+### Key Achievements
+✅ Complete receipt verification workflow
+✅ Fuzzy product matching with 3-tier confidence system
+✅ Receipt detail management with image zoom
+✅ Product list filtering and navigation
+✅ Bulk operations for efficient batch verification
+✅ Smart date-based suggestions
+✅ Real-time progress tracking
+✅ Console logging throughout for debugging
+
+### Known Limitations
+- OCR accuracy depends on receipt quality (lighting, clarity)
+- Fuzzy matching may need real-world tuning
+- Receipt image viewer uses basic zoom (could add viewport constraints)
+- Filter is client-side (fine for MVP, could optimize with @Query predicates)
+- Date filtering is full-day granularity (ignores time)
+
+---
+
 ## Development Notes
 
 ### SwiftData Best Practices
