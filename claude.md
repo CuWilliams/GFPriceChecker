@@ -852,6 +852,133 @@ Comprehensive debug output:
 
 ---
 
+## Session 14: Receipt Detail View and Product Filters
+**Date:** December 28, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Create receipt detail view with zoomable images and add filtering capabilities to the product list.
+
+### Tasks Completed
+- [x] Created ReceiptDetailView.swift with full receipt display
+- [x] Created ReceiptImageViewer for zoomable image viewing
+- [x] Updated ProductPairListView.swift with filter functionality
+- [x] Added receipt navigation from product list
+- [x] Updated claude.md for Session 14
+- [x] Verified clean build
+
+### Implementation Details
+
+#### ReceiptDetailView
+**File:** `Views/Library/ReceiptDetailView.swift`
+
+**Features:**
+1. **Receipt Image Display:**
+   - Thumbnail view with tap-to-expand
+   - Loading indicator while image loads from storage
+   - Button to launch full-screen zoomable viewer
+2. **Receipt Metadata Section:**
+   - Store name (if available)
+   - Purchase date (formatted as long date)
+   - Total amount (if available)
+3. **Summary Section:**
+   - Products verified count
+   - Total differential calculation
+   - Color-coded differential (green for positive)
+4. **Associated Products Section:**
+   - Lists all ProductPairs linked to this receipt
+   - Shows GF vs non-GF product names
+   - Displays prices and differential for each
+   - Unlink button for each product (destructive action)
+5. **Receipt Management:**
+   - Delete button in toolbar (destructive)
+   - Confirmation alert before deletion
+   - Unlinks all products when deleted
+   - Deletes receipt image from storage
+   - Products remain in database but marked unverified
+
+**ReceiptImageViewer Component:**
+- Full-screen zoomable image viewer
+- Pinch-to-zoom gesture (1.0x to 4.0x)
+- Pan/drag gesture for navigation
+- Double-tap to reset zoom
+- Reset button in toolbar
+- Done button to dismiss
+- Black background for focus
+
+**Design Decisions:**
+- Task-based async image loading from ImageStorageService
+- Separate viewer component for code reusability
+- Unlink preserves products (only removes verification)
+- Delete confirmation prevents accidental data loss
+- List-based layout for clean sectioned display
+
+#### ProductPairListView Enhancements
+**File:** `Views/Library/ProductPairListView.swift`
+
+**New Features:**
+1. **Filter Functionality:**
+   - ProductFilter enum: All / Verified / Unverified
+   - Filter picker in toolbar (leading position)
+   - Computed filteredProducts property
+   - Filter-specific empty states
+2. **Toolbar Updates:**
+   - Filter menu with icons and labels
+   - Add menu splits into "Manual Entry" and "Verify with Receipt"
+   - Receipt capture now accessible from Library tab
+3. **Receipt Navigation:**
+   - Swipe action on verified products with receipts
+   - Links directly to ReceiptDetailView
+   - Blue tint for receipt swipe action
+4. **Visual Indicators:**
+   - Receipt icon (doc.text.fill) next to verified badge
+   - Shows when product has associated receipt
+   - Blue color to indicate actionable link
+
+**ProductFilter Enum:**
+```swift
+enum ProductFilter: String, CaseIterable {
+    case all = "All Products"
+    case verified = "Verified Products"
+    case unverified = "Unverified Products"
+}
+```
+
+**Filter Empty States:**
+- All: "No products found"
+- Verified: "No verified products yet. Scan a receipt to verify your products."
+- Unverified: "All products are verified! Great job."
+
+**Design Decisions:**
+- Filter results computed on-the-fly (not separate @Query)
+- Swipe actions for quick receipt access
+- Menu for add actions (better discoverability)
+- Receipt icon provides visual feedback
+- Maintains existing ProductPairDetailView navigation
+
+### User Modifications
+- None yet - pending testing in Xcode
+
+### Navigation Flow
+1. **Library Tab → Receipt:**
+   - Swipe left on verified product → Receipt button → ReceiptDetailView
+2. **Receipt Detail → Product:**
+   - Product shown in "Verified Products" section
+   - Unlink button removes association
+3. **Filter Workflow:**
+   - Toolbar filter menu → Select All/Verified/Unverified
+   - List updates immediately
+   - Empty states guide user actions
+
+### Known Considerations
+- Receipt image viewer uses basic zoom implementation (could enhance with viewport constraints)
+- Filter is client-side (fine for MVP, could optimize with @Query predicates for large datasets)
+- Swipe action for receipt only appears on verified products with receipts (no swipe for unverified)
+- Delete receipt operation is immediate (no undo)
+
+---
+
 ## Development Notes
 
 ### SwiftData Best Practices
