@@ -693,6 +693,165 @@ Add visual confidence indicators to guide users in verifying OCR-extracted data 
 
 ---
 
+## Session 13: Receipt Scanning and Product Matching
+**Date:** December 28, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Create receipt scanning functionality with OCR extraction, fuzzy product matching, and receipt verification workflow.
+
+### Tasks Completed
+- [x] Created ReceiptParserService.swift with comprehensive fuzzy matching
+- [x] Enhanced OCRService.swift with receipt-specific text extraction
+- [x] Created ReceiptCaptureView.swift with multi-step workflow
+- [x] Updated claude.md for Session 13
+- [x] Verified clean build
+
+### Implementation Details
+
+#### ReceiptParserService
+**File:** `Services/ReceiptParserService.swift`
+
+**Features:**
+1. **Store Name Extraction:**
+   - Searches first 5 lines of receipt
+   - Matches against common Canadian stores (Loblaws, Sobeys, Metro, etc.)
+   - Handles all-caps store names
+2. **Date Parsing:**
+   - Multiple format support: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY
+   - Month name formats: "Dec 27, 2024", "December 27, 2024"
+   - Robust DateFormatter array
+3. **Line Item Extraction:**
+   - Regex pattern matching for product + price pairs
+   - Filters out header/footer lines (total, tax, payment, etc.)
+   - Confidence scoring based on line quality
+4. **Total Amount Extraction:**
+   - Searches from bottom of receipt upward
+   - Distinguishes between subtotal and total
+   - Regex price extraction
+5. **Fuzzy Product Matching:**
+   - **Tiered Confidence System:**
+     - High (≥80%): Auto-suggest match
+     - Medium (50-79%): Suggest with confirmation
+     - Low (<50%): Show but require manual selection
+   - **Price Matching:**
+     - Exact match: ±$0.25 tolerance (90% confidence)
+     - Partial match: ±$0.50 tolerance (60% confidence)
+   - **Name Matching:**
+     - Exact match: 100% confidence
+     - Contains match: 80% confidence
+     - Jaccard similarity for word overlap
+     - Levenshtein distance for typo tolerance
+   - **Abbreviation Expansion:**
+     - "GF" → "gluten free"
+     - "BRD" → "bread"
+     - "PSTA" → "pasta"
+     - And more common abbreviations
+   - **String Normalization:**
+     - Lowercase conversion
+     - Punctuation removal
+     - Whitespace normalization
+
+**Data Structures:**
+- `ReceiptLineItem`: Product name, price, confidence
+- `ProductMatchResult`: ProductPair, matched line item, confidence, quality category
+
+**Design Decisions:**
+- Singleton pattern for stateless service
+- @MainActor for potential UI updates
+- Comprehensive fuzzy matching algorithm balances automation with user control
+- Levenshtein distance algorithm for typo tolerance
+
+#### OCRService Enhancements
+**File:** `Services/OCRService.swift`
+
+**New Methods:**
+1. **extractReceiptText(from: UIImage):**
+   - Extracts full receipt text with line breaks preserved
+   - Sorts observations top-to-bottom
+   - Returns structured text string
+2. **extractReceiptText(from: UIImage, region: ReceiptRegion):**
+   - Region-based extraction (top 25%, middle 50%, bottom 25%)
+   - Targeted parsing for store/date (top), items (middle), totals (bottom)
+   - Bounding box filtering by y-coordinate
+3. **ReceiptRegion enum:**
+   - `.top`: Store name, date (top 25%)
+   - `.middle`: Line items (middle 50%)
+   - `.bottom`: Totals (bottom 25%)
+
+**Design Decisions:**
+- Leverages existing Vision framework infrastructure
+- Top-to-bottom sorting for natural reading order
+- Region-based parsing improves accuracy for specific data types
+
+#### ReceiptCaptureView
+**File:** `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+**Features:**
+1. **Step 1: Product Selection**
+   - Lists all unverified ProductPairs
+   - Checkbox multi-select interface
+   - Shows product details (name, price, category, date, differential)
+   - Disabled "Scan Receipt" until at least 1 product selected
+   - Empty state for when all products verified
+2. **Step 2: Scan Receipt**
+   - DocumentScannerView integration
+   - Instructions for optimal scanning
+   - Back navigation to product selection
+3. **Step 3: Review Matches**
+   - Receipt info header (thumbnail, store, date, total)
+   - Match results list with confidence indicators:
+     - Green checkmark: High confidence (≥80%)
+     - Orange warning: Medium confidence (50-79%)
+     - Red X: Low confidence (<50%)
+   - Matched line item display
+   - Manual selection menu for low/no matches
+   - "Change" button to override auto-matches
+   - "Confirm All Matches" saves receipt
+
+**User Experience:**
+- Loading overlay during OCR processing
+- Error alerts for OCR failures
+- Console logging for debugging
+- Color-coded confidence indicators
+- Manual override capability for all matches
+
+**SwiftData Integration:**
+- @Query filter for unverified products
+- Creates Receipt object with metadata
+- Associates ProductPairs with receipt
+- Marks products as verified
+- Saves receipt image via ImageStorageService
+
+**Design Decisions:**
+- Step-based navigation (enum-driven state machine)
+- Preview support with in-memory ModelContainer
+- Follows ProductCaptureFlowView patterns
+- Separates auto-matches from manual selections
+- Only verifies products with matched line items
+
+### User Modifications
+- None yet - pending testing in Xcode
+
+### Console Logging
+Comprehensive debug output:
+- Receipt OCR full text
+- Extracted store name
+- Extracted date
+- Extracted total
+- Line items count and details
+- Match results with confidence percentages
+- Save success/failure
+
+### Known Considerations
+- OCR accuracy depends on receipt quality (lighting, clarity)
+- Fuzzy matching may need tuning based on real-world receipt formats
+- Currently supports one receipt verification session at a time
+- Bulk features deferred to Session 15
+
+---
+
 ## Development Notes
 
 ### SwiftData Best Practices
