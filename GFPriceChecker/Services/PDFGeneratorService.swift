@@ -97,6 +97,7 @@ final class PDFGeneratorService {
             )
 
             // Page 3+: Detailed Transaction List
+            context.beginPage()
             drawTransactionPages(
                 context: context,
                 pageRect: pageRect,
