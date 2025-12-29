@@ -1734,6 +1734,158 @@ Enhance SettingsView with comprehensive data management capabilities including b
 
 ---
 
+### Session 20: Error Handling & Edge Cases
+**Date:** December 29, 2024
+**Branch:** `claude/gfpricechecker-development-a85sY`
+**Status:** 🚧 In Progress
+
+#### Objective
+Add comprehensive error handling throughout the app with user-friendly messaging and graceful degradation.
+
+#### Tasks Completed
+- [x] Created ErrorHandler.swift with centralized error types
+- [x] Created ValidationRules.swift with data validation logic
+- [x] Enhanced ManualProductEntryView with comprehensive validation
+- [ ] Add error handling to remaining service files (OCRService, ImageStorageService, etc.)
+- [ ] Add error alerts and empty states to remaining views
+- [ ] Test error scenarios comprehensively
+
+#### Implementation Details
+
+##### ErrorHandler
+**File:** `Utilities/ErrorHandler.swift` (328 lines)
+
+**Features:**
+1. **Centralized Error Types** (AppError enum):
+   - **OCR Errors**: No text detected, low confidence, invalid image, processing failed
+   - **Image Storage Errors**: Storage full, corrupted, save failed, not found
+   - **Data Validation Errors**: Invalid price, invalid name, invalid date, empty fields, price limits
+   - **Export Errors**: No data, failed, insufficient storage, PDF/CSV generation failures
+   - **Import Errors**: Invalid file, corrupted data, version mismatch
+   - **Network/Sharing Errors**: Sharing failed, email not configured, file access denied
+   - **Database Errors**: Save/delete/fetch failures
+
+2. **User-Friendly Error Messages:**
+   - Each error has a clear `errorDescription`
+   - Each error has a `recoverySuggestion` explaining what to do
+   - Example: "Not enough storage space for images" → "Free up storage space on your device, or continue without saving images."
+
+3. **Error Logging:**
+   - `log(_:context:)` method for debugging
+   - `log(_:file:line:)` with automatic file/line tracking
+   - DEBUG-only console output with ❌ and 💡 emojis
+
+4. **Error Conversion:**
+   - `convertToAppError(_:)` converts system errors to AppErrors
+   - Maps NSError codes to meaningful app errors
+   - `userMessage(for:)` creates user-presentable messages
+
+##### ValidationRules
+**File:** `Utilities/ValidationRules.swift` (308 lines)
+
+**Features:**
+1. **Price Validation:**
+   - Min price: $0.01
+   - Max price: $10,000.00 (sanity check)
+   - Cannot be negative or zero
+   - `validatePrice(_:)` for Decimal values
+   - `validatePriceString(_:fieldName:)` for string conversion
+
+2. **Product Name Validation:**
+   - Min length: 1 character
+   - Max length: 200 characters
+   - Trims whitespace
+   - Cannot be empty
+
+3. **Date Validation:**
+   - Cannot be in the future
+   - Must be after January 1, 2020 (sanity check)
+   - Specialized `validatePurchaseDate(_:)` for receipts
+
+4. **Optional Field Validation:**
+   - Size: max 50 characters
+   - Notes: max 1000 characters
+   - Category: max 50 characters
+   - Store name: max 100 characters
+   - Email: regex-based validation
+
+5. **Combined Validation:**
+   - `validateProductPair(...)` validates complete ProductPair
+   - Returns `.success` or first encountered `.failure`
+
+**Design Decisions:**
+- Uses Swift Result type for functional error handling
+- Generic error types with field names for context
+- All validators trim whitespace automatically
+- Constants at top for easy adjustment
+
+##### ManualProductEntryView Enhancements
+**File:** `Views/CaptureFlow/ManualProductEntryView.swift`
+
+**Changes:**
+1. **Added Error States:**
+   - `@State private var errorMessage: String?`
+   - `@State private var showingError: Bool = false`
+   - Error alert with user-friendly messages
+
+2. **Enhanced Validation:**
+   - Replaced inline validation with `ValidationRules` calls
+   - Each field validated with specific error messages
+   - `validatePrice(_:fieldName:)` uses `ValidationRules.validatePriceString`
+
+3. **Comprehensive Save Validation:**
+   - Validates all fields before save
+   - Uses proper Result type pattern
+   - Shows first encountered error to user
+   - Database save wrapped in try/catch
+   - Logs errors with ErrorHandler
+   - Clear recovery suggestions in alerts
+
+4. **User Experience:**
+   - Validation errors show inline (existing)
+   - Alert shows on save failure with specific message
+   - Shows recovery suggestions (e.g., "Enter a positive price amount")
+   - Database errors handled gracefully
+
+#### Files Created
+1. `Utilities/ErrorHandler.swift` (328 lines)
+2. `Utilities/ValidationRules.swift` (308 lines)
+
+#### Files Modified
+1. `Views/CaptureFlow/ManualProductEntryView.swift` (enhanced validation)
+
+#### Design Patterns
+- Result<Success, Failure> for functional error handling
+- Centralized error definitions (single source of truth)
+- User-friendly messages with recovery suggestions
+- Logging with context for debugging
+- Graceful degradation (continue without optional features)
+
+#### Testing Checklist (In Progress)
+- [x] ErrorHandler compiles and provides error messages
+- [x] ValidationRules validates prices correctly
+- [x] ValidationRules validates product names correctly
+- [x] ManualProductEntryView shows validation errors
+- [ ] Test all validation edge cases (negative prices, empty names, etc.)
+- [ ] Test error alerts appear correctly
+- [ ] Test recovery suggestions are helpful
+
+#### Next Steps
+Session 20 is a comprehensive update that touches many files. Completed so far:
+- ✅ Core error handling infrastructure
+- ✅ Validation rules system
+- ✅ ManualProductEntryView fully enhanced
+
+**Remaining work for Session 20:**
+- Service layer error handling (OCRService, ImageStorageService, CSVExportService, PDFGeneratorService)
+- View layer error states (ProductCaptureFlowView, ReceiptCaptureView, ExportView, etc.)
+- Empty state improvements
+- Comprehensive error scenario testing
+
+**Note:** Session 20 provides the foundation for robust error handling. Additional views and services can be enhanced incrementally.
+
+---
+
 ## Development Notes
 
 ### SwiftData Best Practices

@@ -48,6 +48,8 @@ struct ManualProductEntryView: View {
     // MARK: - State - Validation
 
     @State private var showingValidationErrors: Bool = false
+    @State private var errorMessage: String?
+    @State private var showingError: Bool = false
 
     // MARK: - Constants
 
@@ -147,6 +149,11 @@ struct ManualProductEntryView: View {
                     }
                 }
             }
+            .alert("Validation Error", isPresented: $showingError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "Please check your input and try again.")
+            }
         }
     }
 
@@ -222,20 +229,18 @@ struct ManualProductEntryView: View {
 
     // MARK: - Validation Logic
 
-    /// Validates a price string
+    /// Validates a price string using ValidationRules
+    /// - Parameters:
+    ///   - priceText: The price as a string
+    ///   - fieldName: The field name for error messages
     /// - Returns: Error message if invalid, nil if valid
-    private func validatePrice(_ priceText: String) -> String? {
-        let trimmed = priceText.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if trimmed.isEmpty {
-            return "Price is required"
+    private func validatePrice(_ priceText: String, fieldName: String = "Price") -> String? {
+        switch ValidationRules.validatePriceString(priceText, fieldName: fieldName) {
+        case .success:
+            return nil
+        case .failure(let error):
+            return error.localizedDescription
         }
-
-        guard let decimal = Decimal(string: trimmed), decimal > 0 else {
-            return "Price must be greater than 0"
-        }
-
-        return nil
     }
 
     /// Checks if all form inputs are valid
@@ -263,50 +268,137 @@ struct ManualProductEntryView: View {
 
     // MARK: - Actions
 
-    /// Saves the product pair to SwiftData
+    /// Saves the product pair to SwiftData with comprehensive validation
     private func saveProductPair() {
-        // Show validation errors if form is invalid
-        guard isFormValid else {
+        // Validate GF product name
+        let validatedGFName: String
+        switch ValidationRules.validateProductName(gfProductName, fieldName: "Gluten-free product name") {
+        case .success(let name):
+            validatedGFName = name
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
             showingValidationErrors = true
             return
         }
 
-        // Convert price strings to Decimal
-        guard let gfPrice = Decimal(string: gfPriceText.trimmingCharacters(in: .whitespacesAndNewlines)),
-              let nonGFPrice = Decimal(string: nonGFPriceText.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+        // Validate GF price
+        let validatedGFPrice: Decimal
+        switch ValidationRules.validatePriceString(gfPriceText, fieldName: "Gluten-free price") {
+        case .success(let price):
+            validatedGFPrice = price
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
             showingValidationErrors = true
             return
         }
 
-        if let existingProductPair = productPair {
-            // Edit mode: Update existing product pair
-            existingProductPair.gfProductName = gfProductName.trimmingCharacters(in: .whitespacesAndNewlines)
-            existingProductPair.gfPrice = gfPrice
-            existingProductPair.gfSize = gfSize.isEmpty ? nil : gfSize.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            existingProductPair.nonGFProductName = nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines)
-            existingProductPair.nonGFPrice = nonGFPrice
-            existingProductPair.nonGFSize = nonGFSize.isEmpty ? nil : nonGFSize.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            existingProductPair.category = category == "None" ? nil : category
-            existingProductPair.notes = notes.isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            // Create mode: Insert new product pair
-            let newProductPair = ProductPair(
-                gfProductName: gfProductName.trimmingCharacters(in: .whitespacesAndNewlines),
-                gfPrice: gfPrice,
-                gfSize: gfSize.isEmpty ? nil : gfSize.trimmingCharacters(in: .whitespacesAndNewlines),
-                nonGFProductName: nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines),
-                nonGFPrice: nonGFPrice,
-                nonGFSize: nonGFSize.isEmpty ? nil : nonGFSize.trimmingCharacters(in: .whitespacesAndNewlines),
-                category: category == "None" ? nil : category,
-                notes: notes.isEmpty ? nil : notes.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
-            modelContext.insert(newProductPair)
+        // Validate non-GF product name
+        let validatedNonGFName: String
+        switch ValidationRules.validateProductName(nonGFProductName, fieldName: "Regular product name") {
+        case .success(let name):
+            validatedNonGFName = name
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
+            showingValidationErrors = true
+            return
         }
 
-        // Dismiss the sheet
-        dismiss()
+        // Validate non-GF price
+        let validatedNonGFPrice: Decimal
+        switch ValidationRules.validatePriceString(nonGFPriceText, fieldName: "Regular price") {
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
+            showingValidationErrors = true
+            return
+        case .success(let price):
+            validatedNonGFPrice = price
+        }
+
+        // Validate optional fields
+        let validatedGFSize: String?
+        switch ValidationRules.validateSize(gfSize) {
+        case .success(let size):
+            validatedGFSize = size
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
+            return
+        }
+
+        let validatedNonGFSize: String?
+        switch ValidationRules.validateSize(nonGFSize) {
+        case .success(let size):
+            validatedNonGFSize = size
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
+            return
+        }
+
+        let validatedNotes: String?
+        switch ValidationRules.validateNotes(notes) {
+        case .success(let validNotes):
+            validatedNotes = validNotes
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
+            return
+        }
+
+        let validatedCategory: String?
+        let categoryValue = category == "None" ? nil : category
+        switch ValidationRules.validateCategory(categoryValue) {
+        case .success(let validCategory):
+            validatedCategory = validCategory
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
+            return
+        }
+
+        // Save to database
+        do {
+            if let existingProductPair = productPair {
+                // Edit mode: Update existing product pair
+                existingProductPair.gfProductName = validatedGFName
+                existingProductPair.gfPrice = validatedGFPrice
+                existingProductPair.gfSize = validatedGFSize
+
+                existingProductPair.nonGFProductName = validatedNonGFName
+                existingProductPair.nonGFPrice = validatedNonGFPrice
+                existingProductPair.nonGFSize = validatedNonGFSize
+
+                existingProductPair.category = validatedCategory
+                existingProductPair.notes = validatedNotes
+
+                try modelContext.save()
+            } else {
+                // Create mode: Insert new product pair
+                let newProductPair = ProductPair(
+                    gfProductName: validatedGFName,
+                    gfPrice: validatedGFPrice,
+                    gfSize: validatedGFSize,
+                    nonGFProductName: validatedNonGFName,
+                    nonGFPrice: validatedNonGFPrice,
+                    nonGFSize: validatedNonGFSize,
+                    category: validatedCategory,
+                    notes: validatedNotes
+                )
+                modelContext.insert(newProductPair)
+                try modelContext.save()
+            }
+
+            // Dismiss the sheet
+            dismiss()
+        } catch {
+            ErrorHandler.shared.log(error, context: "ManualProductEntryView.saveProductPair")
+            errorMessage = ErrorHandler.shared.userMessage(for: ErrorHandler.AppError.databaseSaveFailed)
+            showingError = true
+        }
     }
 }
 
