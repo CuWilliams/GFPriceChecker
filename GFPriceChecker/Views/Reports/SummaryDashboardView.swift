@@ -33,6 +33,7 @@ struct SummaryDashboardView: View {
 
     @State private var viewModel = ReportViewModel()
     @State private var showingSettings = false
+    @State private var showingExport = false
 
     // MARK: - Computed Properties
 
@@ -74,6 +75,14 @@ struct SummaryDashboardView: View {
             .navigationTitle("Tax Summary")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingExport = true
+                    } label: {
+                        Label("Export", systemImage: "square.and.arrow.up")
+                    }
+                }
+
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showingSettings = true
@@ -84,6 +93,9 @@ struct SummaryDashboardView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showingExport) {
+                ExportView()
             }
         }
     }
