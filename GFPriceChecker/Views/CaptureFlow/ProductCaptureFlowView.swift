@@ -369,7 +369,7 @@ struct ProductCaptureFlowView: View {
                             .lineLimit(2)
 
                         if let price = Decimal(string: gfPriceText) {
-                            Text("$\(price)")
+                            Text(price.formatted(.currency(code: "CAD")))
                                 .font(.headline)
                                 .foregroundStyle(.green)
                         }
@@ -395,7 +395,7 @@ struct ProductCaptureFlowView: View {
                             .lineLimit(2)
 
                         if let price = Decimal(string: nonGFPriceText) {
-                            Text("$\(price)")
+                            Text(price.formatted(.currency(code: "CAD")))
                                 .font(.headline)
                                 .foregroundStyle(.blue)
                         }
@@ -414,7 +414,7 @@ struct ProductCaptureFlowView: View {
                         Text("Price Differential")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text("$\(differential)")
+                        Text(differential.formatted(.currency(code: "CAD")))
                             .font(.title)
                             .fontWeight(.bold)
                             .foregroundStyle(differential >= 0 ? .red : .green)
@@ -595,19 +595,17 @@ struct ProductCaptureFlowView: View {
     /// Triggers haptic feedback based on confidence level
     private func triggerHapticFeedback(for confidence: Float) {
         #if os(iOS)
-        let generator: UINotificationFeedbackGenerator
+        let generator = UINotificationFeedbackGenerator()
         switch confidence {
         case 0.6..<0.85:
             // Medium confidence - warning feedback
-            generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.warning)
         case 0.0..<0.6:
             // Low confidence - error feedback
-            generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         default:
             // High confidence - no haptic needed
-            return
+            break
         }
         #endif
     }
