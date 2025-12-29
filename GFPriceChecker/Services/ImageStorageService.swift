@@ -244,8 +244,8 @@ final class ImageStorageService {
     nonisolated func getTotalStorageSize() async -> Int64? {
         var totalSize: Int64 = 0
 
-        let productURL = documentsDirectory.appendingPathComponent(ImageType.product.subdirectory)
-        let receiptURL = documentsDirectory.appendingPathComponent(ImageType.receipt.subdirectory)
+        let productURL = await documentsDirectory.appendingPathComponent(ImageType.product.subdirectory)
+        let receiptURL = await documentsDirectory.appendingPathComponent(ImageType.receipt.subdirectory)
 
         for directoryURL in [productURL, receiptURL] {
             guard let enumerator = FileManager.default.enumerator(at: directoryURL, includingPropertiesForKeys: [.fileSizeKey]) else {
