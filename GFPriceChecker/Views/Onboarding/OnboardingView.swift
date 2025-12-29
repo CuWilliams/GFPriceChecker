@@ -144,16 +144,11 @@ struct OnboardingView: View {
         VStack(spacing: 30) {
             Spacer()
 
-            // App icon placeholder
-            Image(systemName: "cart.fill")
-                .font(.system(size: 100))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.blue, .green],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            // App logo
+            Image("GFPC_Logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 120, height: 120)
                 .accessibilityHidden(true)
 
             // App name
