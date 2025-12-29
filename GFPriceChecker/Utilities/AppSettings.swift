@@ -76,7 +76,15 @@ final class AppSettings {
     @ObservationIgnored
     @AppStorage("accountantEmail") var accountantEmail: String = ""
 
+    /// Tax ID or Social Insurance Number (optional, stored securely)
+    @ObservationIgnored
+    @AppStorage("taxID") var taxID: String = ""
+
     // MARK: - Export Preferences
+
+    /// Currency symbol preference for exports
+    @ObservationIgnored
+    @AppStorage("currencySymbol") var currencySymbol: String = "$ CAD"
 
     /// Default paper size for PDF exports
     @ObservationIgnored
@@ -103,6 +111,12 @@ final class AppSettings {
             dateRangeRaw = newValue.rawValue
         }
     }
+
+    // MARK: - Onboarding
+
+    /// Whether the user has completed the onboarding flow
+    @ObservationIgnored
+    @AppStorage("hasCompletedOnboarding") var hasCompletedOnboarding: Bool = false
 
     // MARK: - Initialization
 

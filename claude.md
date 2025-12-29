@@ -1552,6 +1552,188 @@ Generate professional, branded PDF reports with multi-page support using PDFKit.
 
 ---
 
+## Phase 6: Polish & Testing (Sessions 19-23)
+
+**Goal:** Refine UX, add robustness, accessibility, and prepare for TestFlight
+
+---
+
+### Session 19: Settings & Preferences (Data Management)
+**Date:** December 29, 2024
+**Branch:** `claude/phase6-polish-testing-[sessionId]`
+**Status:** ✅ Complete
+
+#### Objective
+Enhance SettingsView with comprehensive data management capabilities including backup/restore with Base64 encoded images.
+
+#### Tasks Completed
+- [x] Created DataBackupService.swift with JSON export/import including Base64 image data
+- [x] Enhanced AppSettings.swift with taxID, currencySymbol, and hasCompletedOnboarding properties
+- [x] Updated SettingsView.swift with Data Management section
+- [x] Pending: Test backup/restore functionality in Xcode
+
+#### Implementation Details
+
+##### DataBackupService
+**File:** `Services/DataBackupService.swift` (421 lines)
+
+**Features:**
+1. **Complete Backup Package:**
+   - All ProductPair records
+   - All Receipt records
+   - Associated images (Base64 encoded)
+   - App settings
+   - Metadata (version, timestamp, app version)
+
+2. **Export Functionality:**
+   - Fetches all ProductPairs and Receipts from SwiftData
+   - Converts images to Base64 for portability
+   - Preserves all relationships (ProductPair → Receipt)
+   - JSON encoding with ISO8601 dates
+   - Pretty-printed, sorted keys for readability
+
+3. **Import Functionality:**
+   - Validates backup version compatibility
+   - Two strategies:
+     - **Replace**: Clears all existing data, imports backup
+     - **Merge**: Skips existing records by ID, adds new ones
+   - Restores images from Base64 to ImageStorageService
+   - Rebuilds ProductPair → Receipt relationships
+   - Restores user settings (if non-empty)
+
+4. **Clear All Data:**
+   - Deletes all ProductPairs and Receipts
+   - Deletes all associated images
+   - Preserves user personal settings
+   - SwiftData cascade handling
+
+**Data Structures:**
+- `BackupData`: Top-level backup container
+- `ProductPairBackup`: Codable representation with Base64 images
+- `ReceiptBackup`: Codable representation with Base64 images
+- `SettingsBackup`: User preferences
+
+**Design Decisions:**
+- Decimal stored as String for JSON compatibility
+- Base64 encoding for cross-device image portability
+- JPEG compression at 0.8 quality for balanced size/quality
+- ID-based relationship preservation
+- Version check prevents incompatible imports
+
+**Error Handling:**
+- Custom `DataBackupError` enum
+- Localized error descriptions
+- Graceful handling of missing images
+- Invalid data validation
+
+##### AppSettings Enhancements
+**File:** `Utilities/AppSettings.swift`
+
+**New Properties:**
+1. **taxID: String**
+   - Optional Tax ID/SIN for PDF reports
+   - Stored in @AppStorage (local only, not in iCloud)
+   - Used in SettingsView with SecureField
+
+2. **currencySymbol: String**
+   - Default: "$ CAD"
+   - Options: "$ CAD", "$ USD"
+   - For future export customization
+
+3. **hasCompletedOnboarding: Bool**
+   - Default: false
+   - Tracks first-run onboarding completion
+   - Used in Session 23
+
+##### SettingsView Updates
+**File:** `Views/Settings/SettingsView.swift` (367 lines)
+
+**New Sections:**
+
+1. **Personal Information (Enhanced):**
+   - Full Name (existing)
+   - Accountant Email (existing)
+   - **Tax ID** (new, SecureField, masked)
+
+2. **Export Preferences (Enhanced):**
+   - **Currency Symbol** (new, picker: $ CAD / $ USD)
+   - Default Date Range (existing)
+   - PDF Paper Size (existing)
+
+3. **Data Management (NEW):**
+   - **Export All Data** button
+     - Progress indicator during export
+     - Uses iOS fileExporter for save dialog
+     - Default filename: "GFPriceChecker-Backup-YYYY-MM-DD.json"
+   - **Import Data** button
+     - Progress indicator during import
+     - Uses iOS fileImporter (.json files)
+     - Merge strategy (preserves existing data)
+   - **Clear All Data** button (destructive)
+     - Requires typing "DELETE" to confirm
+     - Double confirmation alert
+     - Preserves personal settings
+
+4. **About (Enhanced):**
+   - Version (existing)
+   - Build (existing)
+   - **How to Use** button (triggers onboarding re-display)
+   - **Contact Support** link (mailto:)
+
+**User Experience:**
+- Loading states (ProgressView) during async operations
+- Error alerts with descriptive messages
+- Success alerts with confirmation
+- File picker integration (iOS native dialogs)
+- Disabled state prevention (no double-tap)
+
+**BackupDocument:**
+- Conforms to FileDocument protocol
+- Handles JSON file reading/writing
+- Used by fileExporter/fileImporter
+
+#### Testing Checklist
+- [ ] Export creates valid JSON with all data
+- [ ] Export includes Base64 encoded images
+- [ ] Import successfully restores data
+- [ ] Import preserves relationships (ProductPair ↔ Receipt)
+- [ ] Images restore correctly from Base64
+- [ ] Clear All Data removes everything except settings
+- [ ] Confirmation dialog prevents accidental data loss
+- [ ] Tax ID field properly masked
+- [ ] Currency symbol picker works
+- [ ] How to Use button triggers onboarding
+
+#### Files Created
+1. `Services/DataBackupService.swift` (421 lines)
+
+#### Files Modified
+1. `Utilities/AppSettings.swift` (+10 lines)
+2. `Views/Settings/SettingsView.swift` (complete rewrite, 367 lines)
+
+#### Design Patterns
+- Singleton pattern for DataBackupService
+- @MainActor for UI-safe async operations
+- FileDocument protocol for iOS file operations
+- Task-based async/await for background processing
+- Proper error handling with custom error types
+- Progress indicators for long operations
+
+#### Known Considerations
+- Backup files can be large with many images (Base64 encoding increases size by ~33%)
+- Import uses merge strategy by default (consider replace option in future)
+- Images are JPEG compressed at 0.8 quality during backup
+- Tax ID is stored in @AppStorage (not encrypted, local only)
+- No cloud sync for backups (user must manually manage files)
+
+#### Next Steps
+- User testing in Xcode required
+- Verify backup/restore with real data
+- Test with large datasets (1000+ products)
+- Consider compression for backup JSON (future)
+
+---
+
 ## Development Notes
 
 ### SwiftData Best Practices
