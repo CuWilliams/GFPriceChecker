@@ -74,15 +74,22 @@ struct ManualProductEntryView: View {
                 Section {
                     TextField("Product Name", text: $gfProductName)
                         .autocorrectionDisabled()
+                        .accessibilityLabel("Gluten-free product name")
+                        .accessibilityHint("Enter the name of the gluten-free product")
 
                     HStack {
                         Text("$")
+                            .accessibilityHidden(true)
                         TextField("0.00", text: $gfPriceText)
                             .keyboardType(.decimalPad)
+                            .accessibilityLabel("Gluten-free product price")
+                            .accessibilityHint("Enter price in dollars")
                     }
 
                     TextField("Size (optional)", text: $gfSize)
                         .autocorrectionDisabled()
+                        .accessibilityLabel("Gluten-free product size")
+                        .accessibilityHint("Optional. Enter size like 450g or 12oz")
 
                     if showingValidationErrors {
                         validationMessages(for: .gfProduct)
@@ -95,15 +102,22 @@ struct ManualProductEntryView: View {
                 Section {
                     TextField("Product Name", text: $nonGFProductName)
                         .autocorrectionDisabled()
+                        .accessibilityLabel("Regular product name")
+                        .accessibilityHint("Enter the name of the regular non-gluten-free product")
 
                     HStack {
                         Text("$")
+                            .accessibilityHidden(true)
                         TextField("0.00", text: $nonGFPriceText)
                             .keyboardType(.decimalPad)
+                            .accessibilityLabel("Regular product price")
+                            .accessibilityHint("Enter price in dollars")
                     }
 
                     TextField("Size (optional)", text: $nonGFSize)
                         .autocorrectionDisabled()
+                        .accessibilityLabel("Regular product size")
+                        .accessibilityHint("Optional. Enter size like 450g or 12oz")
 
                     if showingValidationErrors {
                         validationMessages(for: .nonGFProduct)
@@ -119,6 +133,8 @@ struct ManualProductEntryView: View {
                             Text(category).tag(category)
                         }
                     }
+                    .accessibilityLabel("Product category")
+                    .accessibilityHint("Optional. Choose a category to organize your products")
                 } header: {
                     Text("Category")
                 }
@@ -127,6 +143,8 @@ struct ManualProductEntryView: View {
                 Section {
                     TextEditor(text: $notes)
                         .frame(minHeight: 80)
+                        .accessibilityLabel("Notes")
+                        .accessibilityHint("Optional. Add any additional notes about this product pair")
                 } header: {
                     Text("Notes (Optional)")
                 }
@@ -141,12 +159,16 @@ struct ManualProductEntryView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .accessibilityLabel("Cancel")
+                    .accessibilityHint("Discard changes and close")
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         saveProductPair()
                     }
+                    .accessibilityLabel("Save product pair")
+                    .accessibilityHint("Save this product comparison")
                 }
             }
             .alert("Validation Error", isPresented: $showingError) {
