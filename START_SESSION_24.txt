@@ -1,0 +1,45 @@
+I'm continuing development of GFPriceChecker, an iOS app for tracking gluten-free vs regular product price differentials for Canadian tax deductions.
+
+TECH STACK:
+- Xcode 26.1.1, Swift 6, SwiftUI, SwiftData, iOS 26.0 minimum
+- Project: /home/user/GFPriceChecker
+- Git repo with main branch
+
+CURRENT STATUS:
+- Phases 1-6 complete and merged (MVP production-ready)
+- Clean builds with no errors
+- All core features implemented and tested
+
+SESSION 24 OBJECTIVES (Two Tasks Only):
+
+1. APP ICON/LOGO IMPLEMENTATION
+   - Replace SF Symbol placeholders with actual logo
+   - Current placeholder: OnboardingView.swift uses "cart.fill" gradient on Page 1
+   - Add icon assets to Assets.xcassets/AppIcon.appiconset
+   - Implement all required iOS icon sizes (1024x1024 for App Store + all device sizes)
+   - Update OnboardingView to use actual logo
+   - I will provide logo file details
+
+2. CODE WARNING CLEANUP
+   - Build project and identify all compiler warnings
+   - Fix all warnings systematically
+   - Ensure Swift 6 compliance
+   - Achieve zero-warning build
+
+WORKFLOW:
+1. Create branch: claude/app-icon-cleanup-[sessionID]
+2. Ask me for logo file location and details
+3. Implement app icon and update OnboardingView
+4. Run build to collect all warnings
+5. Fix all warnings
+6. Update claude.md with Session 24 documentation
+7. Commit and push to remote branch
+8. Prepare for PR
+
+IMPORTANT:
+- This is a focused polish session - no new features
+- Keep changes minimal and targeted
+- Verify all core features still work after changes
+- Documentation in claude.md is required
+
+Ready to begin when you ask for my logo details.
