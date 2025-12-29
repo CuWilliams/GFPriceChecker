@@ -141,10 +141,9 @@ struct SummaryDashboardView: View {
                 )
 
                 // Average Differential Card
-                StatisticCard(
+                StatisticCardDecimal(
                     title: "Average",
                     value: viewModel.calculateAverageDifferential(for: yearProducts),
-                    format: .currency(code: "CAD"),
                     icon: "chart.line.uptrend.xyaxis",
                     color: .orange
                 )
@@ -191,7 +190,7 @@ struct SummaryDashboardView: View {
         return Chart(monthlyData, id: \.month) { item in
             BarMark(
                 x: .value("Month", item.month, unit: .month),
-                y: .value("Differential", item.total as NSDecimalNumber)
+                y: .value("Differential", NSDecimalNumber(decimal: item.total).doubleValue)
             )
             .foregroundStyle(.blue.gradient)
             .cornerRadius(4)
@@ -244,7 +243,7 @@ struct SummaryDashboardView: View {
 
         return Chart(topCategories, id: \.category) { item in
             BarMark(
-                x: .value("Differential", item.total as NSDecimalNumber),
+                x: .value("Differential", NSDecimalNumber(decimal: item.total).doubleValue),
                 y: .value("Category", item.category)
             )
             .foregroundStyle(.green.gradient)
@@ -360,6 +359,35 @@ extension StatisticCard where Value == String {
         self.format = nil
         self.icon = icon
         self.color = color
+    }
+}
+
+/// Specialized statistic card for Decimal values (currency)
+private struct StatisticCardDecimal: View {
+    let title: String
+    let value: Decimal
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(value, format: .currency(code: "CAD"))
+                .font(.title3)
+                .fontWeight(.semibold)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color(.systemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
     }
 }
 
