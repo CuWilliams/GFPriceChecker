@@ -1299,6 +1299,259 @@ B FREE TORTS    $10.99
 
 ---
 
+## Phase 5: Export & Reporting (Sessions 16-18)
+
+### Sessions Completed ✅
+
+**Session 16: Summary Dashboard with Charts and Settings**
+**Date:** December 29, 2024
+**Branch:** `claude/gfpricechecker-development-eukdG`
+**Status:** ✅ Complete
+
+#### Objective
+Create professional tax summary dashboard with charts, statistics, and user settings for export preferences.
+
+#### Files Created
+1. **`ViewModels/ReportViewModel.swift`** (343 lines)
+   - `@Observable` view model for report calculations
+   - Date filtering by tax year using `reportingDate` extension
+   - Methods: `calculateTotalDifferential`, `calculateAverageDifferential`, `groupByCategory`, `groupByMonth`, `verificationStats`, `topCategories`
+   - Available years computation from product data
+   - Implements `receipt?.purchaseDate ?? createdDate` logic
+
+2. **`Utilities/AppSettings.swift`** (107 lines)
+   - `@Observable` singleton with `@AppStorage` persistence
+   - `PaperSize` enum (US Letter, A4) with CGSize dimensions
+   - `DateRangePreset` enum (Current Year, Last 12 Months, All Time)
+   - User preferences: userName, accountantEmail, defaultPaperSize, defaultDateRange
+
+3. **`Views/Settings/SettingsView.swift`** (125 lines)
+   - Personal Information section (name, accountant email)
+   - Export Preferences section (date range, paper size)
+   - About section (version, build number)
+   - Form-based UI with NavigationStack
+
+4. **`Views/Reports/SummaryDashboardView.swift`** (435 lines)
+   - Year selector (segmented picker, dynamically populated)
+   - Prominent total differential display (large, currency formatted)
+   - Statistics cards: Products, Average, Verified, Unverified (color-coded icons)
+   - Monthly differential bar chart (Swift Charts)
+   - Top 5 categories bar chart (Swift Charts)
+   - Settings button in toolbar (gear icon)
+   - Empty states for charts when no data
+   - Professional design with shadows and rounded corners
+
+#### Files Modified
+- **`ContentView.swift`**: Connected Reports tab to SummaryDashboardView
+- **`Models/ProductPair.swift`**: Added `reportingDate` extension
+
+#### Key Features
+✅ Tax year filtering with dynamic year selector
+✅ Swift Charts integration (static bar charts for MVP)
+✅ Reporting date logic: `receipt?.purchaseDate ?? createdDate`
+✅ Professional dashboard suitable for accountant review
+✅ User settings with persistent preferences
+✅ Statistics cards with semantic color coding
+✅ Empty states and preview support
+
+#### Commits
+- `6e4c6c4` - "Add summary dashboard with charts and settings"
+- `dae79d2` - "Fix Swift Charts Decimal compatibility issues"
+
+---
+
+**Session 17: CSV Export with CRA-Compliant Formatting**
+**Date:** December 29, 2024
+**Branch:** `claude/gfpricechecker-development-eukdG`
+**Status:** ✅ Complete
+
+#### Objective
+Generate CRA-compliant CSV exports with proper formatting, date range filtering, and multiple export methods.
+
+#### Files Created
+1. **`Services/CSVExportService.swift`** (198 lines)
+   - CRA-compliant CSV generation
+   - UTF-8 encoding with BOM for Excel compatibility
+   - Proper CSV escaping (commas, quotes, newlines in product names)
+   - Date format: YYYY-MM-DD (ISO 8601)
+   - Price format: Decimal with 2 places, no $ symbol (e.g., `6.99`)
+   - Boolean format: `Yes` / `No` for verified status
+   - Sorting by reportingDate ascending (oldest first for tax purposes)
+   - Export summary statistics calculation
+   - CSV Columns: Purchase Date, GF Product, GF Price, GF Size, Non-GF Product, Non-GF Price, Non-GF Size, Differential, Category, Store, Receipt Verified, Notes
+
+2. **`Views/Reports/ExportView.swift`** (509 lines)
+   - Date range selection: Preset (Current Year, Last 12 Months, All Time) or Custom (start/end pickers)
+   - Export summary cards: Product count and total differential (side-by-side)
+   - CSV preview: First 10 rows in monospaced font, horizontally scrollable
+   - Three export methods:
+     1. **Save to Files**: Via share sheet → "Save to Files" option
+     2. **Share**: Share sheet for AirDrop, Messages, Mail, etc.
+     3. **Email**: Share sheet includes Mail app with attachment
+   - Loading indicators during generation
+   - Error alerts with descriptive messages
+   - Empty state when no products in date range
+
+#### Files Modified
+- **`Views/Reports/SummaryDashboardView.swift`**: Added Export button in toolbar (top-left)
+
+#### Key Features
+✅ CRA-compliant formatting for tax filing
+✅ Date range filtering with presets and custom ranges
+✅ CSV preview before export
+✅ Three export methods (file save, share, email)
+✅ Proper CSV escaping for special characters
+✅ UTF-8 BOM ensures Excel opens correctly
+✅ Share sheet integration for iOS
+
+#### Commits
+- `15c9b5b` - "Add CSV export with CRA-compliant formatting and file save"
+
+---
+
+**Session 18: Professional PDF Report Generation**
+**Date:** December 29, 2024
+**Branch:** `claude/gfpricechecker-development-eukdG`
+**Status:** ✅ Complete
+
+#### Objective
+Generate professional, branded PDF reports with multi-page support using PDFKit.
+
+#### Files Created
+1. **`Resources/AppLogo.swift`** (72 lines)
+   - SwiftUI logo component
+   - Blue gradient circle background
+   - White leaf icon with slash (gluten-free indicator)
+   - Orange price tag overlay
+   - `asUIImage()` method for PDF rendering (3x scale)
+
+2. **`Services/PDFGeneratorService.swift`** (870 lines)
+   - **Page 1 - Cover Page**:
+     * App logo (120x120, rendered from SwiftUI)
+     * App title: "GFPriceChecker"
+     * Subtitle: "Gluten-Free Tax Differential Report"
+     * Tax year (prominent)
+     * Prepared for: [User Name]
+     * Generation date
+     * Total annual differential (48pt, bold, green)
+
+   - **Page 2 - Summary Statistics**:
+     * Category breakdown table (sorted by total descending)
+     * Monthly summary table (chronological)
+     * Verification status table
+     * All tables with alternating row colors and borders
+
+   - **Page 3+ - Detailed Transaction List**:
+     * Table columns: Date, GF Product, GF Price, Regular Product, Reg Price, Diff, Store
+     * Alternating row backgrounds (white/light gray)
+     * Category subtotals (auto-inserted when category changes)
+     * Grand total at end (green background, bold)
+     * Automatic pagination with multi-page support
+     * String truncation for long product names
+
+   - **Professional Styling**:
+     * Fonts: Helvetica (system font) with size hierarchy
+     * Colors: Blue primary (#007AFF), gray secondary, green accent
+     * Margins: 72pt (1 inch) on all sides
+     * Table formatting: headers with blue tinted background, cell padding, borders
+
+   - **Footer on Every Page**:
+     * Page numbers: "Page X of Y"
+     * Branding: "Generated by GFPriceChecker"
+
+   - **Paper Size Support**:
+     * US Letter: 612 x 792 points (8.5" x 11")
+     * A4: 595 x 842 points (210mm x 297mm)
+
+#### Files Modified
+- **`Views/Reports/ExportView.swift`**:
+  - Added `ExportFormat` enum (CSV, PDF)
+  - Format picker (segmented control)
+  - PDF-specific options: Tax year picker, paper size picker
+  - Conditional UI based on format (CSV shows date range/preview, PDF shows year/paper size)
+  - Updated export summary to work for both formats
+  - Unified export methods support both CSV and PDF
+
+#### Key Features
+✅ Multi-page PDF generation with automatic pagination
+✅ Professional branded cover page with logo
+✅ Summary statistics tables (category, monthly, verification)
+✅ Detailed transaction list with category subtotals
+✅ Grand total with highlighting
+✅ US Letter and A4 paper size support
+✅ Year-based filtering for tax purposes
+✅ Same export methods as CSV (save, share, email)
+✅ Professional typography and color scheme
+✅ CRA-audit-ready formatting
+
+#### Commits
+- `bdaf961` - "Add professional PDF report generation with branding"
+- `ebe548d` - "Add styling to format section for better visibility"
+- `abbbea9` - "Fix PDF page overlap by adding missing beginPage() call before transaction list"
+- `8e2fb55` - "Fix missing PDF cover page by explicitly beginning first page"
+
+---
+
+## Phase 5 Summary
+
+### Technical Achievements ✅
+- ReportViewModel with comprehensive calculation logic
+- AppSettings with @AppStorage for persistent preferences
+- Swift Charts integration for data visualization
+- CSV generation with proper escaping and UTF-8 BOM
+- PDF generation using PDFKit and Core Graphics
+- Multi-page PDF support with automatic pagination
+- SwiftUI to UIImage rendering for logo in PDF
+- Format toggle between CSV and PDF in unified UI
+
+### User Experience ✅
+- Professional tax summary dashboard
+- Year selector with dynamic population
+- Statistics cards with color-coded icons
+- Bar charts for monthly and category data
+- Settings view for user preferences
+- Date range filtering (CSV) and year filtering (PDF)
+- CSV preview before export
+- Three export methods: Save to Files, Share, Email
+- Loading states and error handling
+- Empty states throughout
+
+### Data Quality ✅
+- Reporting date logic: `receipt?.purchaseDate ?? createdDate`
+- Decimal precision for all currency calculations
+- Category grouping with subtotals
+- CRA-compliant formatting for tax filing
+- Professional presentation suitable for accountant review
+
+### Files Created: 8
+- ViewModels/ReportViewModel.swift
+- Utilities/AppSettings.swift
+- Views/Settings/SettingsView.swift
+- Views/Reports/SummaryDashboardView.swift
+- Services/CSVExportService.swift
+- Views/Reports/ExportView.swift
+- Resources/AppLogo.swift
+- Services/PDFGeneratorService.swift
+
+### Files Modified: 3
+- ContentView.swift
+- SummaryDashboardView.swift (multiple updates)
+- ExportView.swift (multiple updates)
+
+### Total Lines of Code: ~2,600
+
+### Commits: 8
+1. Add summary dashboard with charts and settings
+2. Fix Swift Charts Decimal compatibility issues
+3. Add CSV export with CRA-compliant formatting and file save
+4. Add professional PDF report generation with branding
+5. Add styling to format section for better visibility
+6. Fix PDF page overlap by adding missing beginPage() call
+7. Fix missing PDF cover page by explicitly beginning first page
+8. (Total across all Phase 5 sessions)
+
+---
+
 ## Development Notes
 
 ### SwiftData Best Practices
