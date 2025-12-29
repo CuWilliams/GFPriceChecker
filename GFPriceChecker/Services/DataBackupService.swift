@@ -101,8 +101,8 @@ final class DataBackupService {
         // Convert to backup format
         var productPairBackups: [ProductPairBackup] = []
         for product in productPairs {
-            let gfImageData = try await loadImageAsBase64(uuid: product.gfImageUUID)
-            let nonGFImageData = try await loadImageAsBase64(uuid: product.nonGFImageUUID)
+            let gfImageData = try await loadImageAsBase64(uuid: product.gfImageUUID, type: .product)
+            let nonGFImageData = try await loadImageAsBase64(uuid: product.nonGFImageUUID, type: .product)
 
             let backup = ProductPairBackup(
                 id: product.id,
@@ -129,7 +129,7 @@ final class DataBackupService {
 
         var receiptBackups: [ReceiptBackup] = []
         for receipt in receipts {
-            let receiptImageData = try await loadImageAsBase64(uuid: receipt.receiptImageUUID)
+            let receiptImageData = try await loadImageAsBase64(uuid: receipt.receiptImageUUID, type: .receipt)
 
             let backup = ReceiptBackup(
                 id: receipt.id,
@@ -218,7 +218,7 @@ final class DataBackupService {
             // Restore image if present
             var imageUUID: String?
             if let base64String = receiptBackup.receiptImageData {
-                imageUUID = try await saveImageFromBase64(base64String: base64String, subdirectory: "receipts")
+                imageUUID = try await saveImageFromBase64(base64String: base64String, type: .receipt)
             }
 
             let receipt = Receipt(
@@ -249,12 +249,12 @@ final class DataBackupService {
             // Restore images if present
             var gfImageUUID: String?
             if let base64String = productBackup.gfImageData {
-                gfImageUUID = try await saveImageFromBase64(base64String: base64String, subdirectory: "products")
+                gfImageUUID = try await saveImageFromBase64(base64String: base64String, type: .product)
             }
 
             var nonGFImageUUID: String?
             if let base64String = productBackup.nonGFImageData {
-                nonGFImageUUID = try await saveImageFromBase64(base64String: base64String, subdirectory: "products")
+                nonGFImageUUID = try await saveImageFromBase64(base64String: base64String, type: .product)
             }
 
             // Find associated receipt
@@ -326,7 +326,7 @@ final class DataBackupService {
             // Delete receipt image
             if let uuid = receipt.receiptImageUUID {
                 Task {
-                    await ImageStorageService.shared.deleteImage(uuid: uuid)
+                    await ImageStorageService.shared.deleteImage(uuid: uuid, type: .receipt)
                 }
             }
             modelContext.delete(receipt)
@@ -339,12 +339,12 @@ final class DataBackupService {
             // Delete product images
             if let uuid = product.gfImageUUID {
                 Task {
-                    await ImageStorageService.shared.deleteImage(uuid: uuid)
+                    await ImageStorageService.shared.deleteImage(uuid: uuid, type: .product)
                 }
             }
             if let uuid = product.nonGFImageUUID {
                 Task {
-                    await ImageStorageService.shared.deleteImage(uuid: uuid)
+                    await ImageStorageService.shared.deleteImage(uuid: uuid, type: .product)
                 }
             }
             modelContext.delete(product)
@@ -356,10 +356,10 @@ final class DataBackupService {
     // MARK: - Helper Methods
 
     /// Loads an image as Base64 string
-    private func loadImageAsBase64(uuid: String?) async throws -> String? {
+    private func loadImageAsBase64(uuid: String?, type: ImageStorageService.ImageType) async throws -> String? {
         guard let uuid = uuid else { return nil }
 
-        guard let image = await ImageStorageService.shared.retrieveImage(uuid: uuid) else {
+        guard let image = await ImageStorageService.shared.retrieveImage(uuid: uuid, type: type) else {
             return nil
         }
 
@@ -371,7 +371,7 @@ final class DataBackupService {
     }
 
     /// Saves a Base64 encoded image to storage
-    private func saveImageFromBase64(base64String: String, subdirectory: String) async throws -> String {
+    private func saveImageFromBase64(base64String: String, type: ImageStorageService.ImageType) async throws -> String {
         guard let imageData = Data(base64Encoded: base64String) else {
             throw DataBackupError.invalidImageData
         }
@@ -381,7 +381,9 @@ final class DataBackupService {
         }
 
         // Use ImageStorageService to save (it will handle subdirectories)
-        let uuid = await ImageStorageService.shared.saveImage(image, subdirectory: subdirectory)
+        guard let uuid = await ImageStorageService.shared.saveImage(image, type: type) else {
+            throw DataBackupError.exportFailed("Failed to save restored image")
+        }
         return uuid
     }
 }
