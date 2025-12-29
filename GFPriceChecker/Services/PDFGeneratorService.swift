@@ -76,6 +76,7 @@ final class PDFGeneratorService {
 
         let data = renderer.pdfData { context in
             // Page 1: Cover Page
+            context.beginPage()
             drawCoverPage(
                 context: context.cgContext,
                 pageRect: pageRect,
