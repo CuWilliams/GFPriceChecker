@@ -252,13 +252,14 @@ final class ImageStorageService {
                 continue
             }
 
-            for case let fileURL as URL in enumerator {
+            while let fileURL = enumerator.nextObject() as? URL {
                 guard let resourceValues = try? fileURL.resourceValues(forKeys: [.fileSizeKey]),
                       let fileSize = resourceValues.fileSize else {
                     continue
                 }
                 totalSize += Int64(fileSize)
             }
+
         }
 
         return totalSize
