@@ -9,6 +9,12 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
+/// Export format options
+enum ExportFormat: String, CaseIterable {
+    case csv = "CSV"
+    case pdf = "PDF"
+}
+
 /// Export view for generating and sharing CSV/PDF reports
 ///
 /// Provides export functionality with:
@@ -29,10 +35,15 @@ struct ExportView: View {
 
     // MARK: - State
 
+    @State private var exportFormat: ExportFormat = .csv
     @State private var selectedPreset: DateRangePreset = AppSettings.shared.defaultDateRange
     @State private var customStartDate = Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
     @State private var customEndDate = Date()
     @State private var useCustomRange = false
+
+    // PDF-specific state
+    @State private var pdfYear = Calendar.current.component(.year, from: Date())
+    @State private var paperSize: PaperSize = AppSettings.shared.defaultPaperSize
 
     @State private var isGenerating = false
     @State private var generatedCSVURL: URL?
@@ -73,10 +84,20 @@ struct ExportView: View {
 
     /// Export summary statistics
     private var exportSummary: (count: Int, totalDifferential: Decimal) {
-        CSVExportService.shared.calculateExportSummary(
-            products: allProducts,
-            dateRange: currentDateRange
-        )
+        let productsToExport: [ProductPair]
+
+        switch exportFormat {
+        case .csv:
+            productsToExport = filteredProducts
+        case .pdf:
+            let calendar = Calendar.current
+            productsToExport = allProducts.filter { product in
+                calendar.component(.year, from: product.reportingDate) == pdfYear
+            }
+        }
+
+        let total = productsToExport.reduce(Decimal.zero) { $0 + $1.differential }
+        return (count: productsToExport.count, totalDifferential: total)
     }
 
     // MARK: - Body
@@ -85,14 +106,26 @@ struct ExportView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Date Range Section
-                    dateRangeSection
+                    // Format Selection
+                    formatSection
+
+                    // PDF-specific options
+                    if exportFormat == .pdf {
+                        pdfOptionsSection
+                    }
+
+                    // Date Range Section (CSV only)
+                    if exportFormat == .csv {
+                        dateRangeSection
+                    }
 
                     // Export Summary
                     summarySection
 
-                    // Preview Section
-                    previewSection
+                    // Preview Section (CSV only)
+                    if exportFormat == .csv {
+                        previewSection
+                    }
 
                     // Export Actions
                     exportActionsSection
@@ -119,6 +152,62 @@ struct ExportView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Format Section
+
+    private var formatSection: some View {
+        VStack(spacing: 16) {
+            Text("Export Format")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Picker("Format", selection: $exportFormat) {
+                ForEach(ExportFormat.allCases, id: \.self) { format in
+                    Text(format.rawValue).tag(format)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    // MARK: - PDF Options Section
+
+    private var pdfOptionsSection: some View {
+        VStack(spacing: 16) {
+            Text("PDF Options")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(spacing: 12) {
+                // Year Picker
+                Picker("Tax Year", selection: $pdfYear) {
+                    ForEach(availableYears, id: \.self) { year in
+                        Text(String(year)).tag(year)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                // Paper Size Picker
+                Picker("Paper Size", selection: $paperSize) {
+                    ForEach(PaperSize.allCases, id: \.self) { size in
+                        Text(size.rawValue).tag(size)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+        }
+    }
+
+    /// Available years from product data
+    private var availableYears: [Int] {
+        let calendar = Calendar.current
+        let years = Set(allProducts.map { calendar.component(.year, from: $0.reportingDate) })
+        return years.sorted(by: >)
     }
 
     // MARK: - Date Range Section
@@ -361,95 +450,92 @@ struct ExportView: View {
 
     // MARK: - Export Actions
 
-    /// Generate CSV and save to Files app
+    /// Generate export file and save to Files app
     private func generateAndSaveToFiles() async {
         isGenerating = true
         defer { isGenerating = false }
 
         do {
-            let csvURL = try await CSVExportService.shared.generateCSV(
-                products: allProducts,
-                dateRange: currentDateRange
-            )
-            generatedCSVURL = csvURL
+            let fileURL = try await generateExportFile()
 
             // Present document picker to save file
             await MainActor.run {
                 showingDocumentPicker = true
                 // Note: Document picker for save is handled via UIDocumentPickerViewController
                 // For now, we'll use share sheet as fallback since SwiftUI doesn't have native file save
-                shareItems = [csvURL]
+                shareItems = [fileURL]
                 showingShareSheet = true
             }
         } catch {
-            errorMessage = "Failed to generate CSV: \(error.localizedDescription)"
+            errorMessage = "Failed to generate \(exportFormat.rawValue): \(error.localizedDescription)"
             showingError = true
         }
     }
 
-    /// Generate CSV and show share sheet
+    /// Generate export file and show share sheet
     private func generateAndShare() async {
         isGenerating = true
         defer { isGenerating = false }
 
         do {
-            let csvURL = try await CSVExportService.shared.generateCSV(
-                products: allProducts,
-                dateRange: currentDateRange
-            )
-            generatedCSVURL = csvURL
+            let fileURL = try await generateExportFile()
 
             await MainActor.run {
-                shareItems = [csvURL]
+                shareItems = [fileURL]
                 showingShareSheet = true
             }
         } catch {
-            errorMessage = "Failed to generate CSV: \(error.localizedDescription)"
+            errorMessage = "Failed to generate \(exportFormat.rawValue): \(error.localizedDescription)"
             showingError = true
         }
     }
 
-    /// Generate CSV and open email with attachment
+    /// Generate export file and open email with attachment
     private func generateAndEmail() async {
         isGenerating = true
         defer { isGenerating = false }
 
         do {
-            let csvURL = try await CSVExportService.shared.generateCSV(
-                products: allProducts,
-                dateRange: currentDateRange
-            )
-            generatedCSVURL = csvURL
-
-            // Create mailto URL
-            let accountantEmail = AppSettings.shared.accountantEmail
-            let subject = "GFPriceChecker Tax Export - \(Date().formatted(date: .abbreviated, time: .omitted))"
-            let body = """
-            Hi,
-
-            Please find attached my gluten-free product price differential data for tax filing.
-
-            Summary:
-            - Products: \(exportSummary.count)
-            - Total Differential: \(exportSummary.totalDifferential.formatted(.currency(code: "CAD")))
-
-            The attached CSV file contains all transaction details in CRA-compliant format.
-
-            Best regards
-            """
+            let fileURL = try await generateExportFile()
 
             // Note: mailto: URLs cannot attach files directly
             // We'll use share sheet instead, which allows email with attachment
             await MainActor.run {
-                shareItems = [csvURL]
+                shareItems = [fileURL]
                 showingShareSheet = true
 
                 // Print helpful message
+                let accountantEmail = AppSettings.shared.accountantEmail
                 print("📧 Email via share sheet - recipient: \(accountantEmail.isEmpty ? "not set" : accountantEmail)")
             }
         } catch {
-            errorMessage = "Failed to generate CSV: \(error.localizedDescription)"
+            errorMessage = "Failed to generate \(exportFormat.rawValue): \(error.localizedDescription)"
             showingError = true
+        }
+    }
+
+    /// Generates export file based on selected format
+    private func generateExportFile() async throws -> URL {
+        switch exportFormat {
+        case .csv:
+            return try await CSVExportService.shared.generateCSV(
+                products: allProducts,
+                dateRange: currentDateRange
+            )
+
+        case .pdf:
+            // Filter products by PDF year
+            let calendar = Calendar.current
+            let yearProducts = allProducts.filter { product in
+                calendar.component(.year, from: product.reportingDate) == pdfYear
+            }
+
+            return try await PDFGeneratorService.shared.generatePDF(
+                products: yearProducts,
+                year: pdfYear,
+                userName: AppSettings.shared.userName,
+                paperSize: paperSize
+            )
         }
     }
 }
