@@ -1106,6 +1106,137 @@ New debug output:
 
 ---
 
+## Session 16: Testing, Debugging, and Multi-line Receipt Format Support
+**Date:** December 28-29, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Systematic testing and debugging of receipt verification workflow, with specific focus on improving OCR failure handling and supporting multi-line receipt formats (Costco, etc.).
+
+### Issues Discovered and Resolved
+
+#### Issue 1: No Manual Selection When OCR Fails
+**Problem:**
+- When OCR failed to extract line items, users saw "low confidence - manual selection required"
+- But no manual selection option was available
+- Only disabled "Confirm All Matches" button and Cancel option visible
+
+**Root Cause:**
+- Manual selection menu only appeared when lineItems array had content
+- If OCR completely failed to extract line items, there was nothing to select from
+
+**Resolution:**
+- Added error messaging when `lineItems.isEmpty`
+- Added "Rescan Receipt" button for retry workflow
+- Disabled "Confirm All Matches" button when `confirmedMatchCount == 0`
+- Added warning guidance for OCR failures
+
+**Files Modified:** `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+#### Issue 2: OCR Extraction Failures - No Debug Visibility
+**Problem:**
+- User reported OCR not working despite clear receipt images
+- No debug logs appearing in console
+- Unable to diagnose where extraction was failing
+
+**Resolution:**
+- Added comprehensive debug logging throughout OCR pipeline
+- **OCRService.swift:** Added 🔍 DEBUG markers tracking:
+  - extractText calls
+  - Image sizes (cgImage dimensions)
+  - Observation counts
+  - Error conditions
+- **ReceiptCaptureView.swift:** Added 🎯 DEBUG markers tracking:
+  - Receipt scan triggers
+  - OCR start/completion
+  - Parser results (store, date, total, line items)
+  - Match confidence percentages
+
+**Outcome:**
+- Debug logs revealed OCR was actually working
+- Real problem was line item extraction (see Issue 3)
+
+**Files Modified:**
+- `Services/OCRService.swift`
+- `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+#### Issue 3: Multi-line Receipt Format Not Supported
+**Problem:**
+- User tested with Costco receipt containing clear product: "B FREE TORTS"
+- OCR correctly extracted text: "B FREE TORTS 10.99"
+- Fuzzy matcher returned 0% confidence against ProductPair "BFree Tortilla"
+- Only 1 line item found: "AMOUNT:: $118.45" (incorrect!)
+
+**Root Cause Analysis:**
+Costco receipts use **multi-line format**:
+```
+B FREE TORTS
+10.99
+```
+
+But `ReceiptParserService.extractLineItems()` only handled **single-line format**:
+```
+B FREE TORTS    $10.99
+```
+
+**Original Logic:**
+- Regex pattern: `\$(\d{1,3}\.\d{2})\s*$` (price at end of line)
+- Line 1 "B FREE TORTS" skipped (no price at end)
+- Line 2 "10.99" skipped (doesn't match pattern or too short)
+- Only matched: "AMOUNT:: $118.45" (had $ and price at end)
+
+**Solution Attempted (Failed):**
+- First attempt modified single-line parser logic directly
+- Added look-ahead for multi-line detection
+- Result: "rendered inaccurate scan results" for standard receipts
+- User requested revert (commit e107b95)
+
+**Final Solution (Successful):**
+- Implemented **conservative two-pass approach**
+- **Pass 1 (Lines 218-266):** Preserved existing single-line logic completely
+  - Pattern: `\$(\d{1,3}\.\d{2})\s*$`
+  - Tracks processed line indices
+- **Pass 2 (Lines 268-321):** New multi-line detection
+  - Pattern: `^\s*\$?(\d{1,3}\.\d{2})\s*$` (standalone price with optional $)
+  - Only processes lines NOT already matched in Pass 1
+  - Strict validation:
+    - Current line must be ≥3 chars
+    - Current line must NOT contain "$"
+    - Current line must NOT be header/footer keyword
+    - Next line must match standalone price pattern
+    - Price must be reasonable range ($0.50 - $200.00)
+  - Confidence multiplied by 0.9 for multi-line items
+  - Marks both lines as processed to avoid duplicates
+
+**Design Decisions:**
+- Preserve all existing behavior for standard receipts
+- Add multi-line support as supplementary, non-breaking enhancement
+- Strict validation prevents false positives
+- Lower confidence score reflects multi-line ambiguity
+- Process tracking ensures no line counted twice
+
+**Files Modified:** `Services/ReceiptParserService.swift`
+
+**Commits:**
+- a709104: First attempt (reverted)
+- e107b95: Revert commit
+- 4819e48: Final successful implementation
+
+### Testing Results
+✅ Clean build with no errors
+✅ Multi-line receipt format now supported
+✅ Standard single-line receipts still accurate
+✅ User confirmed improvement noted
+✅ Continued testing with no major issues
+
+### User Modifications
+- Tested receipt verification workflow systematically
+- Provided detailed debug log output for analysis
+- Confirmed multi-line parser improvement working
+
+---
+
 ## Phase 4 Summary
 
 ### Sessions Completed ✅
@@ -1131,6 +1262,13 @@ New debug output:
 - Progress indicator for match tracking
 - Sectioned match display (auto-matched vs needs-review)
 
+**Session 16: Testing, Debugging, and Multi-line Receipt Format**
+- OCR failure handling with error messaging and rescan option
+- Comprehensive debug logging (🎯 and 🔍 markers)
+- Multi-line receipt format support (Costco-style)
+- Two-pass line item extraction (single-line + multi-line)
+- Conservative approach preserving existing accuracy
+
 ### Key Achievements
 ✅ Complete receipt verification workflow
 ✅ Fuzzy product matching with 3-tier confidence system
@@ -1139,14 +1277,25 @@ New debug output:
 ✅ Bulk operations for efficient batch verification
 ✅ Smart date-based suggestions
 ✅ Real-time progress tracking
-✅ Console logging throughout for debugging
+✅ Comprehensive debug logging for troubleshooting
+✅ Multi-line receipt format support
+✅ OCR failure recovery workflow
+✅ Systematic testing and iterative refinement
+
+### Technical Improvements
+✅ Two-pass line item extraction algorithm
+✅ Standalone price pattern recognition
+✅ Processed line tracking to prevent duplicates
+✅ Debug instrumentation throughout OCR pipeline
+✅ Error messaging and recovery UX
 
 ### Known Limitations
 - OCR accuracy depends on receipt quality (lighting, clarity)
-- Fuzzy matching may need real-world tuning
+- Fuzzy matching may need continued real-world tuning
 - Receipt image viewer uses basic zoom (could add viewport constraints)
 - Filter is client-side (fine for MVP, could optimize with @Query predicates)
 - Date filtering is full-day granularity (ignores time)
+- Multi-line detection assumes price on line immediately following product name
 
 ---
 
