@@ -33,6 +33,26 @@ struct ProductPairListView: View {
     /// Controls the visibility of the manual entry sheet
     @State private var showingManualEntry = false
 
+    /// Controls the visibility of the receipt capture sheet
+    @State private var showingReceiptCapture = false
+
+    /// Current filter selection
+    @State private var filterSelection: ProductFilter = .all
+
+    // MARK: - Computed Properties
+
+    /// Filtered product pairs based on current selection
+    private var filteredProducts: [ProductPair] {
+        switch filterSelection {
+        case .all:
+            return productPairs
+        case .verified:
+            return productPairs.filter { $0.verified }
+        case .unverified:
+            return productPairs.filter { !$0.verified }
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -40,6 +60,8 @@ struct ProductPairListView: View {
             Group {
                 if productPairs.isEmpty {
                     emptyStateView
+                } else if filteredProducts.isEmpty {
+                    filteredEmptyStateView
                 } else {
                     productListView
                 }
@@ -47,16 +69,42 @@ struct ProductPairListView: View {
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingManualEntry = true
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        Picker("Filter", selection: $filterSelection) {
+                            ForEach(ProductFilter.allCases, id: \.self) { filter in
+                                Label(filter.title, systemImage: filter.icon)
+                                    .tag(filter)
+                            }
+                        }
                     } label: {
-                        Label("Add Product", systemImage: "plus")
+                        Label(filterSelection.title, systemImage: "line.3.horizontal.decrease.circle")
+                    }
+                }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button {
+                            showingManualEntry = true
+                        } label: {
+                            Label("Manual Entry", systemImage: "square.and.pencil")
+                        }
+
+                        Button {
+                            showingReceiptCapture = true
+                        } label: {
+                            Label("Verify with Receipt", systemImage: "doc.text.viewfinder")
+                        }
+                    } label: {
+                        Label("Add", systemImage: "plus")
                     }
                 }
             }
             .sheet(isPresented: $showingManualEntry) {
                 ManualProductEntryView()
+            }
+            .sheet(isPresented: $showingReceiptCapture) {
+                ReceiptCaptureView()
             }
         }
     }
@@ -83,18 +131,82 @@ struct ProductPairListView: View {
         .padding()
     }
 
+    /// View shown when filter results in no products
+    private var filteredEmptyStateView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: filterSelection.icon)
+                .font(.system(size: 64))
+                .foregroundStyle(.secondary)
+
+            Text("No \(filterSelection.title)")
+                .font(.title2)
+                .fontWeight(.semibold)
+
+            Text(filterSelection.emptyMessage)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .padding()
+    }
+
     // MARK: - Product List
 
     /// List of all product pairs
     private var productListView: some View {
         List {
-            ForEach(productPairs) { productPair in
+            ForEach(filteredProducts) { productPair in
                 NavigationLink(destination: ProductPairDetailView(productPair: productPair)) {
                     ProductPairRow(productPair: productPair)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    // Show receipt link for verified products
+                    if productPair.verified, let receipt = productPair.receipt {
+                        NavigationLink(destination: ReceiptDetailView(receipt: receipt)) {
+                            Label("Receipt", systemImage: "doc.text")
+                        }
+                        .tint(.blue)
+                    }
                 }
             }
         }
         .listStyle(.insetGrouped)
+    }
+}
+
+// MARK: - Product Filter Enum
+
+/// Filter options for product list
+enum ProductFilter: String, CaseIterable {
+    case all = "All Products"
+    case verified = "Verified Products"
+    case unverified = "Unverified Products"
+
+    var title: String {
+        rawValue
+    }
+
+    var icon: String {
+        switch self {
+        case .all:
+            return "list.bullet"
+        case .verified:
+            return "checkmark.circle.fill"
+        case .unverified:
+            return "exclamationmark.circle"
+        }
+    }
+
+    var emptyMessage: String {
+        switch self {
+        case .all:
+            return "No products found"
+        case .verified:
+            return "No verified products yet. Scan a receipt to verify your products."
+        case .unverified:
+            return "All products are verified! Great job."
+        }
     }
 }
 
@@ -142,9 +254,18 @@ struct ProductPairRow: View {
 
                 // Verification Status
                 if productPair.verified {
-                    Label("Verified", systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.green)
+                    HStack(spacing: 4) {
+                        Label("Verified", systemImage: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+
+                        // Receipt indicator
+                        if productPair.receipt != nil {
+                            Image(systemName: "doc.text.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                        }
+                    }
                 }
             }
         }

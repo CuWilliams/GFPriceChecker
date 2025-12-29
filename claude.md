@@ -693,6 +693,612 @@ Add visual confidence indicators to guide users in verifying OCR-extracted data 
 
 ---
 
+## Session 13: Receipt Scanning and Product Matching
+**Date:** December 28, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Create receipt scanning functionality with OCR extraction, fuzzy product matching, and receipt verification workflow.
+
+### Tasks Completed
+- [x] Created ReceiptParserService.swift with comprehensive fuzzy matching
+- [x] Enhanced OCRService.swift with receipt-specific text extraction
+- [x] Created ReceiptCaptureView.swift with multi-step workflow
+- [x] Updated claude.md for Session 13
+- [x] Verified clean build
+
+### Implementation Details
+
+#### ReceiptParserService
+**File:** `Services/ReceiptParserService.swift`
+
+**Features:**
+1. **Store Name Extraction:**
+   - Searches first 5 lines of receipt
+   - Matches against common Canadian stores (Loblaws, Sobeys, Metro, etc.)
+   - Handles all-caps store names
+2. **Date Parsing:**
+   - Multiple format support: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY
+   - Month name formats: "Dec 27, 2024", "December 27, 2024"
+   - Robust DateFormatter array
+3. **Line Item Extraction:**
+   - Regex pattern matching for product + price pairs
+   - Filters out header/footer lines (total, tax, payment, etc.)
+   - Confidence scoring based on line quality
+4. **Total Amount Extraction:**
+   - Searches from bottom of receipt upward
+   - Distinguishes between subtotal and total
+   - Regex price extraction
+5. **Fuzzy Product Matching:**
+   - **Tiered Confidence System:**
+     - High (≥80%): Auto-suggest match
+     - Medium (50-79%): Suggest with confirmation
+     - Low (<50%): Show but require manual selection
+   - **Price Matching:**
+     - Exact match: ±$0.25 tolerance (90% confidence)
+     - Partial match: ±$0.50 tolerance (60% confidence)
+   - **Name Matching:**
+     - Exact match: 100% confidence
+     - Contains match: 80% confidence
+     - Jaccard similarity for word overlap
+     - Levenshtein distance for typo tolerance
+   - **Abbreviation Expansion:**
+     - "GF" → "gluten free"
+     - "BRD" → "bread"
+     - "PSTA" → "pasta"
+     - And more common abbreviations
+   - **String Normalization:**
+     - Lowercase conversion
+     - Punctuation removal
+     - Whitespace normalization
+
+**Data Structures:**
+- `ReceiptLineItem`: Product name, price, confidence
+- `ProductMatchResult`: ProductPair, matched line item, confidence, quality category
+
+**Design Decisions:**
+- Singleton pattern for stateless service
+- @MainActor for potential UI updates
+- Comprehensive fuzzy matching algorithm balances automation with user control
+- Levenshtein distance algorithm for typo tolerance
+
+#### OCRService Enhancements
+**File:** `Services/OCRService.swift`
+
+**New Methods:**
+1. **extractReceiptText(from: UIImage):**
+   - Extracts full receipt text with line breaks preserved
+   - Sorts observations top-to-bottom
+   - Returns structured text string
+2. **extractReceiptText(from: UIImage, region: ReceiptRegion):**
+   - Region-based extraction (top 25%, middle 50%, bottom 25%)
+   - Targeted parsing for store/date (top), items (middle), totals (bottom)
+   - Bounding box filtering by y-coordinate
+3. **ReceiptRegion enum:**
+   - `.top`: Store name, date (top 25%)
+   - `.middle`: Line items (middle 50%)
+   - `.bottom`: Totals (bottom 25%)
+
+**Design Decisions:**
+- Leverages existing Vision framework infrastructure
+- Top-to-bottom sorting for natural reading order
+- Region-based parsing improves accuracy for specific data types
+
+#### ReceiptCaptureView
+**File:** `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+**Features:**
+1. **Step 1: Product Selection**
+   - Lists all unverified ProductPairs
+   - Checkbox multi-select interface
+   - Shows product details (name, price, category, date, differential)
+   - Disabled "Scan Receipt" until at least 1 product selected
+   - Empty state for when all products verified
+2. **Step 2: Scan Receipt**
+   - DocumentScannerView integration
+   - Instructions for optimal scanning
+   - Back navigation to product selection
+3. **Step 3: Review Matches**
+   - Receipt info header (thumbnail, store, date, total)
+   - Match results list with confidence indicators:
+     - Green checkmark: High confidence (≥80%)
+     - Orange warning: Medium confidence (50-79%)
+     - Red X: Low confidence (<50%)
+   - Matched line item display
+   - Manual selection menu for low/no matches
+   - "Change" button to override auto-matches
+   - "Confirm All Matches" saves receipt
+
+**User Experience:**
+- Loading overlay during OCR processing
+- Error alerts for OCR failures
+- Console logging for debugging
+- Color-coded confidence indicators
+- Manual override capability for all matches
+
+**SwiftData Integration:**
+- @Query filter for unverified products
+- Creates Receipt object with metadata
+- Associates ProductPairs with receipt
+- Marks products as verified
+- Saves receipt image via ImageStorageService
+
+**Design Decisions:**
+- Step-based navigation (enum-driven state machine)
+- Preview support with in-memory ModelContainer
+- Follows ProductCaptureFlowView patterns
+- Separates auto-matches from manual selections
+- Only verifies products with matched line items
+
+### User Modifications
+- None yet - pending testing in Xcode
+
+### Console Logging
+Comprehensive debug output:
+- Receipt OCR full text
+- Extracted store name
+- Extracted date
+- Extracted total
+- Line items count and details
+- Match results with confidence percentages
+- Save success/failure
+
+### Known Considerations
+- OCR accuracy depends on receipt quality (lighting, clarity)
+- Fuzzy matching may need tuning based on real-world receipt formats
+- Currently supports one receipt verification session at a time
+- Bulk features deferred to Session 15
+
+---
+
+## Session 14: Receipt Detail View and Product Filters
+**Date:** December 28, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Create receipt detail view with zoomable images and add filtering capabilities to the product list.
+
+### Tasks Completed
+- [x] Created ReceiptDetailView.swift with full receipt display
+- [x] Created ReceiptImageViewer for zoomable image viewing
+- [x] Updated ProductPairListView.swift with filter functionality
+- [x] Added receipt navigation from product list
+- [x] Updated claude.md for Session 14
+- [x] Verified clean build
+
+### Implementation Details
+
+#### ReceiptDetailView
+**File:** `Views/Library/ReceiptDetailView.swift`
+
+**Features:**
+1. **Receipt Image Display:**
+   - Thumbnail view with tap-to-expand
+   - Loading indicator while image loads from storage
+   - Button to launch full-screen zoomable viewer
+2. **Receipt Metadata Section:**
+   - Store name (if available)
+   - Purchase date (formatted as long date)
+   - Total amount (if available)
+3. **Summary Section:**
+   - Products verified count
+   - Total differential calculation
+   - Color-coded differential (green for positive)
+4. **Associated Products Section:**
+   - Lists all ProductPairs linked to this receipt
+   - Shows GF vs non-GF product names
+   - Displays prices and differential for each
+   - Unlink button for each product (destructive action)
+5. **Receipt Management:**
+   - Delete button in toolbar (destructive)
+   - Confirmation alert before deletion
+   - Unlinks all products when deleted
+   - Deletes receipt image from storage
+   - Products remain in database but marked unverified
+
+**ReceiptImageViewer Component:**
+- Full-screen zoomable image viewer
+- Pinch-to-zoom gesture (1.0x to 4.0x)
+- Pan/drag gesture for navigation
+- Double-tap to reset zoom
+- Reset button in toolbar
+- Done button to dismiss
+- Black background for focus
+
+**Design Decisions:**
+- Task-based async image loading from ImageStorageService
+- Separate viewer component for code reusability
+- Unlink preserves products (only removes verification)
+- Delete confirmation prevents accidental data loss
+- List-based layout for clean sectioned display
+
+#### ProductPairListView Enhancements
+**File:** `Views/Library/ProductPairListView.swift`
+
+**New Features:**
+1. **Filter Functionality:**
+   - ProductFilter enum: All / Verified / Unverified
+   - Filter picker in toolbar (leading position)
+   - Computed filteredProducts property
+   - Filter-specific empty states
+2. **Toolbar Updates:**
+   - Filter menu with icons and labels
+   - Add menu splits into "Manual Entry" and "Verify with Receipt"
+   - Receipt capture now accessible from Library tab
+3. **Receipt Navigation:**
+   - Swipe action on verified products with receipts
+   - Links directly to ReceiptDetailView
+   - Blue tint for receipt swipe action
+4. **Visual Indicators:**
+   - Receipt icon (doc.text.fill) next to verified badge
+   - Shows when product has associated receipt
+   - Blue color to indicate actionable link
+
+**ProductFilter Enum:**
+```swift
+enum ProductFilter: String, CaseIterable {
+    case all = "All Products"
+    case verified = "Verified Products"
+    case unverified = "Unverified Products"
+}
+```
+
+**Filter Empty States:**
+- All: "No products found"
+- Verified: "No verified products yet. Scan a receipt to verify your products."
+- Unverified: "All products are verified! Great job."
+
+**Design Decisions:**
+- Filter results computed on-the-fly (not separate @Query)
+- Swipe actions for quick receipt access
+- Menu for add actions (better discoverability)
+- Receipt icon provides visual feedback
+- Maintains existing ProductPairDetailView navigation
+
+### User Modifications
+- None yet - pending testing in Xcode
+
+### Navigation Flow
+1. **Library Tab → Receipt:**
+   - Swipe left on verified product → Receipt button → ReceiptDetailView
+2. **Receipt Detail → Product:**
+   - Product shown in "Verified Products" section
+   - Unlink button removes association
+3. **Filter Workflow:**
+   - Toolbar filter menu → Select All/Verified/Unverified
+   - List updates immediately
+   - Empty states guide user actions
+
+### Known Considerations
+- Receipt image viewer uses basic zoom implementation (could enhance with viewport constraints)
+- Filter is client-side (fine for MVP, could optimize with @Query predicates for large datasets)
+- Swipe action for receipt only appears on verified products with receipts (no swipe for unverified)
+- Delete receipt operation is immediate (no undo)
+
+---
+
+## Session 15: Bulk Receipt Verification Enhancements
+**Date:** December 28, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Enhance receipt verification workflow with bulk operations, smart date filtering, auto-match acceptance, and progress tracking for efficient batch verification.
+
+### Tasks Completed
+- [x] Added bulk selection controls (Select All / Deselect All)
+- [x] Implemented smart date filtering with suggestions
+- [x] Added auto-match acceptance workflow
+- [x] Created progress indicator for match tracking
+- [x] Separated auto-matched from needs-review products
+- [x] Updated claude.md for Session 15
+- [x] Verified clean build
+
+### Implementation Details
+
+#### Bulk Selection Controls
+**Enhanced:** `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+**New Features:**
+1. **Bulk Selection Buttons (Product Selection Step):**
+   - "Select All" button - selects all unverified products
+   - "Deselect All" button - clears all selections
+   - Live counter: "X selected"
+   - Buttons styled with `.bordered` and `.small` control size
+
+**Methods:**
+```swift
+selectAllProducts(): Sets selectedProducts to all unverified product IDs
+deselectAllProducts(): Clears selectedProducts set
+```
+
+#### Smart Date Filtering
+**New Features:**
+1. **Date-Based Suggestions:**
+   - After receipt OCR, checks for products created on same date
+   - Alert dialog: "Found X products from [date]. Would you like to select them?"
+   - Two options: "Select Suggested" or "Skip"
+   - Only suggests unselected products from matching date
+
+**Methods:**
+```swift
+checkForSameDateProducts(): Counts unselected products from receipt date, triggers alert
+selectProductsFromSameDate(): Selects all products matching receipt date
+```
+
+**State Variables:**
+- `showingDateSuggestion: Bool`: Controls alert visibility
+- `suggestedProductCount: Int`: Count for alert message
+
+**Logic:**
+- Uses Calendar date components comparison (year, month, day)
+- Excludes already-selected products
+- Triggers automatically after OCR completes
+- Console logging for debugging
+
+#### Auto-Match Acceptance
+**New Features:**
+1. **Match Categorization:**
+   - Auto-Matched section: High confidence (≥80%)
+   - Needs Manual Review section: Medium/Low confidence (<80%)
+   - Section headers show counts
+   - "Accept All" button in auto-matched section header
+
+2. **Progress Indicator:**
+   - Visual progress bar (green fill)
+   - Text counter: "X/Y products matched"
+   - Shows confirmed matches (auto + manual)
+   - Displayed above match list
+
+**Computed Properties:**
+```swift
+autoMatchedProducts: Filters matchResults for .high quality
+needsReviewProducts: Filters matchResults for .medium/.low quality
+confirmedMatchCount: Counts products with confirmed line items
+```
+
+**Methods:**
+```swift
+acceptAllAutoMatches(): Visual confirmation for auto-matches
+```
+
+**Progress Indicator UI:**
+- GeometryReader for responsive progress bar width
+- Gray background, green fill
+- Rounded rectangle (4pt corner radius)
+- Animates as matches are confirmed
+- Fraction display: "3/5"
+
+#### User Experience Improvements
+1. **Sectioned Match List:**
+   - Auto-matched products appear first (less review needed)
+   - Needs-review products appear second (focus attention)
+   - Clear visual separation
+   - Count badges in section headers
+
+2. **Enhanced Confirm Button:**
+   - Updated caption: "X of Y products matched"
+   - Real-time progress feedback
+
+3. **Smart Workflow:**
+   - Select products → Scan receipt → Auto-suggestions → Review matches → Confirm
+   - Minimizes manual steps for common scenarios
+   - Batch-friendly for weekly shopping trips
+
+### Design Decisions
+- Date filtering uses calendar components (ignores time)
+- Auto-match acceptance is visual only (matches already applied)
+- Progress bar updates reactively via computed properties
+- Smart suggestions are optional (user can skip)
+- Bulk operations preserve existing manual multi-select
+- Section headers use `.textCase(nil)` for custom button styling
+
+### Console Logging
+New debug output:
+- "💡 Found X additional products from same date"
+- "✅ Selected X products from [date]"
+- "✅ Accepted X auto-matches"
+
+### User Modifications
+- None yet - pending testing in Xcode
+
+---
+
+## Session 16: Testing, Debugging, and Multi-line Receipt Format Support
+**Date:** December 28-29, 2024
+**Branch:** `claude/receipt-verification-PnloW`
+**Status:** ✅ Complete
+
+### Objective
+Systematic testing and debugging of receipt verification workflow, with specific focus on improving OCR failure handling and supporting multi-line receipt formats (Costco, etc.).
+
+### Issues Discovered and Resolved
+
+#### Issue 1: No Manual Selection When OCR Fails
+**Problem:**
+- When OCR failed to extract line items, users saw "low confidence - manual selection required"
+- But no manual selection option was available
+- Only disabled "Confirm All Matches" button and Cancel option visible
+
+**Root Cause:**
+- Manual selection menu only appeared when lineItems array had content
+- If OCR completely failed to extract line items, there was nothing to select from
+
+**Resolution:**
+- Added error messaging when `lineItems.isEmpty`
+- Added "Rescan Receipt" button for retry workflow
+- Disabled "Confirm All Matches" button when `confirmedMatchCount == 0`
+- Added warning guidance for OCR failures
+
+**Files Modified:** `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+#### Issue 2: OCR Extraction Failures - No Debug Visibility
+**Problem:**
+- User reported OCR not working despite clear receipt images
+- No debug logs appearing in console
+- Unable to diagnose where extraction was failing
+
+**Resolution:**
+- Added comprehensive debug logging throughout OCR pipeline
+- **OCRService.swift:** Added 🔍 DEBUG markers tracking:
+  - extractText calls
+  - Image sizes (cgImage dimensions)
+  - Observation counts
+  - Error conditions
+- **ReceiptCaptureView.swift:** Added 🎯 DEBUG markers tracking:
+  - Receipt scan triggers
+  - OCR start/completion
+  - Parser results (store, date, total, line items)
+  - Match confidence percentages
+
+**Outcome:**
+- Debug logs revealed OCR was actually working
+- Real problem was line item extraction (see Issue 3)
+
+**Files Modified:**
+- `Services/OCRService.swift`
+- `Views/CaptureFlow/ReceiptCaptureView.swift`
+
+#### Issue 3: Multi-line Receipt Format Not Supported
+**Problem:**
+- User tested with Costco receipt containing clear product: "B FREE TORTS"
+- OCR correctly extracted text: "B FREE TORTS 10.99"
+- Fuzzy matcher returned 0% confidence against ProductPair "BFree Tortilla"
+- Only 1 line item found: "AMOUNT:: $118.45" (incorrect!)
+
+**Root Cause Analysis:**
+Costco receipts use **multi-line format**:
+```
+B FREE TORTS
+10.99
+```
+
+But `ReceiptParserService.extractLineItems()` only handled **single-line format**:
+```
+B FREE TORTS    $10.99
+```
+
+**Original Logic:**
+- Regex pattern: `\$(\d{1,3}\.\d{2})\s*$` (price at end of line)
+- Line 1 "B FREE TORTS" skipped (no price at end)
+- Line 2 "10.99" skipped (doesn't match pattern or too short)
+- Only matched: "AMOUNT:: $118.45" (had $ and price at end)
+
+**Solution Attempted (Failed):**
+- First attempt modified single-line parser logic directly
+- Added look-ahead for multi-line detection
+- Result: "rendered inaccurate scan results" for standard receipts
+- User requested revert (commit e107b95)
+
+**Final Solution (Successful):**
+- Implemented **conservative two-pass approach**
+- **Pass 1 (Lines 218-266):** Preserved existing single-line logic completely
+  - Pattern: `\$(\d{1,3}\.\d{2})\s*$`
+  - Tracks processed line indices
+- **Pass 2 (Lines 268-321):** New multi-line detection
+  - Pattern: `^\s*\$?(\d{1,3}\.\d{2})\s*$` (standalone price with optional $)
+  - Only processes lines NOT already matched in Pass 1
+  - Strict validation:
+    - Current line must be ≥3 chars
+    - Current line must NOT contain "$"
+    - Current line must NOT be header/footer keyword
+    - Next line must match standalone price pattern
+    - Price must be reasonable range ($0.50 - $200.00)
+  - Confidence multiplied by 0.9 for multi-line items
+  - Marks both lines as processed to avoid duplicates
+
+**Design Decisions:**
+- Preserve all existing behavior for standard receipts
+- Add multi-line support as supplementary, non-breaking enhancement
+- Strict validation prevents false positives
+- Lower confidence score reflects multi-line ambiguity
+- Process tracking ensures no line counted twice
+
+**Files Modified:** `Services/ReceiptParserService.swift`
+
+**Commits:**
+- a709104: First attempt (reverted)
+- e107b95: Revert commit
+- 4819e48: Final successful implementation
+
+### Testing Results
+✅ Clean build with no errors
+✅ Multi-line receipt format now supported
+✅ Standard single-line receipts still accurate
+✅ User confirmed improvement noted
+✅ Continued testing with no major issues
+
+### User Modifications
+- Tested receipt verification workflow systematically
+- Provided detailed debug log output for analysis
+- Confirmed multi-line parser improvement working
+
+---
+
+## Phase 4 Summary
+
+### Sessions Completed ✅
+
+**Session 13: Receipt Scanning and Product Matching**
+- ReceiptParserService with comprehensive fuzzy matching
+- Enhanced OCRService with receipt-specific text extraction
+- ReceiptCaptureView with 3-step workflow
+- Tiered confidence matching (high/medium/low)
+- Manual override capability
+
+**Session 14: Receipt Detail View and Product Filters**
+- ReceiptDetailView with zoomable images
+- ReceiptImageViewer component (pinch-to-zoom, pan, double-tap reset)
+- ProductPairListView filters (All/Verified/Unverified)
+- Receipt navigation via swipe actions
+- Receipt indicator icons
+
+**Session 15: Bulk Receipt Verification**
+- Bulk selection controls (Select All / Deselect All)
+- Smart date filtering with suggestions
+- Auto-match acceptance workflow
+- Progress indicator for match tracking
+- Sectioned match display (auto-matched vs needs-review)
+
+**Session 16: Testing, Debugging, and Multi-line Receipt Format**
+- OCR failure handling with error messaging and rescan option
+- Comprehensive debug logging (🎯 and 🔍 markers)
+- Multi-line receipt format support (Costco-style)
+- Two-pass line item extraction (single-line + multi-line)
+- Conservative approach preserving existing accuracy
+
+### Key Achievements
+✅ Complete receipt verification workflow
+✅ Fuzzy product matching with 3-tier confidence system
+✅ Receipt detail management with image zoom
+✅ Product list filtering and navigation
+✅ Bulk operations for efficient batch verification
+✅ Smart date-based suggestions
+✅ Real-time progress tracking
+✅ Comprehensive debug logging for troubleshooting
+✅ Multi-line receipt format support
+✅ OCR failure recovery workflow
+✅ Systematic testing and iterative refinement
+
+### Technical Improvements
+✅ Two-pass line item extraction algorithm
+✅ Standalone price pattern recognition
+✅ Processed line tracking to prevent duplicates
+✅ Debug instrumentation throughout OCR pipeline
+✅ Error messaging and recovery UX
+
+### Known Limitations
+- OCR accuracy depends on receipt quality (lighting, clarity)
+- Fuzzy matching may need continued real-world tuning
+- Receipt image viewer uses basic zoom (could add viewport constraints)
+- Filter is client-side (fine for MVP, could optimize with @Query predicates)
+- Date filtering is full-day granularity (ignores time)
+- Multi-line detection assumes price on line immediately following product name
+
+---
+
 ## Development Notes
 
 ### SwiftData Best Practices

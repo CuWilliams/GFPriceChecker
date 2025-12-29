@@ -8,6 +8,8 @@
 import Foundation
 import Vision
 import UIKit
+import VisionKit
+import SwiftUI
 
 /// Result of price detection from OCR
 struct PriceMatch {
@@ -55,35 +57,52 @@ final class OCRService {
     /// - Returns: Array of text observations with bounding boxes
     /// - Throws: OCRError if recognition fails
     func extractText(from image: UIImage) async throws -> [VNRecognizedTextObservation] {
+        print("🔍 OCRService: extractText called")
+
         guard let cgImage = image.cgImage else {
+            print("🔍 OCRService: ERROR - cgImage is nil")
             throw OCRError.invalidImage
         }
 
+        print("🔍 OCRService: cgImage obtained, size: \(cgImage.width)x\(cgImage.height)")
+
         return try await withCheckedThrowingContinuation { continuation in
+            print("🔍 OCRService: Creating VNRecognizeTextRequest")
+
             let request = VNRecognizeTextRequest { request, error in
+                print("🔍 OCRService: VNRecognizeTextRequest callback fired")
+
                 if let error = error {
+                    print("🔍 OCRService: ERROR in request - \(error)")
                     continuation.resume(throwing: OCRError.recognitionFailed(error))
                     return
                 }
 
                 guard let observations = request.results as? [VNRecognizedTextObservation] else {
+                    print("🔍 OCRService: ERROR - No observations or wrong type")
                     continuation.resume(throwing: OCRError.noTextDetected)
                     return
                 }
 
+                print("🔍 OCRService: Successfully got \(observations.count) observations")
                 continuation.resume(returning: observations)
             }
 
             // Configure for accurate recognition
+            print("🔍 OCRService: Configuring request")
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["en-US"]
             request.usesLanguageCorrection = true
 
+            print("🔍 OCRService: Creating VNImageRequestHandler")
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
             do {
+                print("🔍 OCRService: Performing Vision request...")
                 try handler.perform([request])
+                print("🔍 OCRService: Vision request performed (callback should fire)")
             } catch {
+                print("🔍 OCRService: ERROR performing request - \(error)")
                 continuation.resume(throwing: OCRError.recognitionFailed(error))
             }
         }
@@ -183,6 +202,112 @@ final class OCRService {
         }
 
         return sorted.first?.text
+    }
+
+    // MARK: - Receipt-Specific OCR
+
+    /// Extracts full text from a receipt image
+    ///
+    /// Returns all recognized text as a single string, preserving line breaks.
+    /// Useful for receipt parsing where layout and structure matter.
+    ///
+    /// - Parameter image: The receipt image
+    /// - Returns: Full text content with line breaks
+    /// - Throws: OCRError if recognition fails
+    func extractReceiptText(from image: UIImage) async throws -> String {
+        print("🔍 OCRService: extractReceiptText called")
+        print("🔍 OCRService: Image size: \(image.size)")
+
+        let observations = try await extractText(from: image)
+        print("🔍 OCRService: Got \(observations.count) text observations")
+
+        // Sort observations by vertical position (top to bottom)
+        // VisionKit uses bottom-left origin, so higher y values are at top
+        let sortedObservations = observations.sorted { obs1, obs2 in
+            // Compare y-coordinate (higher y = higher on page)
+            obs1.boundingBox.origin.y > obs2.boundingBox.origin.y
+        }
+
+        var lines: [String] = []
+
+        for observation in sortedObservations {
+            guard let candidate = observation.topCandidates(1).first,
+                  candidate.confidence >= minimumConfidence else {
+                continue
+            }
+
+            let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                lines.append(text)
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    /// Extracts text from a specific region of the receipt
+    ///
+    /// Useful for targeted extraction (e.g., header, body, footer).
+    ///
+    /// - Parameters:
+    ///   - image: The receipt image
+    ///   - region: The region to extract from (.top, .middle, .bottom)
+    /// - Returns: Text from the specified region
+    /// - Throws: OCRError if recognition fails
+    func extractReceiptText(from image: UIImage, region: ReceiptRegion) async throws -> String {
+        let observations = try await extractText(from: image)
+
+        var filteredObservations: [VNRecognizedTextObservation] = []
+
+        for observation in observations {
+            let yPosition = observation.boundingBox.origin.y
+
+            switch region {
+            case .top:
+                // Top 25% of receipt (store name, date)
+                if yPosition >= 0.75 {
+                    filteredObservations.append(observation)
+                }
+            case .middle:
+                // Middle 50% of receipt (line items)
+                if yPosition >= 0.25 && yPosition < 0.75 {
+                    filteredObservations.append(observation)
+                }
+            case .bottom:
+                // Bottom 25% of receipt (totals)
+                if yPosition < 0.25 {
+                    filteredObservations.append(observation)
+                }
+            }
+        }
+
+        // Sort by vertical position
+        let sortedObservations = filteredObservations.sorted { obs1, obs2 in
+            obs1.boundingBox.origin.y > obs2.boundingBox.origin.y
+        }
+
+        var lines: [String] = []
+
+        for observation in sortedObservations {
+            guard let candidate = observation.topCandidates(1).first,
+                  candidate.confidence >= minimumConfidence else {
+                continue
+            }
+
+            let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                lines.append(text)
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    /// Receipt regions for targeted text extraction
+    enum ReceiptRegion {
+        case top    // Store name, date (top 25%)
+        case middle // Line items (middle 50%)
+        case bottom // Totals (bottom 25%)
     }
 }
 
