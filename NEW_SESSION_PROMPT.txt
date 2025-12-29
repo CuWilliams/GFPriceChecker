@@ -1,0 +1,90 @@
+I'm continuing development of GFPriceChecker, an iOS app for tracking gluten-free vs regular product price differentials for Canadian celiac tax deductions (CRA medical expense claims).
+
+PROJECT CONTEXT:
+- Tech Stack: Xcode 26.1.1, Swift 6, SwiftUI, SwiftData, iOS 26.0 minimum deployment
+- Architecture: MVVM with SwiftData persistence
+- Project Path: /home/user/GFPriceChecker
+- Git Repo: Active with remote tracking
+
+CURRENT STATUS:
+- Phases 1-6: ✅ COMPLETE and MERGED to main
+- Phase 6 just completed: Data Management, Error Handling, Accessibility, Onboarding
+- Session 22 (Performance Optimization): ⏸️ Deferred to post-MVP field trials
+- Build Status: Clean builds with no errors
+- Branch Status: Phase 6 merged, development branch deleted
+- MVP Status: Production-ready for field trials
+
+PHASE 6 SUMMARY (Just Completed):
+- Session 19: Settings & Preferences - DataBackupService, JSON export/import with Base64 images
+- Session 20: Error Handling - ErrorHandler.swift, ValidationRules.swift
+- Session 21: Accessibility - VoiceOver support, Dynamic Type
+- Session 22: Performance - Deferred (data-driven approach after field trials)
+- Session 23: Onboarding - 4-page TabView flow with camera permissions
+
+KEY FILES CREATED (Phase 6):
+- Services/DataBackupService.swift (421 lines)
+- Utilities/ErrorHandler.swift (328 lines)
+- Utilities/ValidationRules.swift (308 lines)
+- Views/Onboarding/OnboardingView.swift (515 lines)
+
+DOCUMENTATION:
+- claude.md: Comprehensive session documentation (all phases documented)
+- EXECUTION_PLAN.md: Master implementation roadmap
+- PR_PHASE_6.md: Phase 6 pull request documentation
+- PR_TITLE_AND_DESCRIPTION.txt: PR materials
+
+NEXT SESSION - SESSION 24: APP ICON & CODE CLEANUP
+This will be a focused polish session with TWO tasks only:
+
+1. APP ICON/LOGO IMPLEMENTATION
+   Current State:
+   - OnboardingView.swift uses SF Symbol placeholder "cart.fill" with gradient (line ~38-42)
+   - No custom app icon in Assets.xcassets/AppIcon.appiconset
+
+   Tasks:
+   - Ask user for logo file location and format
+   - Add app icon assets (all required iOS sizes: 1024x1024 for App Store, plus 180x180, 167x167, 152x152, 120x120, 87x87, 80x80, 76x76, 60x60, 58x58, 40x40, 29x29, 20x20)
+   - Update OnboardingView.swift Page 1 to use actual logo instead of SF Symbol
+   - Verify icon displays correctly in all contexts (Home screen, Settings, Spotlight)
+   - Test in both light/dark mode if applicable
+
+2. CODE WARNING CLEANUP
+   Tasks:
+   - Run full build to identify all compiler warnings
+   - Categorize warnings (unused variables, deprecations, type mismatches, etc.)
+   - Fix all warnings systematically
+   - Ensure Swift 6 compliance throughout
+   - Verify zero-warning clean build
+   - Ensure all core features still work after fixes
+
+GIT WORKFLOW FOR SESSION 24:
+1. Create new branch: claude/app-icon-cleanup-[sessionID]
+2. First commit: "Add app icon assets and implement logo in onboarding"
+3. Second commit: "Clean up compiler warnings and improve code quality"
+4. Final commit: "Update claude.md with Session 24 documentation"
+5. Push to remote branch
+6. Prepare PR: "Session 24: App Icon Implementation & Code Warning Cleanup"
+
+IMPORTANT NOTES:
+- This is a focused, polish-only session - NO new features
+- Keep changes minimal and targeted to the two objectives
+- All changes must maintain Swift 6 compliance
+- Clean builds with zero warnings required
+- Documentation in claude.md is mandatory for session tracking
+- Test core features after warning fixes to ensure no regressions
+
+FILES TO REVIEW FOR SESSION 24:
+- GFPriceChecker/Views/Onboarding/OnboardingView.swift (logo placeholder)
+- GFPriceChecker/Assets.xcassets/ (icon assets location)
+- All .swift files (for warning cleanup)
+
+WORKFLOW:
+1. Create development branch
+2. Ask me for logo file details (location, format, sizes available)
+3. Implement app icon and update OnboardingView
+4. Build project and collect all warnings
+5. Fix warnings systematically
+6. Update claude.md with Session 24 documentation
+7. Commit, push, prepare for PR
+
+Ready to start Session 24 when you ask for my logo file details.
