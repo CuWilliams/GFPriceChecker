@@ -41,6 +41,8 @@ struct SettingsView: View {
     @State private var isExporting = false
     @State private var isImporting = false
 
+    @State private var showingOnboarding = false
+
     // MARK: - Body
 
     var body: some View {
@@ -103,6 +105,9 @@ struct SettingsView: View {
                 .disabled(clearDataConfirmationText != "DELETE")
             } message: {
                 Text("This will permanently delete all products, receipts, and images. Your personal settings will be preserved. This action cannot be undone.")
+            }
+            .sheet(isPresented: $showingOnboarding) {
+                OnboardingView(isPresented: $showingOnboarding)
             }
         }
     }
@@ -216,9 +221,7 @@ struct SettingsView: View {
             }
 
             Button {
-                // Show onboarding again
-                settings.hasCompletedOnboarding = false
-                dismiss()
+                showingOnboarding = true
             } label: {
                 Label("How to Use", systemImage: "questionmark.circle")
             }

@@ -16,6 +16,11 @@ import SwiftData
 @main
 struct GFPriceCheckerApp: App {
 
+    // MARK: - State
+
+    /// Controls whether the onboarding view is presented
+    @State private var showOnboarding = false
+
     // MARK: - SwiftData Container Configuration
 
     /// Shared model container for the entire app
@@ -55,6 +60,15 @@ struct GFPriceCheckerApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .sheet(isPresented: $showOnboarding) {
+                    OnboardingView(isPresented: $showOnboarding)
+                }
+                .onAppear {
+                    // Show onboarding on first launch
+                    if !AppSettings.shared.hasCompletedOnboarding {
+                        showOnboarding = true
+                    }
+                }
         }
         .modelContainer(sharedModelContainer)
     }
