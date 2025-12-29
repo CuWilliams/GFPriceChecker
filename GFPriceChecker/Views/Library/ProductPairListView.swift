@@ -80,6 +80,8 @@ struct ProductPairListView: View {
                     } label: {
                         Label(filterSelection.title, systemImage: "line.3.horizontal.decrease.circle")
                     }
+                    .accessibilityLabel("Filter products")
+                    .accessibilityHint("Current filter: \(filterSelection.title)")
                 }
 
                 ToolbarItem(placement: .primaryAction) {
@@ -89,15 +91,21 @@ struct ProductPairListView: View {
                         } label: {
                             Label("Manual Entry", systemImage: "square.and.pencil")
                         }
+                        .accessibilityLabel("Add product manually")
+                        .accessibilityHint("Opens form to enter product information")
 
                         Button {
                             showingReceiptCapture = true
                         } label: {
                             Label("Verify with Receipt", systemImage: "doc.text.viewfinder")
                         }
+                        .accessibilityLabel("Verify with receipt")
+                        .accessibilityHint("Scan a receipt to verify products")
                     } label: {
                         Label("Add", systemImage: "plus")
                     }
+                    .accessibilityLabel("Add product")
+                    .accessibilityHint("Choose how to add a new product")
                 }
             }
             .sheet(isPresented: $showingManualEntry) {
@@ -117,6 +125,7 @@ struct ProductPairListView: View {
             Image(systemName: "books.vertical")
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true) // Decorative image
 
             Text("No Products Yet")
                 .font(.title2)
@@ -129,6 +138,9 @@ struct ProductPairListView: View {
                 .padding(.horizontal)
         }
         .padding()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No products yet")
+        .accessibilityHint("Start by adding your first product pair in the Capture tab")
     }
 
     /// View shown when filter results in no products
@@ -137,6 +149,7 @@ struct ProductPairListView: View {
             Image(systemName: filterSelection.icon)
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true) // Decorative image
 
             Text("No \(filterSelection.title)")
                 .font(.title2)
@@ -149,6 +162,9 @@ struct ProductPairListView: View {
                 .padding(.horizontal)
         }
         .padding()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No \(filterSelection.title.lowercased())")
+        .accessibilityHint(filterSelection.emptyMessage)
     }
 
     // MARK: - Product List
@@ -270,6 +286,26 @@ struct ProductPairRow: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Tap to view details")
+        .accessibilityValue(accessibilityValue)
+    }
+
+    // MARK: - Accessibility
+
+    /// VoiceOver label for the product row
+    private var accessibilityLabel: String {
+        let categoryText = productPair.category != nil ? ", \(productPair.category!)" : ""
+        return "\(productPair.gfProductName) compared to \(productPair.nonGFProductName)\(categoryText)"
+    }
+
+    /// VoiceOver value for the product row (dynamic info)
+    private var accessibilityValue: String {
+        let differential = formatCurrency(productPair.differential)
+        let verifiedStatus = productPair.verified ? "Verified" : "Not verified"
+        let receiptStatus = productPair.receipt != nil ? ", has receipt" : ""
+        return "Price difference \(differential), \(verifiedStatus)\(receiptStatus)"
     }
 
     // MARK: - Helper Views
