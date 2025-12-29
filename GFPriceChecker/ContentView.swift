@@ -55,8 +55,8 @@ struct ContentView: View {
                     Label("Library", systemImage: "books.vertical")
                 }
 
-            // Reports Tab - Future: SummaryDashboardView
-            Text("Reports")
+            // Reports Tab - Summary Dashboard
+            SummaryDashboardView()
                 .tabItem {
                     Label("Reports", systemImage: "chart.bar")
                 }
