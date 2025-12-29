@@ -241,7 +241,7 @@ final class ImageStorageService {
     /// Gets the total storage size used by images
     ///
     /// - Returns: Size in bytes, or nil if calculation fails
-    func getTotalStorageSize() async -> Int64? {
+    nonisolated func getTotalStorageSize() async -> Int64? {
         var totalSize: Int64 = 0
 
         let productURL = documentsDirectory.appendingPathComponent(ImageType.product.subdirectory)

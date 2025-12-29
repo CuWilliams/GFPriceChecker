@@ -190,7 +190,7 @@ struct ProductImageCaptureView: View {
 
                     ForEach(Array(extractedPrices.enumerated()), id: \.offset) { index, priceMatch in
                         HStack {
-                            Text("$\(priceMatch.amount)")
+                            Text(priceMatch.amount.formatted(.currency(code: "CAD")))
                                 .font(.body)
                                 .fontWeight(.medium)
 

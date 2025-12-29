@@ -311,14 +311,14 @@ struct SummaryDashboardView: View {
 private struct StatisticCard<Value: CVarArg>: View {
     let title: String
     let value: Value
-    let format: FormatStyle<Value, String>?
+    let format: (any FormatStyle<Value, String>)?
     let icon: String
     let color: Color
 
     init(
         title: String,
         value: Value,
-        format: FormatStyle<Value, String>? = nil,
+        format: (any FormatStyle<Value, String>)? = nil,
         icon: String,
         color: Color
     ) {
@@ -339,13 +339,17 @@ private struct StatisticCard<Value: CVarArg>: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let format = format as? FormatStyle<Decimal, String>,
+            if let format = format as? any FormatStyle<Decimal, String>,
                let decimalValue = value as? Decimal {
                 Text(decimalValue, format: format)
                     .font(.title3)
                     .fontWeight(.semibold)
+            } else if let decimalValue = value as? Decimal {
+                Text(decimalValue.formatted(.number))
+                    .font(.title3)
+                    .fontWeight(.semibold)
             } else {
-                Text("\(value)")
+                Text(String(describing: value))
                     .font(.title3)
                     .fontWeight(.semibold)
             }
