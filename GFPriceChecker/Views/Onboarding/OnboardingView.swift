@@ -148,12 +148,12 @@ struct OnboardingView: View {
             Image("GFPC_Logo")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 120, height: 120)
+                .frame(width: 240, height: 240)
                 .accessibilityHidden(true)
 
             // App name
-            Text("GF Price Checker")
-                .font(.system(size: 36, weight: .bold))
+            //Text("GF Price Checker")
+              //  .font(.system(size: 36, weight: .bold))
 
             // Tagline
             Text("Track the cost of eating gluten-free")
