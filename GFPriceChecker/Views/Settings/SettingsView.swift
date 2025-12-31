@@ -307,14 +307,24 @@ struct SettingsView: View {
             return
         }
 
-        // Ensure we stop accessing the resource when done
-        defer {
+        // Read file data synchronously while we have access to the security-scoped resource
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
             url.stopAccessingSecurityScopedResource()
+            errorMessage = "Failed to read backup file: \(error.localizedDescription)"
+            showingError = true
+            isImporting = false
+            return
         }
 
+        // Stop accessing the resource now that we have the data
+        url.stopAccessingSecurityScopedResource()
+
+        // Process the backup data asynchronously
         Task { @MainActor in
             do {
-                let data = try Data(contentsOf: url)
                 try await DataBackupService.shared.importBackup(
                     data: data,
                     modelContext: modelContext,
