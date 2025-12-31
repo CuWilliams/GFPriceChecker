@@ -138,12 +138,30 @@ struct ProductCaptureFlowView: View {
                 .fontWeight(.bold)
 
             VStack(alignment: .leading, spacing: 12) {
-                instructionRow(number: 1, text: "Scan the gluten-free product")
+                instructionRow(number: 1, text: "Photograph shelf price tag (GF product)", icon: "tag.fill")
                 instructionRow(number: 2, text: "Review and edit extracted data")
-                instructionRow(number: 3, text: "Scan the regular equivalent")
+                instructionRow(number: 3, text: "Photograph shelf price tag (regular product)", icon: "tag.fill")
                 instructionRow(number: 4, text: "Review and finalize")
             }
             .padding()
+
+            // Guidance note
+            HStack(spacing: 8) {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundStyle(.yellow)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Best Results")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    Text("Photograph shelf price tags for best OCR accuracy. They contain both product name and price clearly.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+            .background(Color.yellow.opacity(0.1))
+            .cornerRadius(8)
+            .padding(.horizontal)
 
             Button {
                 currentStep = .captureGF
@@ -164,7 +182,7 @@ struct ProductCaptureFlowView: View {
         .padding()
     }
 
-    private func instructionRow(number: Int, text: String) -> some View {
+    private func instructionRow(number: Int, text: String, icon: String? = nil) -> some View {
         HStack(spacing: 12) {
             Text("\(number)")
                 .font(.headline)
@@ -172,6 +190,11 @@ struct ProductCaptureFlowView: View {
                 .frame(width: 32, height: 32)
                 .background(Color.blue)
                 .clipShape(Circle())
+
+            if let icon = icon {
+                Image(systemName: icon)
+                    .foregroundStyle(.blue)
+            }
 
             Text(text)
                 .font(.body)
@@ -194,10 +217,24 @@ struct ProductCaptureFlowView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Use the camera to scan the product label")
-                .font(.body)
+            // Guidance tip
+            HStack(spacing: 8) {
+                Image(systemName: "tag.fill")
+                    .foregroundStyle(.blue)
+                Text("💡 TIP: Photograph the shelf price tag for best OCR accuracy")
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+            }
+            .padding()
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(8)
+            .padding(.horizontal)
+
+            Text("Shelf tags contain both product name and price. You can also photograph product packaging if preferred.")
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal)
 
             Spacer()
         }
