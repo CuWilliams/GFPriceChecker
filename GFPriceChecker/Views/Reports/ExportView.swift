@@ -57,6 +57,8 @@ struct ExportView: View {
     // Unverified products warning
     @State private var showingUnverifiedWarning = false
     @State private var unverifiedProductCount = 0
+    @State private var pendingExportAction: ExportAction?
+    @State private var userConfirmedExport = false
 
     // Document picker state
     @State private var showingDocumentPicker = false
@@ -64,6 +66,13 @@ struct ExportView: View {
     // Share sheet state
     @State private var showingShareSheet = false
     @State private var shareItems: [Any] = []
+
+    // Export action type for warning flow
+    private enum ExportAction {
+        case saveToFiles
+        case share
+        case email
+    }
 
     // MARK: - Computed Properties
 
@@ -156,11 +165,37 @@ struct ExportView: View {
             }
             .alert("Unverified Products Found", isPresented: $showingUnverifiedWarning) {
                 Button("Continue Export", role: .none) {
-                    // Continue with export
+                    // User confirmed - set flag to trigger export via .onChange()
+                    userConfirmedExport = true
                 }
-                Button("Cancel", role: .cancel) { }
+                Button("Cancel", role: .cancel) {
+                    pendingExportAction = nil
+                    userConfirmedExport = false
+                }
             } message: {
                 Text("\(unverifiedProductCount) product(s) lack receipt verification. These will appear in a separate \"Unverified Products\" section. For complete tax documentation, consider obtaining receipts for all products.")
+            }
+            .onChange(of: userConfirmedExport) { oldValue, newValue in
+                // When user confirms the warning, perform the pending export
+                if newValue == true, let action = pendingExportAction {
+                    userConfirmedExport = false // Reset flag
+                    pendingExportAction = nil
+
+                    // Perform export after alert dismisses
+                    Task {
+                        // Small delay to ensure alert is fully dismissed before presenting share sheet
+                        try? await Task.sleep(for: .milliseconds(300))
+
+                        switch action {
+                        case .saveToFiles:
+                            await performSaveToFiles()
+                        case .share:
+                            await performShare()
+                        case .email:
+                            await performEmail()
+                        }
+                    }
+                }
             }
             .sheet(isPresented: $showingShareSheet) {
                 if !shareItems.isEmpty {
@@ -472,6 +507,82 @@ struct ExportView: View {
 
     /// Generate export file and save to Files app
     private func generateAndSaveToFiles() async {
+        // Check for unverified products in PDF export
+        if exportFormat == .pdf {
+            if await checkForUnverifiedProducts() {
+                pendingExportAction = .saveToFiles
+                return
+            }
+        }
+
+        await performSaveToFiles()
+    }
+
+    /// Generate export file and show share sheet
+    private func generateAndShare() async {
+        // Check for unverified products in PDF export
+        if exportFormat == .pdf {
+            if await checkForUnverifiedProducts() {
+                pendingExportAction = .share
+                return
+            }
+        }
+
+        await performShare()
+    }
+
+    /// Generate export file and open email with attachment
+    private func generateAndEmail() async {
+        // Check for unverified products in PDF export
+        if exportFormat == .pdf {
+            if await checkForUnverifiedProducts() {
+                pendingExportAction = .email
+                return
+            }
+        }
+
+        await performEmail()
+    }
+
+    /// Check for unverified products and show warning if found
+    /// Returns true if warning was shown (export should be deferred), false if export should proceed
+    private func checkForUnverifiedProducts() async -> Bool {
+        // Filter products by PDF year
+        let calendar = Calendar.current
+        let yearProducts = allProducts.filter { product in
+            calendar.component(.year, from: product.reportingDate) == pdfYear
+        }
+
+        // Check for unverified products
+        let unverifiedCount = yearProducts.filter { !$0.verified }.count
+        if unverifiedCount > 0 {
+            await MainActor.run {
+                unverifiedProductCount = unverifiedCount
+                showingUnverifiedWarning = true
+            }
+            return true // Warning shown, defer export
+        }
+
+        return false // No warning, proceed with export
+    }
+
+    /// Perform the pending export action after user confirms warning
+    private func performPendingExport() async {
+        guard let action = pendingExportAction else { return }
+        pendingExportAction = nil
+
+        switch action {
+        case .saveToFiles:
+            await performSaveToFiles()
+        case .share:
+            await performShare()
+        case .email:
+            await performEmail()
+        }
+    }
+
+    /// Actually perform save to files (after warning check)
+    private func performSaveToFiles() async {
         isGenerating = true
         defer { isGenerating = false }
 
@@ -492,8 +603,8 @@ struct ExportView: View {
         }
     }
 
-    /// Generate export file and show share sheet
-    private func generateAndShare() async {
+    /// Actually perform share (after warning check)
+    private func performShare() async {
         isGenerating = true
         defer { isGenerating = false }
 
@@ -510,8 +621,8 @@ struct ExportView: View {
         }
     }
 
-    /// Generate export file and open email with attachment
-    private func generateAndEmail() async {
+    /// Actually perform email (after warning check)
+    private func performEmail() async {
         isGenerating = true
         defer { isGenerating = false }
 
@@ -555,17 +666,7 @@ struct ExportView: View {
                 calendar.component(.year, from: receipt.purchaseDate) == pdfYear
             }
 
-            // Check for unverified products
-            let unverifiedCount = yearProducts.filter { !$0.verified }.count
-            if unverifiedCount > 0 {
-                unverifiedProductCount = unverifiedCount
-                await MainActor.run {
-                    showingUnverifiedWarning = true
-                }
-                // Wait for user response (alert will handle continuation)
-                // Note: For now, we'll just show the warning and continue
-            }
-
+            // Generate PDF (unverified products check already done upstream)
             return try await PDFGeneratorService.shared.generatePDF(
                 products: yearProducts,
                 receipts: yearReceipts,

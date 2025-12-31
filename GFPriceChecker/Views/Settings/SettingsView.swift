@@ -299,9 +299,32 @@ struct SettingsView: View {
     private func importData(from url: URL) {
         isImporting = true
 
+        // Request access to security-scoped resource (required for files outside app sandbox)
+        guard url.startAccessingSecurityScopedResource() else {
+            errorMessage = "Failed to access the backup file. Please ensure the file is accessible and try again."
+            showingError = true
+            isImporting = false
+            return
+        }
+
+        // Read file data synchronously while we have access to the security-scoped resource
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            url.stopAccessingSecurityScopedResource()
+            errorMessage = "Failed to read backup file: \(error.localizedDescription)"
+            showingError = true
+            isImporting = false
+            return
+        }
+
+        // Stop accessing the resource now that we have the data
+        url.stopAccessingSecurityScopedResource()
+
+        // Process the backup data asynchronously
         Task { @MainActor in
             do {
-                let data = try Data(contentsOf: url)
                 try await DataBackupService.shared.importBackup(
                     data: data,
                     modelContext: modelContext,
