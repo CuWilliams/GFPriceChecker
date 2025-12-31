@@ -18,6 +18,9 @@ struct GFPriceCheckerApp: App {
 
     // MARK: - State
 
+    /// Controls whether the launch screen is displayed
+    @State private var showLaunchScreen = true
+
     /// Controls whether the onboarding view is presented
     @State private var showOnboarding = false
 
@@ -59,16 +62,33 @@ struct GFPriceCheckerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .sheet(isPresented: $showOnboarding) {
-                    OnboardingView(isPresented: $showOnboarding)
-                }
-                .onAppear {
-                    // Show onboarding on first launch
-                    if !AppSettings.shared.hasCompletedOnboarding {
-                        showOnboarding = true
+            ZStack {
+                // Main app content
+                ContentView()
+                    .sheet(isPresented: $showOnboarding) {
+                        OnboardingView(isPresented: $showOnboarding)
                     }
+                    .onAppear {
+                        // Show onboarding on first launch
+                        if !AppSettings.shared.hasCompletedOnboarding {
+                            showOnboarding = true
+                        }
+
+                        // Dismiss launch screen after delay with smooth transition
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation(.easeOut(duration: 0.6)) {
+                                showLaunchScreen = false
+                            }
+                        }
+                    }
+
+                // Launch screen overlay
+                if showLaunchScreen {
+                    LaunchScreenView()
+                        .transition(.opacity)
+                        .zIndex(1)
                 }
+            }
         }
         .modelContainer(sharedModelContainer)
     }
