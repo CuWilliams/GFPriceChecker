@@ -128,7 +128,7 @@ struct ReceiptDetailView: View {
         }
         .sheet(isPresented: $showingImageViewer) {
             if let image = receiptImage {
-                ReceiptImageViewer(image: image)
+                ImageViewer(image: image, title: "Receipt Image")
             }
         }
         .task {
@@ -267,108 +267,6 @@ struct ReceiptDetailView: View {
             dismiss()
         } catch {
             print("❌ Failed to delete receipt: \(error)")
-        }
-    }
-}
-
-// MARK: - Receipt Image Viewer
-
-/// Full-screen zoomable receipt image viewer
-struct ReceiptImageViewer: View {
-
-    // MARK: - Environment
-
-    @Environment(\.dismiss) private var dismiss
-
-    // MARK: - Properties
-
-    let image: UIImage
-
-    // MARK: - State
-
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-
-    // MARK: - Body
-
-    var body: some View {
-        NavigationStack {
-            GeometryReader { geometry in
-                ZStack {
-                    Color.black.ignoresSafeArea()
-
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .scaleEffect(scale)
-                        .offset(offset)
-                        .gesture(
-                            MagnificationGesture()
-                                .onChanged { value in
-                                    let delta = value / lastScale
-                                    lastScale = value
-                                    scale *= delta
-                                }
-                                .onEnded { _ in
-                                    lastScale = 1.0
-                                    // Constrain scale
-                                    if scale < 1.0 {
-                                        withAnimation {
-                                            scale = 1.0
-                                        }
-                                    } else if scale > 4.0 {
-                                        withAnimation {
-                                            scale = 4.0
-                                        }
-                                    }
-                                }
-                        )
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    offset = CGSize(
-                                        width: lastOffset.width + value.translation.width,
-                                        height: lastOffset.height + value.translation.height
-                                    )
-                                }
-                                .onEnded { _ in
-                                    lastOffset = offset
-                                }
-                        )
-                        .onTapGesture(count: 2) {
-                            // Double-tap to reset zoom
-                            withAnimation {
-                                scale = 1.0
-                                offset = .zero
-                                lastOffset = .zero
-                            }
-                        }
-                }
-            }
-            .navigationTitle("Receipt Image")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        // Reset zoom
-                        withAnimation {
-                            scale = 1.0
-                            offset = .zero
-                            lastOffset = .zero
-                        }
-                    } label: {
-                        Label("Reset Zoom", systemImage: "arrow.counterclockwise")
-                    }
-                }
-            }
         }
     }
 }
