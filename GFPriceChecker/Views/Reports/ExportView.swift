@@ -508,9 +508,11 @@ struct ExportView: View {
     /// Generate export file and save to Files app
     private func generateAndSaveToFiles() async {
         // Check for unverified products in PDF export
-        if exportFormat == .pdf && await checkForUnverifiedProducts() {
-            pendingExportAction = .saveToFiles
-            return
+        if exportFormat == .pdf {
+            if await checkForUnverifiedProducts() {
+                pendingExportAction = .saveToFiles
+                return
+            }
         }
 
         await performSaveToFiles()
@@ -519,9 +521,11 @@ struct ExportView: View {
     /// Generate export file and show share sheet
     private func generateAndShare() async {
         // Check for unverified products in PDF export
-        if exportFormat == .pdf && await checkForUnverifiedProducts() {
-            pendingExportAction = .share
-            return
+        if exportFormat == .pdf {
+            if await checkForUnverifiedProducts() {
+                pendingExportAction = .share
+                return
+            }
         }
 
         await performShare()
@@ -530,9 +534,11 @@ struct ExportView: View {
     /// Generate export file and open email with attachment
     private func generateAndEmail() async {
         // Check for unverified products in PDF export
-        if exportFormat == .pdf && await checkForUnverifiedProducts() {
-            pendingExportAction = .email
-            return
+        if exportFormat == .pdf {
+            if await checkForUnverifiedProducts() {
+                pendingExportAction = .email
+                return
+            }
         }
 
         await performEmail()
