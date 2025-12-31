@@ -43,6 +43,7 @@ final class PDFGeneratorService {
     ///
     /// - Parameters:
     ///   - products: Product pairs to include in report
+    ///   - receipts: Receipts to include images for in report
     ///   - year: Tax year for the report
     ///   - userName: User's name for cover page (optional)
     ///   - paperSize: Paper size (US Letter or A4)
@@ -50,12 +51,44 @@ final class PDFGeneratorService {
     /// - Throws: Error if PDF generation fails
     func generatePDF(
         products: [ProductPair],
+        receipts: [Receipt],
         year: Int,
         userName: String?,
         paperSize: PaperSize
     ) async throws -> URL {
         // Sort products by reporting date
         let sortedProducts = products.sorted { $0.reportingDate < $1.reportingDate }
+
+        // Separate verified and unverified products
+        let verifiedProducts = sortedProducts.filter { $0.verified }
+        let unverifiedProducts = sortedProducts.filter { !$0.verified }
+
+        // Group verified products by receipt
+        var productsByReceipt: [String: [ProductPair]] = [:]
+        for product in verifiedProducts {
+            if let receiptID = product.receipt?.id.uuidString {
+                productsByReceipt[receiptID, default: []].append(product)
+            }
+        }
+
+        // Get unique receipts with products
+        let receiptsWithProducts = receipts.filter { receipt in
+            productsByReceipt[receipt.id.uuidString] != nil
+        }
+
+        print("📄 DEBUG: Generating PDF with \(receiptsWithProducts.count) receipts, \(verifiedProducts.count) verified products, \(unverifiedProducts.count) unverified products")
+
+        // Pre-load receipt images (async loading before PDF generation)
+        var receiptImages: [String: UIImage] = [:]
+        for receipt in receiptsWithProducts {
+            if let imageUUID = receipt.receiptImageUUID,
+               let image = await ImageStorageService.shared.retrieveImage(uuid: imageUUID, type: .receipt) {
+                receiptImages[receipt.id.uuidString] = image
+                print("📄 DEBUG: Loaded image for receipt \(receipt.id.uuidString)")
+            } else {
+                print("📄 DEBUG: No image available for receipt \(receipt.id.uuidString)")
+            }
+        }
 
         // Calculate page bounds
         let pageRect = CGRect(origin: .zero, size: paperSize.size)
@@ -83,7 +116,9 @@ final class PDFGeneratorService {
                 contentRect: contentRect,
                 year: year,
                 userName: userName,
-                totalDifferential: calculateTotalDifferential(products: sortedProducts)
+                totalDifferential: calculateTotalDifferential(products: sortedProducts),
+                productCount: sortedProducts.count,
+                receiptCount: receiptsWithProducts.count
             )
 
             // Page 2: Summary Statistics
@@ -97,13 +132,16 @@ final class PDFGeneratorService {
                 pageNumber: 2
             )
 
-            // Page 3+: Detailed Transaction List
-            context.beginPage()
-            drawTransactionPages(
+            // Page 3+: Detailed Transaction List with Receipt Images
+            drawTransactionAndReceiptPages(
                 context: context,
                 pageRect: pageRect,
                 contentRect: contentRect,
-                products: sortedProducts,
+                verifiedProducts: verifiedProducts,
+                unverifiedProducts: unverifiedProducts,
+                receiptsWithProducts: receiptsWithProducts,
+                productsByReceipt: productsByReceipt,
+                receiptImages: receiptImages,
                 startingPageNumber: 3
             )
         }
@@ -130,7 +168,9 @@ final class PDFGeneratorService {
         contentRect: CGRect,
         year: Int,
         userName: String?,
-        totalDifferential: Decimal
+        totalDifferential: Decimal,
+        productCount: Int,
+        receiptCount: Int
     ) {
         let centerX = pageRect.width / 2
         var yPosition: CGFloat = margin + 80
@@ -232,6 +272,19 @@ final class PDFGeneratorService {
         totalLabel.draw(
             at: CGPoint(x: centerX - totalLabelSize.width / 2, y: yPosition),
             withAttributes: totalLabelAttrs
+        )
+        yPosition += 40
+
+        // Product and Receipt Summary
+        let summaryText = "\(productCount) products verified with \(receiptCount) receipts"
+        let summaryAttrs: [NSAttributedString.Key: Any] = [
+            .font: bodyFont,
+            .foregroundColor: secondaryColor
+        ]
+        let summarySize = summaryText.size(withAttributes: summaryAttrs)
+        summaryText.draw(
+            at: CGPoint(x: centerX - summarySize.width / 2, y: yPosition),
+            withAttributes: summaryAttrs
         )
 
         // Footer
@@ -441,6 +494,258 @@ final class PDFGeneratorService {
     }
 
     // MARK: - Transaction Pages
+
+    /// Draws transaction pages with receipt images inserted after each receipt's products
+    private func drawTransactionAndReceiptPages(
+        context: UIGraphicsPDFRendererContext,
+        pageRect: CGRect,
+        contentRect: CGRect,
+        verifiedProducts: [ProductPair],
+        unverifiedProducts: [ProductPair],
+        receiptsWithProducts: [Receipt],
+        productsByReceipt: [String: [ProductPair]],
+        receiptImages: [String: UIImage],
+        startingPageNumber: Int
+    ) {
+        var pageNumber = startingPageNumber
+        var yPosition = contentRect.minY
+        var isFirstPage = true
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        // MARK: - Verified Products by Receipt
+
+        if !receiptsWithProducts.isEmpty {
+            // Sort receipts by purchase date
+            let sortedReceipts = receiptsWithProducts.sorted { $0.purchaseDate < $1.purchaseDate }
+
+            for receipt in sortedReceipts {
+                guard let products = productsByReceipt[receipt.id.uuidString] else { continue }
+                let sortedProducts = products.sorted { $0.reportingDate < $1.reportingDate }
+
+                // Draw receipt section header
+                if yPosition + 100 > contentRect.maxY {
+                    // Start new page if not enough space
+                    drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+                    context.beginPage()
+                    pageNumber += 1
+                    yPosition = contentRect.minY
+                    isFirstPage = false
+                }
+
+                // Page title on first page only
+                if isFirstPage {
+                    let title = "Verified Products with Receipts"
+                    let titleAttrs: [NSAttributedString.Key: Any] = [
+                        .font: titleFont,
+                        .foregroundColor: primaryColor
+                    ]
+                    title.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: titleAttrs)
+                    yPosition += 40
+                    isFirstPage = false
+                }
+
+                // Receipt header
+                let receiptTitle = "Receipt - \(receipt.storeName ?? "Unknown Store") - \(dateFormatter.string(from: receipt.purchaseDate))"
+                let receiptTitleAttrs: [NSAttributedString.Key: Any] = [
+                    .font: headingFont,
+                    .foregroundColor: secondaryColor
+                ]
+                receiptTitle.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: receiptTitleAttrs)
+                yPosition += 30
+
+                // Table header
+                yPosition = drawTransactionHeader(context: context.cgContext, contentRect: contentRect, yPosition: yPosition)
+
+                // Draw products for this receipt
+                for (index, product) in sortedProducts.enumerated() {
+                    if yPosition + 20 > contentRect.maxY {
+                        drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+                        context.beginPage()
+                        pageNumber += 1
+                        yPosition = contentRect.minY
+                        // Re-draw header on new page
+                        yPosition = drawTransactionHeader(context: context.cgContext, contentRect: contentRect, yPosition: yPosition)
+                    }
+
+                    yPosition = drawTransactionRow(
+                        context: context.cgContext,
+                        contentRect: contentRect,
+                        yPosition: yPosition,
+                        product: product,
+                        dateFormatter: dateFormatter,
+                        isAlternate: index % 2 == 0
+                    )
+                }
+
+                yPosition += 10
+
+                // Receipt subtotal
+                let subtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.differential }
+                let subtotalText = "Receipt Subtotal: \(subtotal.formatted(.currency(code: "CAD")))"
+                let subtotalAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
+                    .foregroundColor: accentColor
+                ]
+                let subtotalSize = subtotalText.size(withAttributes: subtotalAttrs)
+                subtotalText.draw(at: CGPoint(x: contentRect.maxX - subtotalSize.width - 10, y: yPosition), withAttributes: subtotalAttrs)
+                yPosition += 30
+
+                // MARK: - Receipt Image Page
+
+                // Start new page for receipt image
+                drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+                context.beginPage()
+                pageNumber += 1
+
+                drawReceiptImagePage(
+                    context: context.cgContext,
+                    pageRect: pageRect,
+                    contentRect: contentRect,
+                    receipt: receipt,
+                    verifiedProducts: sortedProducts,
+                    receiptImage: receiptImages[receipt.id.uuidString]
+                )
+
+                drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+
+                // Prepare for next receipt or section
+                yPosition = contentRect.minY
+            }
+        }
+
+        // MARK: - Unverified Products Section
+
+        if !unverifiedProducts.isEmpty {
+            // Start new page for unverified section
+            context.beginPage()
+            pageNumber += 1
+            yPosition = contentRect.minY
+
+            let unverifiedTitle = "Unverified Products (No Receipt)"
+            let unverifiedTitleAttrs: [NSAttributedString.Key: Any] = [
+                .font: titleFont,
+                .foregroundColor: UIColor.systemRed
+            ]
+            unverifiedTitle.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: unverifiedTitleAttrs)
+            yPosition += 30
+
+            // Warning message
+            let warningText = "⚠️ These products lack receipt verification. Consider obtaining receipts for tax documentation."
+            let warningAttrs: [NSAttributedString.Key: Any] = [
+                .font: bodyFont,
+                .foregroundColor: UIColor.systemOrange
+            ]
+            let warningRect = CGRect(x: contentRect.minX, y: yPosition, width: contentRect.width, height: 40)
+            warningText.draw(in: warningRect, withAttributes: warningAttrs)
+            yPosition += 50
+
+            // Table header
+            yPosition = drawTransactionHeader(context: context.cgContext, contentRect: contentRect, yPosition: yPosition)
+
+            // Draw unverified products
+            for (index, product) in unverifiedProducts.enumerated() {
+                if yPosition + 20 > contentRect.maxY {
+                    drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+                    context.beginPage()
+                    pageNumber += 1
+                    yPosition = contentRect.minY
+                    yPosition = drawTransactionHeader(context: context.cgContext, contentRect: contentRect, yPosition: yPosition)
+                }
+
+                yPosition = drawTransactionRow(
+                    context: context.cgContext,
+                    contentRect: contentRect,
+                    yPosition: yPosition,
+                    product: product,
+                    dateFormatter: dateFormatter,
+                    isAlternate: index % 2 == 0
+                )
+            }
+
+            yPosition += 10
+
+            // Unverified subtotal
+            let unverifiedSubtotal = unverifiedProducts.reduce(Decimal.zero) { $0 + $1.differential }
+            let unverifiedSubtotalText = "Unverified Subtotal: \(unverifiedSubtotal.formatted(.currency(code: "CAD")))"
+            let unverifiedSubtotalAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
+                .foregroundColor: UIColor.systemOrange
+            ]
+            let unverifiedSubtotalSize = unverifiedSubtotalText.size(withAttributes: unverifiedSubtotalAttrs)
+            unverifiedSubtotalText.draw(at: CGPoint(x: contentRect.maxX - unverifiedSubtotalSize.width - 10, y: yPosition), withAttributes: unverifiedSubtotalAttrs)
+            yPosition += 30
+        }
+
+        // Draw final footer
+        drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: pageNumber)
+    }
+
+    /// Draws a receipt image page with verified products caption
+    private func drawReceiptImagePage(
+        context: CGContext,
+        pageRect: CGRect,
+        contentRect: CGRect,
+        receipt: Receipt,
+        verifiedProducts: [ProductPair],
+        receiptImage: UIImage?
+    ) {
+        var yPosition = contentRect.minY
+
+        // Page title
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMMM d, yyyy"
+        let title = "Receipt - \(receipt.storeName ?? "Unknown Store") - \(dateFormatter.string(from: receipt.purchaseDate))"
+        let titleAttrs: [NSAttributedString.Key: Any] = [
+            .font: titleFont,
+            .foregroundColor: primaryColor
+        ]
+        title.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: titleAttrs)
+        yPosition += 50
+
+        // Draw receipt image
+        if let image = receiptImage {
+            // Calculate image size to fit page (maintain aspect ratio)
+            let maxImageHeight = contentRect.height - 150 // Leave space for title and caption
+            let imageSize = image.size
+            let aspectRatio = imageSize.height / imageSize.width
+
+            var drawWidth = contentRect.width
+            var drawHeight = drawWidth * aspectRatio
+
+            if drawHeight > maxImageHeight {
+                drawHeight = maxImageHeight
+                drawWidth = drawHeight / aspectRatio
+            }
+
+            let imageX = contentRect.minX + (contentRect.width - drawWidth) / 2
+            let imageRect = CGRect(x: imageX, y: yPosition, width: drawWidth, height: drawHeight)
+            image.draw(in: imageRect)
+            yPosition += drawHeight + 20
+
+        } else {
+            // Image not available
+            let noImageText = "Receipt Image Not Available"
+            let noImageAttrs: [NSAttributedString.Key: Any] = [
+                .font: headingFont,
+                .foregroundColor: secondaryColor
+            ]
+            let noImageSize = noImageText.size(withAttributes: noImageAttrs)
+            noImageText.draw(at: CGPoint(x: contentRect.minX + (contentRect.width - noImageSize.width) / 2, y: yPosition + 100), withAttributes: noImageAttrs)
+            yPosition += 200
+        }
+
+        // Caption: Verified Products
+        let productNames = verifiedProducts.map { $0.gfProductName }.joined(separator: ", ")
+        let caption = "Verified Products: \(productNames)"
+        let captionAttrs: [NSAttributedString.Key: Any] = [
+            .font: bodyFont,
+            .foregroundColor: secondaryColor
+        ]
+        let captionRect = CGRect(x: contentRect.minX, y: yPosition, width: contentRect.width, height: 60)
+        caption.draw(in: captionRect, withAttributes: captionAttrs)
+    }
 
     private func drawTransactionPages(
         context: UIGraphicsPDFRendererContext,

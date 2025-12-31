@@ -33,6 +33,10 @@ struct ExportView: View {
     @Query(sort: \ProductPair.createdDate, order: .reverse)
     private var allProducts: [ProductPair]
 
+    /// All receipts from database
+    @Query(sort: \Receipt.purchaseDate, order: .reverse)
+    private var allReceipts: [Receipt]
+
     // MARK: - State
 
     @State private var exportFormat: ExportFormat = .csv
@@ -49,6 +53,10 @@ struct ExportView: View {
     @State private var generatedCSVURL: URL?
     @State private var errorMessage: String?
     @State private var showingError = false
+
+    // Unverified products warning
+    @State private var showingUnverifiedWarning = false
+    @State private var unverifiedProductCount = 0
 
     // Document picker state
     @State private var showingDocumentPicker = false
@@ -145,6 +153,14 @@ struct ExportView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(errorMessage ?? "An unknown error occurred")
+            }
+            .alert("Unverified Products Found", isPresented: $showingUnverifiedWarning) {
+                Button("Continue Export", role: .none) {
+                    // Continue with export
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("\(unverifiedProductCount) product(s) lack receipt verification. These will appear in a separate \"Unverified Products\" section. For complete tax documentation, consider obtaining receipts for all products.")
             }
             .sheet(isPresented: $showingShareSheet) {
                 if !shareItems.isEmpty {
@@ -534,8 +550,25 @@ struct ExportView: View {
                 calendar.component(.year, from: product.reportingDate) == pdfYear
             }
 
+            // Filter receipts by PDF year
+            let yearReceipts = allReceipts.filter { receipt in
+                calendar.component(.year, from: receipt.purchaseDate) == pdfYear
+            }
+
+            // Check for unverified products
+            let unverifiedCount = yearProducts.filter { !$0.verified }.count
+            if unverifiedCount > 0 {
+                unverifiedProductCount = unverifiedCount
+                await MainActor.run {
+                    showingUnverifiedWarning = true
+                }
+                // Wait for user response (alert will handle continuation)
+                // Note: For now, we'll just show the warning and continue
+            }
+
             return try await PDFGeneratorService.shared.generatePDF(
                 products: yearProducts,
+                receipts: yearReceipts,
                 year: pdfYear,
                 userName: AppSettings.shared.userName,
                 paperSize: paperSize

@@ -34,12 +34,33 @@ struct ProductPairDetailView: View {
     /// Controls the visibility of the delete confirmation alert
     @State private var showingDeleteAlert = false
 
+    /// Controls the visibility of the image viewer
+    @State private var showingImageViewer = false
+
+    /// The image currently selected for full-screen viewing
+    @State private var selectedImage: UIImage?
+
+    /// Selected image title for viewer
+    @State private var selectedImageTitle: String = ""
+
+    /// Gluten-free product image loaded from storage
+    @State private var gfProductImage: UIImage?
+
+    /// Non-gluten-free product image loaded from storage
+    @State private var nonGFProductImage: UIImage?
+
+    /// Loading state for images
+    @State private var isLoadingImages = false
+
     // MARK: - Body
 
     var body: some View {
         List {
             // Differential Section
             differentialSection
+
+            // Product Images Section
+            productImagesSection
 
             // Gluten-Free Product Section
             gfProductSection
@@ -89,6 +110,14 @@ struct ProductPairDetailView: View {
             }
         } message: {
             Text("This action cannot be undone.")
+        }
+        .sheet(isPresented: $showingImageViewer) {
+            if let image = selectedImage {
+                ImageViewer(image: image, title: selectedImageTitle)
+            }
+        }
+        .task {
+            await loadProductImages()
         }
     }
 
@@ -203,6 +232,110 @@ struct ProductPairDetailView: View {
         }
     }
 
+    /// Product images section showing side-by-side images
+    private var productImagesSection: some View {
+        Section {
+            if isLoadingImages {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .padding()
+            } else if gfProductImage != nil || nonGFProductImage != nil {
+                HStack(spacing: 16) {
+                    // GF Product Image
+                    productImageView(
+                        image: gfProductImage,
+                        title: "Gluten-Free",
+                        productName: productPair.gfProductName
+                    )
+                    .frame(maxWidth: .infinity)
+
+                    // Non-GF Product Image
+                    productImageView(
+                        image: nonGFProductImage,
+                        title: "Regular",
+                        productName: productPair.nonGFProductName
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .padding(.vertical, 8)
+            } else {
+                // No images placeholder
+                HStack {
+                    Spacer()
+                    VStack(spacing: 8) {
+                        Image(systemName: "photo")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.secondary)
+                        Text("No Product Images")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    Spacer()
+                }
+            }
+        } header: {
+            Label("Product Images", systemImage: "photo.on.rectangle")
+        }
+    }
+
+    /// Individual product image view with tap gesture
+    private func productImageView(image: UIImage?, title: String, productName: String) -> some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let image = image {
+                Button {
+                    selectedImage = image
+                    selectedImageTitle = "\(title) - \(productName)"
+                    // Delay sheet presentation to ensure state updates complete
+                    Task { @MainActor in
+                        showingImageViewer = true
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 120)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.caption2)
+                            Text("Tap to expand")
+                                .font(.caption2)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "photo")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary)
+                    Text("No Image")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .background(Color.gray.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
     // MARK: - Helper Views
 
     /// OCR confidence indicator
@@ -255,6 +388,29 @@ struct ProductPairDetailView: View {
     private func deleteProductPair() {
         modelContext.delete(productPair)
         dismiss()
+    }
+
+    /// Loads product images from storage
+    private func loadProductImages() async {
+        isLoadingImages = true
+
+        // Load GF product image
+        if let gfUUID = productPair.gfImageUUID {
+            gfProductImage = await ImageStorageService.shared.retrieveImage(
+                uuid: gfUUID,
+                type: .product
+            )
+        }
+
+        // Load non-GF product image
+        if let nonGFUUID = productPair.nonGFImageUUID {
+            nonGFProductImage = await ImageStorageService.shared.retrieveImage(
+                uuid: nonGFUUID,
+                type: .product
+            )
+        }
+
+        isLoadingImages = false
     }
 }
 
