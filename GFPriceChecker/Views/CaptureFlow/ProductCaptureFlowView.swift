@@ -58,6 +58,11 @@ struct ProductCaptureFlowView: View {
     @State private var category: String = ""
     @State private var notes: String = ""
 
+    // Price Selection State
+    @State private var showingPriceSelection = false
+    @State private var priceCandidates: [PriceMatch] = []
+    @State private var isSelectingGFPrice = false
+
     // MARK: - Body
 
     var body: some View {
@@ -84,6 +89,16 @@ struct ProductCaptureFlowView: View {
                 DocumentScannerView { image in
                     handleScannedImage(image)
                 }
+            }
+            .alert("Select Price", isPresented: $showingPriceSelection) {
+                ForEach(Array(priceCandidates.prefix(3).enumerated()), id: \.offset) { index, candidate in
+                    Button("$\(candidate.amount) (score: \(String(format: "%.2f", candidate.rankingScore)))") {
+                        selectPriceCandidate(candidate)
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Multiple prices detected. Please select the correct product price.")
             }
         }
     }
@@ -513,14 +528,30 @@ struct ProductCaptureFlowView: View {
                 gfImage = image
                 gfImageUUID = uuid
                 gfProductName = productName ?? ""
-                if let topPrice = prices?.first {
-                    gfPriceText = String(describing: topPrice.amount)
-                    gfOCRConfidence = topPrice.confidence
 
-                    // Trigger haptic feedback if confidence is low
-                    if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
-                        await MainActor.run {
-                            triggerHapticFeedback(for: topPrice.confidence)
+                // Handle price candidates
+                if let allPrices = prices, !allPrices.isEmpty {
+                    let topPrice = allPrices.first!
+
+                    // Check if we should show price selection alert
+                    // Show alert if: top candidate quality < high AND multiple candidates exist
+                    if topPrice.quality != .high && allPrices.count > 1 {
+                        // Store candidates and show selection alert
+                        priceCandidates = allPrices
+                        isSelectingGFPrice = true
+                        isProcessingOCR = false
+                        showingPriceSelection = true
+                        return // Wait for user selection
+                    } else {
+                        // Auto-select top candidate (high confidence or only one option)
+                        gfPriceText = String(describing: topPrice.amount)
+                        gfOCRConfidence = topPrice.confidence
+
+                        // Trigger haptic feedback if confidence is low
+                        if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
+                            await MainActor.run {
+                                triggerHapticFeedback(for: topPrice.confidence)
+                            }
                         }
                     }
                 }
@@ -530,14 +561,29 @@ struct ProductCaptureFlowView: View {
                 nonGFImage = image
                 nonGFImageUUID = uuid
                 nonGFProductName = productName ?? ""
-                if let topPrice = prices?.first {
-                    nonGFPriceText = String(describing: topPrice.amount)
-                    nonGFOCRConfidence = topPrice.confidence
 
-                    // Trigger haptic feedback if confidence is low
-                    if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
-                        await MainActor.run {
-                            triggerHapticFeedback(for: topPrice.confidence)
+                // Handle price candidates
+                if let allPrices = prices, !allPrices.isEmpty {
+                    let topPrice = allPrices.first!
+
+                    // Check if we should show price selection alert
+                    if topPrice.quality != .high && allPrices.count > 1 {
+                        // Store candidates and show selection alert
+                        priceCandidates = allPrices
+                        isSelectingGFPrice = false
+                        isProcessingOCR = false
+                        showingPriceSelection = true
+                        return // Wait for user selection
+                    } else {
+                        // Auto-select top candidate
+                        nonGFPriceText = String(describing: topPrice.amount)
+                        nonGFOCRConfidence = topPrice.confidence
+
+                        // Trigger haptic feedback if confidence is low
+                        if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
+                            await MainActor.run {
+                                triggerHapticFeedback(for: topPrice.confidence)
+                            }
                         }
                     }
                 }
@@ -548,6 +594,19 @@ struct ProductCaptureFlowView: View {
             }
 
             isProcessingOCR = false
+        }
+    }
+
+    /// Handles user selection of a price candidate
+    private func selectPriceCandidate(_ candidate: PriceMatch) {
+        if isSelectingGFPrice {
+            gfPriceText = String(describing: candidate.amount)
+            gfOCRConfidence = candidate.confidence
+            currentStep = .reviewGF
+        } else {
+            nonGFPriceText = String(describing: candidate.amount)
+            nonGFOCRConfidence = candidate.confidence
+            currentStep = .reviewNonGF
         }
     }
 

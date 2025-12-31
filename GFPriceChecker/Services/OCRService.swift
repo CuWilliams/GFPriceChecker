@@ -11,16 +11,69 @@ import UIKit
 import VisionKit
 import SwiftUI
 
+/// Quality classification for price detection confidence
+enum PriceQuality {
+    case high    // ≥ 0.85 confidence
+    case medium  // 0.60 - 0.85 confidence
+    case low     // < 0.60 confidence
+
+    init(confidence: Float) {
+        if confidence >= 0.85 {
+            self = .high
+        } else if confidence >= 0.6 {
+            self = .medium
+        } else {
+            self = .low
+        }
+    }
+}
+
 /// Result of price detection from OCR
 struct PriceMatch {
     /// The detected price amount
     let amount: Decimal
 
-    /// Confidence score from OCR (0.0 to 1.0)
+    /// OCR confidence score (0.0 to 1.0)
     let confidence: Float
 
     /// Bounding box of the detected price in normalized coordinates
     let boundingBox: CGRect
+
+    /// Estimated font size based on bounding box height
+    let fontSize: CGFloat
+
+    /// Vertical position in image (0.0 = bottom, 1.0 = top)
+    let verticalPosition: CGFloat
+
+    /// Whether the price had a "$" prefix
+    let hasPrefix: Bool
+
+    /// Quality classification based on overall confidence
+    var quality: PriceQuality {
+        PriceQuality(confidence: confidence)
+    }
+
+    /// Composite score for ranking price candidates
+    /// Higher score = more likely to be the actual product price
+    var rankingScore: Float {
+        // Normalize fontSize (assume typical range 0.01-0.15 in normalized coords)
+        let fontSizeNormalized = min(Float(fontSize) / 0.15, 1.0)
+
+        // Vertical position score (higher on image = higher score)
+        let positionScore = Float(verticalPosition)
+
+        // Weighted scoring algorithm:
+        // - Font size (50%): Larger text is typically the price
+        // - Vertical position (30%): Prices are usually in top-center
+        // - Has prefix (10%): "$" is a tiebreaker
+        // - OCR confidence (10%): Trust the OCR accuracy
+        let score = (fontSizeNormalized * 0.5) +
+                    (positionScore * 0.3) +
+                    (hasPrefix ? 0.1 : 0.0) +
+                    (confidence * 0.1)
+
+        return score
+    }
 }
 
 /// Service for extracting text and data from product images using Vision framework
@@ -108,20 +161,30 @@ final class OCRService {
         }
     }
 
-    /// Finds prices in an image using pattern matching
+    /// Finds prices in an image using pattern matching and spatial analysis
     ///
-    /// Searches for common price formats like $X.XX, $XX.XX, $XXX.XX
+    /// Searches for common price formats with or without "$" prefix:
+    /// - $X.XX, $XX.XX, $XXX.XX (with prefix)
+    /// - X.XX, XX.XX, XXX.XX (without prefix)
+    ///
+    /// Uses spatial analysis to rank candidates:
+    /// - Font size (larger = more likely actual price)
+    /// - Vertical position (higher = more likely actual price)
+    /// - Presence of "$" (tiebreaker)
+    /// - OCR confidence
     ///
     /// - Parameter image: The UIImage to search for prices
-    /// - Returns: Array of PriceMatch results sorted by confidence (highest first)
+    /// - Returns: Array of PriceMatch results sorted by ranking score (highest first)
     /// - Throws: OCRError if recognition fails
     func findPrices(in image: UIImage) async throws -> [PriceMatch] {
+        print("🔍 DEBUG: findPrices() called")
         let observations = try await extractText(from: image)
+        print("🔍 DEBUG: Got \(observations.count) text observations")
 
         var priceMatches: [PriceMatch] = []
 
-        // Regex pattern for prices: $X.XX, $XX.XX, $XXX.XX
-        let pricePattern = #"\$\d{1,3}\.\d{2}"#
+        // Updated regex pattern: Optional $ prefix, then 1-3 digits, dot, 2 digits
+        let pricePattern = #"\$?\d{1,3}\.\d{2}"#
         let regex = try NSRegularExpression(pattern: pricePattern, options: [])
 
         for observation in observations {
@@ -140,22 +203,48 @@ final class OCRService {
                 if let matchRange = Range(match.range, in: text) {
                     let priceString = String(text[matchRange])
 
+                    // Check if price has "$" prefix
+                    let hasPrefix = priceString.hasPrefix("$")
+
                     // Remove $ and convert to Decimal
                     let numberString = priceString.replacingOccurrences(of: "$", with: "")
                     if let amount = Decimal(string: numberString) {
+                        // Calculate spatial features
+                        let boundingBox = observation.boundingBox
+
+                        // Font size estimate: height of bounding box in normalized coordinates
+                        let fontSize = boundingBox.height
+
+                        // Vertical position: center Y of bounding box
+                        // Vision uses bottom-left origin: 0 = bottom, 1 = top
+                        let verticalPosition = boundingBox.origin.y + (boundingBox.height / 2.0)
+
                         let priceMatch = PriceMatch(
                             amount: amount,
                             confidence: candidate.confidence,
-                            boundingBox: observation.boundingBox
+                            boundingBox: boundingBox,
+                            fontSize: fontSize,
+                            verticalPosition: verticalPosition,
+                            hasPrefix: hasPrefix
                         )
+
+                        print("🔍 DEBUG: Found price: \(priceString) | Amount: \(amount) | Confidence: \(candidate.confidence) | FontSize: \(fontSize) | Y-Pos: \(verticalPosition) | HasPrefix: \(hasPrefix) | Score: \(priceMatch.rankingScore)")
+
                         priceMatches.append(priceMatch)
                     }
                 }
             }
         }
 
-        // Sort by confidence (highest first)
-        return priceMatches.sorted { $0.confidence > $1.confidence }
+        // Sort by ranking score (highest first)
+        let sortedMatches = priceMatches.sorted { $0.rankingScore > $1.rankingScore }
+
+        print("🔍 DEBUG: Total price candidates found: \(sortedMatches.count)")
+        if let topCandidate = sortedMatches.first {
+            print("🔍 DEBUG: Top candidate: $\(topCandidate.amount) (score: \(topCandidate.rankingScore), quality: \(topCandidate.quality))")
+        }
+
+        return sortedMatches
     }
 
     /// Extracts product name from the top portion of the image
