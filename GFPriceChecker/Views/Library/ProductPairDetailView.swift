@@ -293,7 +293,10 @@ struct ProductPairDetailView: View {
                 Button {
                     selectedImage = image
                     selectedImageTitle = "\(title) - \(productName)"
-                    showingImageViewer = true
+                    // Delay sheet presentation to ensure state updates complete
+                    Task { @MainActor in
+                        showingImageViewer = true
+                    }
                 } label: {
                     VStack(spacing: 4) {
                         Image(uiImage: image)
