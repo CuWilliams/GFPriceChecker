@@ -43,6 +43,9 @@ struct ProductPairDetailView: View {
     /// Selected image title for viewer
     @State private var selectedImageTitle: String = ""
 
+    /// Trigger for image selection (increments to trigger onChange)
+    @State private var imageSelectionTrigger = 0
+
     /// Gluten-free product image loaded from storage
     @State private var gfProductImage: UIImage?
 
@@ -114,6 +117,12 @@ struct ProductPairDetailView: View {
         .sheet(isPresented: $showingImageViewer) {
             if let image = selectedImage {
                 ImageViewer(image: image, title: selectedImageTitle)
+            }
+        }
+        .onChange(of: imageSelectionTrigger) { oldValue, newValue in
+            // When trigger changes, present the sheet after state updates complete
+            if newValue > 0 {
+                showingImageViewer = true
             }
         }
         .task {
@@ -291,12 +300,11 @@ struct ProductPairDetailView: View {
 
             if let image = image {
                 Button {
+                    // Set image and title first
                     selectedImage = image
                     selectedImageTitle = "\(title) - \(productName)"
-                    // Delay sheet presentation to ensure state updates complete
-                    Task { @MainActor in
-                        showingImageViewer = true
-                    }
+                    // Increment trigger to show sheet via onChange after state updates
+                    imageSelectionTrigger += 1
                 } label: {
                     VStack(spacing: 4) {
                         Image(uiImage: image)
