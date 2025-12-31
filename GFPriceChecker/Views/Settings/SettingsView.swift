@@ -299,6 +299,19 @@ struct SettingsView: View {
     private func importData(from url: URL) {
         isImporting = true
 
+        // Request access to security-scoped resource (required for files outside app sandbox)
+        guard url.startAccessingSecurityScopedResource() else {
+            errorMessage = "Failed to access the backup file. Please ensure the file is accessible and try again."
+            showingError = true
+            isImporting = false
+            return
+        }
+
+        // Ensure we stop accessing the resource when done
+        defer {
+            url.stopAccessingSecurityScopedResource()
+        }
+
         Task { @MainActor in
             do {
                 let data = try Data(contentsOf: url)
