@@ -133,6 +133,8 @@ final class PDFGeneratorService {
             )
 
             // Page 3+: Detailed Transaction List with Receipt Images
+            // Start new page for transaction details
+            context.beginPage()
             drawTransactionAndReceiptPages(
                 context: context,
                 pageRect: pageRect,
