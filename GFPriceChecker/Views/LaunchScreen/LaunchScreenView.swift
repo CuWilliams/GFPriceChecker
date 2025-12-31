@@ -20,7 +20,11 @@ struct LaunchScreenView: View {
 
     var body: some View {
         ZStack {
-            // Background gradient - matches OnboardingView exactly
+            // Solid white base to ensure launch screen is fully opaque
+            Color.white
+                .ignoresSafeArea()
+
+            // Subtle gradient overlay - matches OnboardingView aesthetic
             LinearGradient(
                 gradient: Gradient(colors: [.blue.opacity(0.1), .green.opacity(0.1)]),
                 startPoint: .topLeading,
