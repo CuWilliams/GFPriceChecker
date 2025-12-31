@@ -75,12 +75,15 @@ struct GFPriceCheckerApp: App {
                                 showLaunchScreen = false
                             }
                         }
-
-                        // Show onboarding on first launch after launch screen completes
-                        // Total delay: 1.5s (hold) + 0.6s (fade) + 0.3s (buffer) = 2.4s
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-                            if !AppSettings.shared.hasCompletedOnboarding {
-                                showOnboarding = true
+                    }
+                    .onChange(of: showLaunchScreen) { oldValue, newValue in
+                        // Only check for onboarding after launch screen is dismissed
+                        if !newValue {
+                            // Small delay to ensure smooth transition
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                if !AppSettings.shared.hasCompletedOnboarding {
+                                    showOnboarding = true
+                                }
                             }
                         }
                     }
