@@ -58,6 +58,7 @@ struct ExportView: View {
     @State private var showingUnverifiedWarning = false
     @State private var unverifiedProductCount = 0
     @State private var pendingExportAction: ExportAction?
+    @State private var userConfirmedExport = false
 
     // Document picker state
     @State private var showingDocumentPicker = false
@@ -164,16 +165,37 @@ struct ExportView: View {
             }
             .alert("Unverified Products Found", isPresented: $showingUnverifiedWarning) {
                 Button("Continue Export", role: .none) {
-                    // User confirmed - proceed with the pending export action
-                    Task {
-                        await performPendingExport()
-                    }
+                    // User confirmed - set flag to trigger export via .onChange()
+                    userConfirmedExport = true
                 }
                 Button("Cancel", role: .cancel) {
                     pendingExportAction = nil
+                    userConfirmedExport = false
                 }
             } message: {
                 Text("\(unverifiedProductCount) product(s) lack receipt verification. These will appear in a separate \"Unverified Products\" section. For complete tax documentation, consider obtaining receipts for all products.")
+            }
+            .onChange(of: userConfirmedExport) { oldValue, newValue in
+                // When user confirms the warning, perform the pending export
+                if newValue == true, let action = pendingExportAction {
+                    userConfirmedExport = false // Reset flag
+                    pendingExportAction = nil
+
+                    // Perform export after alert dismisses
+                    Task {
+                        // Small delay to ensure alert is fully dismissed before presenting share sheet
+                        try? await Task.sleep(for: .milliseconds(300))
+
+                        switch action {
+                        case .saveToFiles:
+                            await performSaveToFiles()
+                        case .share:
+                            await performShare()
+                        case .email:
+                            await performEmail()
+                        }
+                    }
+                }
             }
             .sheet(isPresented: $showingShareSheet) {
                 if !shareItems.isEmpty {
