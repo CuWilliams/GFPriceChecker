@@ -266,8 +266,8 @@ final class ReceiptParserService {
         }
 
         // PASS 2: Extract multi-line items (PRODUCT on line N, PRICE on line N+1)
-        // Pattern for standalone price: optional $, digits, decimal point, 2 digits
-        let standalonePricePattern = #"^\s*\$?(\d{1,3}\.\d{2})\s*$"#
+        // Pattern for standalone price: optional leading dash (for negatives), optional $, digits, decimal point, 2 digits, optional trailing dash (for discounts)
+        let standalonePricePattern = #"^\s*\-?\$?(\d{1,3}\.\d{2})\-?\s*$"#
         guard let standalonePriceRegex = try? NSRegularExpression(pattern: standalonePricePattern, options: []) else {
             return lineItems
         }
@@ -320,6 +320,60 @@ final class ReceiptParserService {
             processedLineIndices.insert(index + 1)
         }
 
+        // PASS 3: Extract look-behind items (PRICE on line N, PRODUCT on line N+1)
+        // This handles cases where price appears before the product name (common in some receipt formats)
+        for index in 1..<lines.count {
+            // Skip if already processed
+            if processedLineIndices.contains(index) || processedLineIndices.contains(index - 1) {
+                continue
+            }
+
+            let previousLine = lines[index - 1].trimmingCharacters(in: .whitespacesAndNewlines)
+            let currentLine = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Check if previous line is a standalone price
+            let prevRange = NSRange(previousLine.startIndex..., in: previousLine)
+            guard let priceMatch = standalonePriceRegex.firstMatch(in: previousLine, options: [], range: prevRange),
+                  let priceRange = Range(priceMatch.range(at: 1), in: previousLine) else {
+                continue
+            }
+
+            // Check if current line could be a product name (including product codes)
+            guard currentLine.count >= 3,
+                  !isHeaderOrFooterLine(currentLine),
+                  !currentLine.contains("$"),
+                  !isLikelyDiscount(currentLine) else {
+                continue
+            }
+
+            let priceString = String(previousLine[priceRange])
+            guard let price = Decimal(string: priceString) else {
+                continue
+            }
+
+            // Additional validation: price should be reasonable for a grocery item
+            guard price >= 0.50 && price <= 200.0 else {
+                continue
+            }
+
+            let productName = currentLine
+
+            // Boost confidence for lines with product codes (e.g., "1751411 B FREE TORTS")
+            var confidence = calculateLineConfidence(line: currentLine, productName: productName, price: price) * 0.9
+            if hasProductCode(currentLine) {
+                confidence = min(confidence * 1.15, 1.0) // 15% boost for product codes
+            }
+
+            lineItems.append(ReceiptLineItem(
+                productName: productName,
+                price: price,
+                confidence: confidence
+            ))
+
+            processedLineIndices.insert(index - 1)
+            processedLineIndices.insert(index)
+        }
+
         return lineItems
     }
 
@@ -332,7 +386,8 @@ final class ReceiptParserService {
             "total", "subtotal", "tax", "gst", "hst", "pst",
             "payment", "cash", "credit", "debit", "change",
             "thank you", "receipt", "invoice", "cashier",
-            "store", "phone", "address", "date", "time"
+            "store", "phone", "address", "date", "time",
+            "amount", "customer copy", "merchant copy", "copy"
         ]
 
         for keyword in excludeKeywords {
@@ -342,6 +397,34 @@ final class ReceiptParserService {
         }
 
         return false
+    }
+
+    /// Determines if a line is likely a discount indicator (e.g., "2029974 TPD/1751411")
+    private func isLikelyDiscount(_ line: String) -> Bool {
+        let lowercased = line.lowercased()
+
+        // Common discount indicators
+        let discountKeywords = ["tpd", "discount", "off", "savings", "coupon", "promo"]
+
+        for keyword in discountKeywords {
+            if lowercased.contains(keyword) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /// Checks if a line starts with a product code (6-7 digit number)
+    private func hasProductCode(_ line: String) -> Bool {
+        // Pattern: line starts with 6-7 digits followed by space
+        let productCodePattern = #"^\d{6,7}\s+"#
+        guard let regex = try? NSRegularExpression(pattern: productCodePattern, options: []) else {
+            return false
+        }
+
+        let range = NSRange(line.startIndex..., in: line)
+        return regex.firstMatch(in: line, options: [], range: range) != nil
     }
 
     /// Calculates confidence for a line item extraction
