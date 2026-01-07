@@ -265,63 +265,14 @@ final class ReceiptParserService {
             processedLineIndices.insert(index)
         }
 
-        // PASS 2: Extract multi-line items (PRODUCT on line N, PRICE on line N+1)
-        // Pattern for standalone price: optional leading dash (for negatives), optional $, digits, decimal point, 2 digits, optional trailing dash (for discounts)
-        let standalonePricePattern = #"^\s*\-?\$?(\d{1,3}\.\d{2})\-?\s*$"#
+        // PASS 2: Extract look-behind items (PRICE on line N, PRODUCT on line N+1)
+        // Pattern for standalone price: optional leading dash, optional $, digits, decimal, 2 digits, optional trailing dash/tax indicators (H, G, etc.)
+        let standalonePricePattern = #"^\s*\-?\$?(\d{1,3}\.\d{2})[\-\sA-Z]*$"#
         guard let standalonePriceRegex = try? NSRegularExpression(pattern: standalonePricePattern, options: []) else {
             return lineItems
         }
 
-        for index in 0..<lines.count - 1 {
-            // Skip if already processed in single-line pass
-            if processedLineIndices.contains(index) || processedLineIndices.contains(index + 1) {
-                continue
-            }
-
-            let currentLine = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
-            let nextLine = lines[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // Check if next line is a standalone price
-            let nextRange = NSRange(nextLine.startIndex..., in: nextLine)
-            guard let priceMatch = standalonePriceRegex.firstMatch(in: nextLine, options: [], range: nextRange),
-                  let priceRange = Range(priceMatch.range(at: 1), in: nextLine) else {
-                continue
-            }
-
-            // Check if current line could be a product name
-            guard currentLine.count >= 3,
-                  !isHeaderOrFooterLine(currentLine),
-                  !currentLine.contains("$") else { // Should not already have a price
-                continue
-            }
-
-            let priceString = String(nextLine[priceRange])
-            guard let price = Decimal(string: priceString) else {
-                continue
-            }
-
-            // Additional validation: price should be reasonable for a grocery item
-            guard price >= 0.50 && price <= 200.0 else {
-                continue
-            }
-
-            let productName = currentLine
-
-            // Confidence slightly lower for multi-line items
-            let confidence = calculateLineConfidence(line: currentLine, productName: productName, price: price) * 0.9
-
-            lineItems.append(ReceiptLineItem(
-                productName: productName,
-                price: price,
-                confidence: confidence
-            ))
-
-            processedLineIndices.insert(index)
-            processedLineIndices.insert(index + 1)
-        }
-
-        // PASS 3: Extract look-behind items (PRICE on line N, PRODUCT on line N+1)
-        // This handles cases where price appears before the product name (common in some receipt formats)
+        // This handles cases where price appears before the product name (common in Costco receipts)
         for index in 1..<lines.count {
             // Skip if already processed
             if processedLineIndices.contains(index) || processedLineIndices.contains(index - 1) {
@@ -374,12 +325,69 @@ final class ReceiptParserService {
             processedLineIndices.insert(index)
         }
 
+        // PASS 3: Extract forward items (PRODUCT on line N, PRICE on line N+1)
+        // This is a fallback for receipts where product comes before price
+        for index in 0..<lines.count - 1 {
+            // Skip if already processed
+            if processedLineIndices.contains(index) || processedLineIndices.contains(index + 1) {
+                continue
+            }
+
+            let currentLine = lines[index].trimmingCharacters(in: .whitespacesAndNewlines)
+            let nextLine = lines[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Check if next line is a standalone price
+            let nextRange = NSRange(nextLine.startIndex..., in: nextLine)
+            guard let priceMatch = standalonePriceRegex.firstMatch(in: nextLine, options: [], range: nextRange),
+                  let priceRange = Range(priceMatch.range(at: 1), in: nextLine) else {
+                continue
+            }
+
+            // Check if current line could be a product name
+            guard currentLine.count >= 3,
+                  !isHeaderOrFooterLine(currentLine),
+                  !currentLine.contains("$"),
+                  !isLikelyDiscount(currentLine) else { // Added discount check
+                continue
+            }
+
+            let priceString = String(nextLine[priceRange])
+            guard let price = Decimal(string: priceString) else {
+                continue
+            }
+
+            // Additional validation: price should be reasonable for a grocery item
+            guard price >= 0.50 && price <= 200.0 else {
+                continue
+            }
+
+            let productName = currentLine
+
+            // Confidence slightly lower for multi-line items
+            let confidence = calculateLineConfidence(line: currentLine, productName: productName, price: price) * 0.9
+
+            lineItems.append(ReceiptLineItem(
+                productName: productName,
+                price: price,
+                confidence: confidence
+            ))
+
+            processedLineIndices.insert(index)
+            processedLineIndices.insert(index + 1)
+        }
+
         return lineItems
     }
 
     /// Determines if a line is likely a header or footer
     private func isHeaderOrFooterLine(_ line: String) -> Bool {
         let lowercased = line.lowercased()
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Filter out lines that are only symbols/special characters
+        if trimmed.allSatisfy({ !$0.isLetter && !$0.isNumber }) {
+            return true
+        }
 
         // Common header/footer keywords
         let excludeKeywords = [
@@ -387,7 +395,8 @@ final class ReceiptParserService {
             "payment", "cash", "credit", "debit", "change",
             "thank you", "receipt", "invoice", "cashier",
             "store", "phone", "address", "date", "time",
-            "amount", "customer copy", "merchant copy", "copy"
+            "amount", "customer copy", "merchant copy", "copy",
+            "interac", "approved", "reference", "auth", "acct"
         ]
 
         for keyword in excludeKeywords {
