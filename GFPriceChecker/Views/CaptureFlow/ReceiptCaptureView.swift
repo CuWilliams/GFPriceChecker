@@ -58,6 +58,9 @@ struct ReceiptCaptureView: View {
     /// Manual match selections (ProductPair UUID -> ReceiptLineItem index)
     @State private var manualSelections: [UUID: Int] = [:]
 
+    /// Products where user wants to override auto-match and manually select
+    @State private var manualOverrides: Set<UUID> = []
+
     /// Alert state
     @State private var showingAlert = false
     @State private var alertMessage = ""
@@ -110,6 +113,9 @@ struct ReceiptCaptureView: View {
                 DocumentScannerView { image in
                     if let image = image {
                         handleScannedReceipt(image)
+                    } else {
+                        // User cancelled or scan failed - close the scanner
+                        showingScanner = false
                     }
                 }
             }
@@ -567,8 +573,8 @@ struct ReceiptCaptureView: View {
 
                 // Manual selection button
                 Button {
-                    // Clear manual selection to show picker
-                    manualSelections.removeValue(forKey: matchResult.productPair.id)
+                    // Mark as manual override to show picker
+                    manualOverrides.insert(matchResult.productPair.id)
                 } label: {
                     Text("Change")
                         .font(.caption)
@@ -594,6 +600,7 @@ struct ReceiptCaptureView: View {
                     ForEach(lineItems.indices, id: \.self) { index in
                         Button {
                             manualSelections[matchResult.productPair.id] = index
+                            manualOverrides.remove(matchResult.productPair.id)
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(lineItems[index].productName)
@@ -747,6 +754,11 @@ struct ReceiptCaptureView: View {
 
     /// Gets the selected line item for a match result (either auto-matched or manually selected)
     private func getSelectedLineItem(for matchResult: ProductMatchResult) -> ReceiptLineItem? {
+        // If user wants to manually override, return nil to show picker
+        if manualOverrides.contains(matchResult.productPair.id) {
+            return nil
+        }
+
         // Check manual selection first
         if let manualIndex = manualSelections[matchResult.productPair.id],
            lineItems.indices.contains(manualIndex) {
