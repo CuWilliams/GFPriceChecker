@@ -35,9 +35,6 @@ struct DocumentScannerView: UIViewControllerRepresentable {
     /// - Parameter image: The scanned UIImage, or nil if cancelled
     let completion: (UIImage?) -> Void
 
-    /// Environment dismiss action to close the scanner
-    @Environment(\.dismiss) private var dismiss
-
     // MARK: - UIViewControllerRepresentable
 
     func makeUIViewController(context: Context) -> VNDocumentCameraViewController {
@@ -73,14 +70,13 @@ struct DocumentScannerView: UIViewControllerRepresentable {
             // Get the first scanned page
             guard scan.pageCount > 0 else {
                 parent.completion(nil)
-                parent.dismiss()
                 return
             }
 
             // Return the first scanned image
             let image = scan.imageOfPage(at: 0)
             parent.completion(image)
-            parent.dismiss()
+            // Note: Dismissal is handled by the completion handler setting showingScanner = false
         }
 
         /// Called when user cancels scanning
@@ -88,7 +84,7 @@ struct DocumentScannerView: UIViewControllerRepresentable {
             _ controller: VNDocumentCameraViewController
         ) {
             parent.completion(nil)
-            parent.dismiss()
+            // Note: Dismissal is handled by the completion handler setting showingScanner = false
         }
 
         /// Called when scanning fails
@@ -98,7 +94,7 @@ struct DocumentScannerView: UIViewControllerRepresentable {
         ) {
             print("Document scanner failed: \(error.localizedDescription)")
             parent.completion(nil)
-            parent.dismiss()
+            // Note: Dismissal is handled by the completion handler setting showingScanner = false
         }
     }
 }
