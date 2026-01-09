@@ -14,7 +14,7 @@ import SwiftData
 /// 1. Select unverified product pairs
 /// 2. Scan receipt with camera
 /// 3. Process OCR and extract receipt data
-/// 4. Match products to receipt line items (fuzzy matching)
+/// 4. Sequential tap-to-select verification for each product
 /// 5. Confirm matches and save receipt
 struct ReceiptCaptureView: View {
 
@@ -50,42 +50,36 @@ struct ReceiptCaptureView: View {
     @State private var storeName: String = ""
     @State private var purchaseDate: Date = Date()
     @State private var totalAmount: String = ""
-    @State private var lineItems: [ReceiptLineItem] = []
 
-    /// Matching results
-    @State private var matchResults: [ProductMatchResult] = []
+    /// OCR observations for tap-to-select
+    @State private var receiptOCRObservations: [SelectableTextObservation] = []
 
-    /// Manual match selections (ProductPair UUID -> ReceiptLineItem index)
-    @State private var manualSelections: [UUID: Int] = [:]
+    /// Track which product is currently being verified
+    @State private var currentVerificationIndex: Int = 0
 
-    /// Products where user wants to override auto-match and manually select
-    @State private var manualOverrides: Set<UUID> = []
+    /// Store confirmed matches: ProductPair.id -> selected receipt line text
+    @State private var confirmedMatches: [UUID: String] = [:]
 
     /// Alert state
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
-    /// Bulk operation state
-    @State private var showingDateSuggestion = false
-    @State private var suggestedProductCount = 0
-
     // MARK: - Computed Properties
 
-    /// Products with high-confidence auto-matches
-    private var autoMatchedProducts: [ProductMatchResult] {
-        matchResults.filter { $0.matchQuality == .high }
+    /// Products selected for verification
+    private var productsToVerify: [ProductPair] {
+        unverifiedProducts.filter { selectedProducts.contains($0.id) }
     }
 
-    /// Products that need manual review
-    private var needsReviewProducts: [ProductMatchResult] {
-        matchResults.filter { $0.matchQuality != .high }
+    /// Current product being verified
+    private var currentProductToVerify: ProductPair? {
+        guard currentVerificationIndex < productsToVerify.count else { return nil }
+        return productsToVerify[currentVerificationIndex]
     }
 
-    /// Number of products with confirmed matches (auto or manual)
-    private var confirmedMatchCount: Int {
-        matchResults.filter { result in
-            getSelectedLineItem(for: result) != nil
-        }.count
+    /// Count of confirmed matches
+    private var confirmedCount: Int {
+        confirmedMatches.count
     }
 
     // MARK: - Body
@@ -342,124 +336,165 @@ struct ReceiptCaptureView: View {
             receiptInfoHeader
 
             // Progress indicator
-            progressIndicator
+            verificationProgressHeader
 
-            // Match list
-            List {
-                // Auto-matched products section
-                if !autoMatchedProducts.isEmpty {
-                    Section {
-                        ForEach(autoMatchedProducts, id: \.productPair.id) { matchResult in
-                            matchResultRow(matchResult)
-                        }
-                    } header: {
-                        HStack {
-                            Text("Auto-Matched (\(autoMatchedProducts.count))")
-                            Spacer()
-                            if !autoMatchedProducts.isEmpty {
-                                Button("Accept All") {
-                                    acceptAllAutoMatches()
-                                }
-                                .font(.caption)
-                                .textCase(nil)
-                            }
-                        }
-                    }
-                }
-
-                // Needs review section
-                if !needsReviewProducts.isEmpty {
-                    Section {
-                        ForEach(needsReviewProducts, id: \.productPair.id) { matchResult in
-                            matchResultRow(matchResult)
-                        }
-                    } header: {
-                        Text("Needs Manual Review (\(needsReviewProducts.count))")
-                    }
-                }
+            // Main content
+            if let product = currentProductToVerify {
+                productVerificationView(product: product)
+            } else {
+                // All products verified - show summary
+                verificationCompleteView
             }
-            .listStyle(.insetGrouped)
-
-            // Confirm button
-            VStack(spacing: 12) {
-                Button {
-                    confirmAndSave()
-                } label: {
-                    Label("Confirm All Matches", systemImage: "checkmark.circle.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(confirmedMatchCount == 0)
-
-                // Status text
-                if lineItems.isEmpty {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                        Text("No receipt items detected - try rescanning")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-
-                    Button {
-                        // Go back to scan step
-                        currentStep = .scanReceipt
-                    } label: {
-                        Label("Rescan Receipt", systemImage: "camera")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                } else {
-                    Text("\(confirmedMatchCount) of \(matchResults.count) products matched")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding()
-            .background(Color(.systemGroupedBackground))
-        }
-        .alert("Smart Suggestions", isPresented: $showingDateSuggestion) {
-            Button("Select Suggested", role: .none) {
-                selectProductsFromSameDate()
-            }
-            Button("Skip", role: .cancel) { }
-        } message: {
-            Text("Found \(suggestedProductCount) product\(suggestedProductCount == 1 ? "" : "s") from \(purchaseDate.formatted(date: .abbreviated, time: .omitted)). Would you like to select them?")
         }
     }
 
-    private var progressIndicator: some View {
-        HStack(spacing: 12) {
+    // MARK: - Verification Progress Header
+
+    private var verificationProgressHeader: some View {
+        VStack(spacing: 8) {
+            // Progress text
+            Text("Verifying product \(min(currentVerificationIndex + 1, productsToVerify.count)) of \(productsToVerify.count)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
             // Progress bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // Background
                     RoundedRectangle(cornerRadius: 4)
                         .fill(Color.secondary.opacity(0.2))
                         .frame(height: 8)
 
-                    // Progress
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.green)
+                        .fill(Color.blue)
                         .frame(
-                            width: geometry.size.width * CGFloat(confirmedMatchCount) / CGFloat(max(matchResults.count, 1)),
+                            width: geometry.size.width * CGFloat(confirmedCount) / CGFloat(max(productsToVerify.count, 1)),
                             height: 8
                         )
                 }
             }
             .frame(height: 8)
-
-            // Count label
-            Text("\(confirmedMatchCount)/\(matchResults.count)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 50, alignment: .trailing)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding()
         .background(Color(.systemGroupedBackground))
     }
+
+    // MARK: - Product Verification View
+
+    private func productVerificationView(product: ProductPair) -> some View {
+        VStack(spacing: 0) {
+            // Product being verified
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Find this product on the receipt:")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(product.gfProductName)
+                            .font(.headline)
+                        Text("$\(product.gfPrice as NSDecimalNumber)")
+                            .font(.subheadline)
+                            .foregroundStyle(.blue)
+                    }
+                    Spacer()
+                    if let category = product.category {
+                        Text(category)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+
+            // Receipt line selector
+            if let image = receiptImage {
+                ReceiptLineSelector(
+                    image: image,
+                    observations: receiptOCRObservations,
+                    productName: product.gfProductName,
+                    onLineSelected: { selectedText in
+                        confirmMatch(for: product, withLine: selectedText)
+                    },
+                    onSkip: {
+                        skipProduct(product)
+                    }
+                )
+            }
+        }
+    }
+
+    // MARK: - Verification Complete View
+
+    private var verificationCompleteView: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.green)
+
+                Text("Verification Complete")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text("\(confirmedCount) of \(productsToVerify.count) products matched")
+                    .foregroundStyle(.secondary)
+
+                // Summary of matches
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(productsToVerify, id: \.id) { product in
+                        HStack {
+                            Image(systemName: confirmedMatches[product.id] != nil ? "checkmark.circle.fill" : "xmark.circle")
+                                .foregroundStyle(confirmedMatches[product.id] != nil ? .green : .orange)
+
+                            Text(product.gfProductName)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            if confirmedMatches[product.id] != nil {
+                                Text("Matched")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                            } else {
+                                Text("Skipped")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                .padding(.horizontal)
+
+                // Save button
+                Button {
+                    confirmAndSave()
+                } label: {
+                    Label("Save Receipt", systemImage: "square.and.arrow.down")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(confirmedCount == 0)
+                .padding(.horizontal)
+
+                if confirmedCount == 0 {
+                    Text("Match at least one product to save the receipt")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            .padding()
+        }
+    }
+
+    // MARK: - Receipt Info Header
 
     private var receiptInfoHeader: some View {
         VStack(spacing: 12) {
@@ -493,148 +528,6 @@ struct ReceiptCaptureView: View {
         }
         .padding()
         .background(Color(.systemGroupedBackground))
-    }
-
-    private func matchResultRow(_ matchResult: ProductMatchResult) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Product pair info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(matchResult.productPair.gfProductName)
-                    .font(.headline)
-
-                Text("$\(matchResult.productPair.gfPrice as NSDecimalNumber)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            // Match confidence indicator
-            matchConfidenceIndicator(matchResult)
-
-            // Matched line item or manual picker
-            if let lineItem = getSelectedLineItem(for: matchResult) {
-                matchedLineItemView(lineItem, matchResult: matchResult)
-            } else {
-                noMatchView(matchResult)
-            }
-        }
-        .padding(.vertical, 8)
-    }
-
-    private func matchConfidenceIndicator(_ matchResult: ProductMatchResult) -> some View {
-        HStack(spacing: 8) {
-            switch matchResult.matchQuality {
-            case .high:
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                Text("High confidence match")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-
-            case .medium:
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text("Medium confidence - please verify")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-
-            case .low:
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.red)
-                Text("Low confidence - manual selection required")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-
-            Spacer()
-
-            Text("\(Int(matchResult.matchConfidence * 100))%")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func matchedLineItemView(_ lineItem: ReceiptLineItem, matchResult: ProductMatchResult) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Matched Receipt Item:")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Text(lineItem.productName)
-                        .font(.body)
-
-                    Text("$\(lineItem.price as NSDecimalNumber)")
-                        .font(.subheadline)
-                        .foregroundStyle(.blue)
-                }
-
-                Spacer()
-
-                // Manual selection button
-                Button {
-                    // Mark as manual override to show picker
-                    manualOverrides.insert(matchResult.productPair.id)
-                } label: {
-                    Text("Change")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-            .padding()
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-    }
-
-    private func noMatchView(_ matchResult: ProductMatchResult) -> some View {
-        VStack(spacing: 12) {
-            Text("No automatic match found")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            // Manual selection picker
-            if !lineItems.isEmpty {
-                Menu {
-                    ForEach(lineItems.indices, id: \.self) { index in
-                        Button {
-                            manualSelections[matchResult.productPair.id] = index
-                            manualOverrides.remove(matchResult.productPair.id)
-                        } label: {
-                            VStack(alignment: .leading) {
-                                Text(lineItems[index].productName)
-                                Text("$\(lineItems[index].price as NSDecimalNumber)")
-                            }
-                        }
-                    }
-                } label: {
-                    Label("Select Receipt Item", systemImage: "hand.tap")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-            } else {
-                // No line items extracted - OCR failed
-                VStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.title2)
-                        .foregroundStyle(.orange)
-
-                    Text("No receipt items detected")
-                        .font(.caption)
-                        .fontWeight(.medium)
-
-                    Text("The receipt scan didn't extract any line items. Try rescanning with better lighting.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding()
-            }
-        }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Empty State
@@ -693,8 +586,6 @@ struct ReceiptCaptureView: View {
 
     // MARK: - Helper Methods
 
-    // MARK: Bulk Selection
-
     /// Selects all unverified products
     private func selectAllProducts() {
         selectedProducts = Set(unverifiedProducts.map { $0.id })
@@ -705,159 +596,73 @@ struct ReceiptCaptureView: View {
         selectedProducts.removeAll()
     }
 
-    /// Accepts all high-confidence auto-matches (doesn't require manual confirmation)
-    private func acceptAllAutoMatches() {
-        // Auto-matched products already have their matched line items
-        // This is just a visual confirmation for the user
-        print("✅ Accepted \(autoMatchedProducts.count) auto-matches")
+    /// Confirms a match and moves to next product
+    private func confirmMatch(for product: ProductPair, withLine text: String) {
+        confirmedMatches[product.id] = text
+        currentVerificationIndex += 1
+        print("✅ Matched: \(product.gfProductName) -> \(text)")
     }
 
-    /// Selects products created on the same date as the receipt
-    private func selectProductsFromSameDate() {
-        let calendar = Calendar.current
-        let receiptDateComponents = calendar.dateComponents([.year, .month, .day], from: purchaseDate)
-
-        for product in unverifiedProducts {
-            let productDateComponents = calendar.dateComponents([.year, .month, .day], from: product.createdDate)
-
-            if receiptDateComponents == productDateComponents {
-                selectedProducts.insert(product.id)
-            }
-        }
-
-        print("✅ Selected \(selectedProducts.count) products from \(purchaseDate.formatted(date: .abbreviated, time: .omitted))")
-    }
-
-    /// Checks if there are unselected products from the same date and suggests selecting them
-    private func checkForSameDateProducts() {
-        let calendar = Calendar.current
-        let receiptDateComponents = calendar.dateComponents([.year, .month, .day], from: purchaseDate)
-
-        var sameDateCount = 0
-        for product in unverifiedProducts {
-            let productDateComponents = calendar.dateComponents([.year, .month, .day], from: product.createdDate)
-
-            // Count products from same date that aren't already selected
-            if receiptDateComponents == productDateComponents && !selectedProducts.contains(product.id) {
-                sameDateCount += 1
-            }
-        }
-
-        if sameDateCount > 0 {
-            suggestedProductCount = sameDateCount
-            showingDateSuggestion = true
-            print("💡 Found \(sameDateCount) additional products from same date")
-        }
-    }
-
-    // MARK: Matching
-
-    /// Gets the selected line item for a match result (either auto-matched or manually selected)
-    private func getSelectedLineItem(for matchResult: ProductMatchResult) -> ReceiptLineItem? {
-        // If user wants to manually override, return nil to show picker
-        if manualOverrides.contains(matchResult.productPair.id) {
-            return nil
-        }
-
-        // Check manual selection first
-        if let manualIndex = manualSelections[matchResult.productPair.id],
-           lineItems.indices.contains(manualIndex) {
-            return lineItems[manualIndex]
-        }
-
-        // Use auto-matched if confidence is medium or high
-        if matchResult.matchQuality != .low,
-           let matchedItem = matchResult.matchedLineItem {
-            return matchedItem
-        }
-
-        return nil
+    /// Skips current product without matching
+    private func skipProduct(_ product: ProductPair) {
+        // Don't add to confirmedMatches
+        currentVerificationIndex += 1
+        print("⏭️ Skipped: \(product.gfProductName)")
     }
 
     /// Handles scanned receipt image
     private func handleScannedReceipt(_ image: UIImage) {
-        print("🎯 DEBUG: handleScannedReceipt called")
-        print("🎯 DEBUG: Image size: \(image.size)")
-
+        print("🎯 handleScannedReceipt called")
         receiptImage = image
         showingScanner = false
         isProcessingOCR = true
 
         Task {
-            print("🎯 DEBUG: Starting processReceipt task")
             await processReceipt(image)
-            print("🎯 DEBUG: processReceipt task completed")
         }
     }
 
-    /// Processes receipt with OCR and fuzzy matching
+    /// Processes receipt with OCR
     private func processReceipt(_ image: UIImage) async {
-        print("🎯 DEBUG: processReceipt started")
-        print("🎯 DEBUG: About to call OCRService.extractReceiptText")
+        print("🎯 Processing receipt...")
 
         do {
-            // Extract full receipt text
-            print("🎯 DEBUG: Calling extractReceiptText...")
+            // Extract full receipt text (for display and store/date parsing)
             let fullText = try await OCRService.shared.extractReceiptText(from: image)
-            print("🎯 DEBUG: extractReceiptText completed")
-            print("🎯 DEBUG: Extracted text length: \(fullText.count) characters")
-
             receiptText = fullText
+            print("📄 Receipt OCR extracted: \(fullText.count) characters")
 
-            print("📄 Receipt OCR extracted:")
-            print(fullText)
-            print("📄 End of OCR text")
+            // Extract selectable observations for tap-to-select
+            let observations = try await OCRService.shared.extractSelectableText(from: image)
+            receiptOCRObservations = observations
+            print("📝 Selectable observations: \(observations.count)")
 
-            // Parse receipt components
+            // Parse receipt metadata (keep this functionality)
             let parser = ReceiptParserService.shared
 
-            // Store name
             if let store = parser.extractStoreName(from: fullText) {
                 storeName = store
                 print("🏪 Store: \(store)")
             }
 
-            // Date
             if let date = parser.extractDate(from: fullText) {
                 purchaseDate = date
                 print("📅 Date: \(date.formatted(date: .abbreviated, time: .omitted))")
             }
 
-            // Total
             if let total = parser.extractTotal(from: fullText) {
                 totalAmount = "\(total)"
                 print("💰 Total: $\(total)")
             }
 
-            // Line items
-            lineItems = parser.extractLineItems(from: fullText)
-            print("📝 Line items found: \(lineItems.count)")
-            for item in lineItems {
-                print("  - \(item.productName): $\(item.price)")
-            }
-
-            // Get selected products
-            let selectedProductPairs = unverifiedProducts.filter { selectedProducts.contains($0.id) }
-
-            // Match products to line items
-            matchResults = parser.matchProducts(selectedProductPairs, to: lineItems)
-            print("🔍 Match results:")
-            for result in matchResults {
-                print("  - \(result.productPair.gfProductName): \(Int(result.matchConfidence * 100))% (\(result.matchQuality))")
-            }
-
-            // Smart date suggestion - check for products from same date
-            checkForSameDateProducts()
+            // Reset verification state
+            currentVerificationIndex = 0
+            confirmedMatches = [:]
 
             isProcessingOCR = false
             currentStep = .reviewMatches
 
         } catch {
-            print("🎯 DEBUG: ERROR CAUGHT in processReceipt")
-            print("🎯 DEBUG: Error type: \(type(of: error))")
-            print("🎯 DEBUG: Error description: \(error)")
-            print("🎯 DEBUG: Localized description: \(error.localizedDescription)")
-
             isProcessingOCR = false
             alertMessage = "Failed to process receipt: \(error.localizedDescription)"
             showingAlert = true
@@ -878,15 +683,10 @@ struct ReceiptCaptureView: View {
 
             receiptImageUUID = imageUUID
 
-            // Parse total amount as Decimal
-            let totalDecimal: Decimal?
-            if !totalAmount.isEmpty {
-                totalDecimal = Decimal(string: totalAmount)
-            } else {
-                totalDecimal = nil
-            }
+            // Parse total amount
+            let totalDecimal = totalAmount.isEmpty ? nil : Decimal(string: totalAmount)
 
-            // Create Receipt object
+            // Create Receipt
             let receipt = Receipt(
                 purchaseDate: purchaseDate,
                 storeName: storeName.isEmpty ? nil : storeName,
@@ -895,30 +695,25 @@ struct ReceiptCaptureView: View {
                 extractedOCRText: receiptText
             )
 
-            // Associate selected products with receipt
+            // Associate confirmed products with receipt
             var verifiedCount = 0
-            for matchResult in matchResults {
-                // Only verify if there's a matched line item (auto or manual)
-                if getSelectedLineItem(for: matchResult) != nil {
-                    matchResult.productPair.receipt = receipt
-                    matchResult.productPair.verified = true
+            for product in productsToVerify {
+                if confirmedMatches[product.id] != nil {
+                    product.receipt = receipt
+                    product.verified = true
                     verifiedCount += 1
                 }
             }
 
-            // Insert receipt into model context
             modelContext.insert(receipt)
 
-            // Save context
             do {
                 try modelContext.save()
-                print("✅ Receipt saved successfully")
-                print("✅ Verified \(verifiedCount) product pairs")
+                print("✅ Receipt saved with \(verifiedCount) verified products")
                 dismiss()
             } catch {
-                alertMessage = "Failed to save receipt: \(error.localizedDescription)"
+                alertMessage = "Failed to save: \(error.localizedDescription)"
                 showingAlert = true
-                print("❌ Save error: \(error)")
             }
         }
     }
@@ -929,6 +724,120 @@ struct ReceiptCaptureView: View {
         case selectProducts
         case scanReceipt
         case reviewMatches
+    }
+}
+
+// MARK: - Receipt Line Selector
+
+/// Simplified selector for receipt verification - single line selection
+private struct ReceiptLineSelector: View {
+    let image: UIImage
+    let observations: [SelectableTextObservation]
+    let productName: String
+    let onLineSelected: (String) -> Void
+    let onSkip: () -> Void
+
+    @State private var selectedObservation: SelectableTextObservation?
+
+    /// Find suggested match via simple text search
+    private var suggestedObservation: SelectableTextObservation? {
+        let searchTerms = productName.lowercased().split(separator: " ").map(String.init)
+
+        // Find observation containing any significant word from product name
+        for observation in observations {
+            let obsLower = observation.text.lowercased()
+            for term in searchTerms where term.count >= 3 {
+                if obsLower.contains(term) {
+                    return observation
+                }
+            }
+        }
+        return nil
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Receipt image thumbnail
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: 120)
+                .cornerRadius(8)
+                .padding()
+
+            // Instructions
+            Text(selectedObservation == nil ? "Tap the matching line on the receipt" : "Line selected - confirm or change")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 8)
+
+            // Scrollable receipt text
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(observations) { observation in
+                        receiptLineRow(observation)
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+            // Action buttons
+            HStack(spacing: 12) {
+                Button {
+                    onSkip()
+                } label: {
+                    Text("Skip")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    if let selected = selectedObservation {
+                        onLineSelected(selected.text)
+                    }
+                } label: {
+                    Label("Confirm Match", systemImage: "checkmark")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedObservation == nil)
+            }
+            .padding()
+        }
+    }
+
+    private func receiptLineRow(_ observation: SelectableTextObservation) -> some View {
+        let isSelected = selectedObservation?.id == observation.id
+        let isSuggested = suggestedObservation?.id == observation.id && selectedObservation == nil
+
+        return Button {
+            selectedObservation = observation
+        } label: {
+            HStack {
+                Text(observation.text)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(isSelected ? .white : .primary)
+                    .lineLimit(2)
+
+                Spacer()
+
+                if isSuggested {
+                    Text("Suggested")
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.yellow)
+                        .cornerRadius(4)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.blue : (isSuggested ? Color.yellow.opacity(0.2) : Color(.secondarySystemGroupedBackground)))
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
