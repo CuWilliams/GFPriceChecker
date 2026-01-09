@@ -44,7 +44,6 @@ struct ProductCaptureFlowView: View {
     @State private var gfProductName: String = ""
     @State private var gfPriceText: String = ""
     @State private var gfSize: String = ""
-    @State private var gfOCRConfidence: Float = 0.0
 
     // Non-GF Product Data
     @State private var nonGFImage: UIImage?
@@ -52,16 +51,14 @@ struct ProductCaptureFlowView: View {
     @State private var nonGFProductName: String = ""
     @State private var nonGFPriceText: String = ""
     @State private var nonGFSize: String = ""
-    @State private var nonGFOCRConfidence: Float = 0.0
 
     // Additional Product Pair Data
     @State private var category: String = ""
     @State private var notes: String = ""
 
-    // Price Selection State
-    @State private var showingPriceSelection = false
-    @State private var priceCandidates: [PriceMatch] = []
-    @State private var isSelectingGFPrice = false
+    // OCR observations for tap-to-select
+    @State private var gfOCRObservations: [SelectableTextObservation] = []
+    @State private var nonGFOCRObservations: [SelectableTextObservation] = []
 
     // MARK: - Body
 
@@ -89,16 +86,6 @@ struct ProductCaptureFlowView: View {
                 DocumentScannerView { image in
                     handleScannedImage(image)
                 }
-            }
-            .alert("Select Price", isPresented: $showingPriceSelection) {
-                ForEach(Array(priceCandidates.prefix(3).enumerated()), id: \.offset) { index, candidate in
-                    Button("$\(candidate.amount) (score: \(String(format: "%.2f", candidate.rankingScore)))") {
-                        selectPriceCandidate(candidate)
-                    }
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("Multiple prices detected. Please select the correct product price.")
             }
         }
     }
@@ -247,103 +234,87 @@ struct ProductCaptureFlowView: View {
     // MARK: - Review View
 
     private func reviewView(isGF: Bool) -> some View {
+        let observations = isGF ? gfOCRObservations : nonGFOCRObservations
+        let image = isGF ? gfImage : nonGFImage
+
+        // Check if user has already selected name and price
+        let hasSelection = isGF
+            ? (!gfProductName.isEmpty && !gfPriceText.isEmpty)
+            : (!nonGFProductName.isEmpty && !nonGFPriceText.isEmpty)
+
+        return VStack(spacing: 0) {
+            if hasSelection {
+                // Show confirmation view with selections and size field
+                selectionConfirmationView(isGF: isGF)
+            } else if let image = image, !observations.isEmpty {
+                // Show tap-to-select interface
+                OCRTextSelectorView(
+                    image: image,
+                    observations: observations,
+                    onSelectionComplete: { name, price in
+                        if isGF {
+                            gfProductName = name
+                            gfPriceText = price
+                        } else {
+                            nonGFProductName = name
+                            nonGFPriceText = price
+                        }
+                    }
+                )
+            } else {
+                // Fallback: No OCR data, show manual entry prompt
+                noOCRDataView(isGF: isGF)
+            }
+        }
+    }
+
+    // MARK: - Selection Confirmation View
+
+    private func selectionConfirmationView(isGF: Bool) -> some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Image preview
-                if let image = isGF ? gfImage : nonGFImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxHeight: 200)
-                        .cornerRadius(12)
-                        .shadow(radius: 4)
-                }
+                // Success indicator
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.green)
 
-                // OCR Results Section
-                VStack(spacing: 16) {
-                    Text("Review Extracted Data")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Selection Complete")
+                    .font(.headline)
 
-                    // Product Name
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Product Name")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            Spacer()
-
-                            // Show confidence indicator only if OCR was attempted (confidence > 0)
-                            let nameConfidence: Float = 0.0 // Product names don't have separate confidence yet
-                            if nameConfidence > 0 {
-                                ConfidenceIndicatorView(
-                                    confidence: nameConfidence,
-                                    label: "\(Int(nameConfidence * 100))%",
-                                    showInfo: false
-                                )
-                            }
-                        }
-                        TextField("Enter product name", text: isGF ? $gfProductName : $nonGFProductName)
-                            .padding(8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(.background)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                    }
-
-                    // Price
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Price")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            Spacer()
-
-                            let confidence = isGF ? gfOCRConfidence : nonGFOCRConfidence
-                            if confidence > 0 {
-                                ConfidenceIndicatorView(
-                                    confidence: confidence,
-                                    label: "\(Int(confidence * 100))%",
-                                    showInfo: true
-                                )
-                            }
-                        }
-
-                        let priceConfidence = isGF ? gfOCRConfidence : nonGFOCRConfidence
-                        TextField("0.00", text: isGF ? $gfPriceText : $nonGFPriceText)
-                            .keyboardType(.decimalPad)
-                            .padding(8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(ConfidenceIndicatorView.backgroundColor(for: priceConfidence) ?? .clear)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(
-                                        priceConfidence > 0 ? ConfidenceIndicatorView.borderColor(for: priceConfidence) : Color.gray.opacity(0.3),
-                                        lineWidth: priceConfidence > 0 && priceConfidence < 0.85 ? 2 : 1
-                                    )
-                            )
-                    }
-
-                    // Size (optional)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Size (Optional)")
-                            .font(.caption)
+                // Selected values display
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Product Name:")
                             .foregroundStyle(.secondary)
-                        TextField("e.g., 500g, 16oz", text: isGF ? $gfSize : $nonGFSize)
-                            .textFieldStyle(.roundedBorder)
+                        Spacer()
+                        Text(isGF ? gfProductName : nonGFProductName)
+                            .fontWeight(.medium)
+                    }
+
+                    HStack {
+                        Text("Price:")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("$\(isGF ? gfPriceText : nonGFPriceText)")
+                            .fontWeight(.medium)
+                            .foregroundStyle(.green)
                     }
                 }
                 .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(12)
 
-                // Action Buttons
+                // Size field (optional, manual entry)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Size (Optional)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("e.g., 500g, 16oz", text: isGF ? $gfSize : $nonGFSize)
+                        .textFieldStyle(.roundedBorder)
+                }
+                .padding(.horizontal)
+
+                // Action buttons
                 VStack(spacing: 12) {
                     Button {
                         if isGF {
@@ -358,23 +329,43 @@ struct ProductCaptureFlowView: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(canProceed(from: isGF) ? Color.blue : Color.gray)
+                            .background(Color.blue)
                             .cornerRadius(12)
                     }
-                    .disabled(!canProceed(from: isGF))
 
                     Button {
-                        // Retake
+                        // Clear selection and re-select
                         if isGF {
+                            gfProductName = ""
+                            gfPriceText = ""
+                        } else {
+                            nonGFProductName = ""
+                            nonGFPriceText = ""
+                        }
+                    } label: {
+                        Text("Re-select from OCR")
+                            .font(.subheadline)
+                            .foregroundStyle(.blue)
+                    }
+
+                    Button {
+                        // Retake photo
+                        if isGF {
+                            gfProductName = ""
+                            gfPriceText = ""
+                            gfOCRObservations = []
                             currentStep = .captureGF
                         } else {
+                            nonGFProductName = ""
+                            nonGFPriceText = ""
+                            nonGFOCRObservations = []
                             currentStep = .captureNonGF
                         }
                         showingScanner = true
                     } label: {
                         Text("Retake Photo")
                             .font(.subheadline)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding()
@@ -383,13 +374,55 @@ struct ProductCaptureFlowView: View {
         }
     }
 
-    private func canProceed(from isGF: Bool) -> Bool {
-        let name = isGF ? gfProductName : nonGFProductName
-        let price = isGF ? gfPriceText : nonGFPriceText
+    // MARK: - No OCR Data View
 
-        return !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-               !price.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-               Decimal(string: price) != nil
+    private func noOCRDataView(isGF: Bool) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: "text.viewfinder")
+                .font(.system(size: 48))
+                .foregroundStyle(.orange)
+
+            Text("No Text Detected")
+                .font(.headline)
+
+            Text("The scan didn't detect readable text. You can retake the photo or enter details manually.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
+            VStack(spacing: 12) {
+                Button {
+                    if isGF {
+                        currentStep = .captureGF
+                    } else {
+                        currentStep = .captureNonGF
+                    }
+                    showingScanner = true
+                } label: {
+                    Label("Retake Photo", systemImage: "camera")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    // Allow manual entry by navigating forward
+                    // User can use the Library tab for full manual entry
+                    if isGF {
+                        currentStep = .captureNonGF
+                        showingScanner = true
+                    } else {
+                        currentStep = .finalize
+                    }
+                } label: {
+                    Text("Skip for Now")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding()
+        }
+        .padding()
     }
 
     // MARK: - Finalize View
@@ -555,75 +588,20 @@ struct ProductCaptureFlowView: View {
             // Save image to storage
             let uuid = await ImageStorageService.shared.saveImage(image, type: .product)
 
-            // Run OCR
-            let productName = try? await OCRService.shared.findProductName(in: image)
-            let prices = try? await OCRService.shared.findPrices(in: image)
+            // Extract selectable text observations
+            let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
 
-            // Determine which product we're capturing
             switch currentStep {
             case .captureGF:
                 gfImage = image
                 gfImageUUID = uuid
-                gfProductName = productName ?? ""
-
-                // Handle price candidates
-                if let allPrices = prices, !allPrices.isEmpty {
-                    let topPrice = allPrices.first!
-
-                    // Check if we should show price selection alert
-                    // Show alert if: top candidate quality < high AND multiple candidates exist
-                    if topPrice.quality != .high && allPrices.count > 1 {
-                        // Store candidates and show selection alert
-                        priceCandidates = allPrices
-                        isSelectingGFPrice = true
-                        isProcessingOCR = false
-                        showingPriceSelection = true
-                        return // Wait for user selection
-                    } else {
-                        // Auto-select top candidate (high confidence or only one option)
-                        gfPriceText = String(describing: topPrice.amount)
-                        gfOCRConfidence = topPrice.confidence
-
-                        // Trigger haptic feedback if confidence is low
-                        if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
-                            await MainActor.run {
-                                triggerHapticFeedback(for: topPrice.confidence)
-                            }
-                        }
-                    }
-                }
+                gfOCRObservations = observations
                 currentStep = .reviewGF
 
             case .captureNonGF:
                 nonGFImage = image
                 nonGFImageUUID = uuid
-                nonGFProductName = productName ?? ""
-
-                // Handle price candidates
-                if let allPrices = prices, !allPrices.isEmpty {
-                    let topPrice = allPrices.first!
-
-                    // Check if we should show price selection alert
-                    if topPrice.quality != .high && allPrices.count > 1 {
-                        // Store candidates and show selection alert
-                        priceCandidates = allPrices
-                        isSelectingGFPrice = false
-                        isProcessingOCR = false
-                        showingPriceSelection = true
-                        return // Wait for user selection
-                    } else {
-                        // Auto-select top candidate
-                        nonGFPriceText = String(describing: topPrice.amount)
-                        nonGFOCRConfidence = topPrice.confidence
-
-                        // Trigger haptic feedback if confidence is low
-                        if ConfidenceIndicatorView.requiresAttention(for: topPrice.confidence) {
-                            await MainActor.run {
-                                triggerHapticFeedback(for: topPrice.confidence)
-                            }
-                        }
-                    }
-                }
+                nonGFOCRObservations = observations
                 currentStep = .reviewNonGF
 
             default:
@@ -631,19 +609,6 @@ struct ProductCaptureFlowView: View {
             }
 
             isProcessingOCR = false
-        }
-    }
-
-    /// Handles user selection of a price candidate
-    private func selectPriceCandidate(_ candidate: PriceMatch) {
-        if isSelectingGFPrice {
-            gfPriceText = String(describing: candidate.amount)
-            gfOCRConfidence = candidate.confidence
-            currentStep = .reviewGF
-        } else {
-            nonGFPriceText = String(describing: candidate.amount)
-            nonGFOCRConfidence = candidate.confidence
-            currentStep = .reviewNonGF
         }
     }
 
@@ -662,12 +627,12 @@ struct ProductCaptureFlowView: View {
             gfPrice: gfPrice,
             gfSize: gfSize.isEmpty ? nil : gfSize,
             gfImageUUID: gfImageUUID,
-            gfOCRConfidence: gfOCRConfidence,
+            gfOCRConfidence: 0.0, // No longer tracking confidence
             nonGFProductName: nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines),
             nonGFPrice: nonGFPrice,
             nonGFSize: nonGFSize.isEmpty ? nil : nonGFSize,
             nonGFImageUUID: nonGFImageUUID,
-            nonGFOCRConfidence: nonGFOCRConfidence,
+            nonGFOCRConfidence: 0.0, // No longer tracking confidence
             category: category.isEmpty ? nil : category,
             notes: notes.isEmpty ? nil : notes,
             verified: false
@@ -686,24 +651,6 @@ struct ProductCaptureFlowView: View {
             print("❌ Save failed: \(error.localizedDescription)")
             isSaving = false
         }
-    }
-
-    /// Triggers haptic feedback based on confidence level
-    private func triggerHapticFeedback(for confidence: Float) {
-        #if os(iOS)
-        let generator = UINotificationFeedbackGenerator()
-        switch confidence {
-        case 0.6..<0.85:
-            // Medium confidence - warning feedback
-            generator.notificationOccurred(.warning)
-        case 0.0..<0.6:
-            // Low confidence - error feedback
-            generator.notificationOccurred(.error)
-        default:
-            // High confidence - no haptic needed
-            break
-        }
-        #endif
     }
 }
 
