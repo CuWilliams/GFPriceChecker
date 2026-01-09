@@ -76,6 +76,21 @@ struct PriceMatch {
     }
 }
 
+/// Represents a single text observation for UI display and selection
+struct SelectableTextObservation: Identifiable {
+    let id = UUID()
+    /// The recognized text content
+    let text: String
+    /// Bounding box in normalized coordinates (0-1)
+    let boundingBox: CGRect
+    /// OCR confidence score (0.0 to 1.0)
+    let confidence: Float
+    /// Vertical position for sorting (higher = top of image)
+    var verticalPosition: CGFloat {
+        boundingBox.origin.y + boundingBox.height / 2
+    }
+}
+
 /// Service for extracting text and data from product images using Vision framework
 ///
 /// Provides OCR capabilities for:
@@ -291,6 +306,53 @@ final class OCRService {
         }
 
         return sorted.first?.text
+    }
+
+    /// Extracts text observations for UI display and selection
+    ///
+    /// Returns individual text observations sorted top-to-bottom,
+    /// suitable for rendering in a scrollable tap-to-select interface.
+    ///
+    /// - Parameter image: The UIImage to extract text from
+    /// - Returns: Array of SelectableTextObservation sorted by vertical position (top first)
+    /// - Throws: OCRError if recognition fails
+    func extractSelectableText(from image: UIImage) async throws -> [SelectableTextObservation] {
+        print("🔍 OCRService: extractSelectableText called")
+
+        let observations = try await extractText(from: image)
+        print("🔍 OCRService: Got \(observations.count) text observations for selection")
+
+        var selectableObservations: [SelectableTextObservation] = []
+
+        for observation in observations {
+            guard let candidate = observation.topCandidates(1).first,
+                  candidate.confidence >= minimumConfidence else {
+                continue
+            }
+
+            let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Skip empty strings
+            if text.isEmpty {
+                continue
+            }
+
+            let selectable = SelectableTextObservation(
+                text: text,
+                boundingBox: observation.boundingBox,
+                confidence: candidate.confidence
+            )
+
+            selectableObservations.append(selectable)
+        }
+
+        // Sort by vertical position descending (top of image first)
+        // Vision uses bottom-left origin, so higher y values are at top
+        let sorted = selectableObservations.sorted { $0.verticalPosition > $1.verticalPosition }
+
+        print("🔍 OCRService: Extracted \(sorted.count) selectable text observations")
+
+        return sorted
     }
 
     // MARK: - Receipt-Specific OCR
