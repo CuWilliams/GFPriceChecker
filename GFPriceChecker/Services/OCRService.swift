@@ -91,6 +91,19 @@ struct SelectableTextObservation: Identifiable {
     }
 }
 
+/// Represents a detected rectangle in an image (e.g., shelf price tag, product label)
+struct DetectedRectangle: Identifiable {
+    let id = UUID()
+    /// Bounding box in normalized coordinates (0-1)
+    let boundingBox: CGRect
+    /// Detection confidence score (0.0 to 1.0)
+    let confidence: Float
+    /// Estimated area (width * height) for ranking
+    var area: CGFloat {
+        boundingBox.width * boundingBox.height
+    }
+}
+
 /// Service for extracting text and data from product images using Vision framework
 ///
 /// Provides OCR capabilities for:
@@ -351,6 +364,131 @@ final class OCRService {
         let sorted = selectableObservations.sorted { $0.verticalPosition > $1.verticalPosition }
 
         print("🔍 OCRService: Extracted \(sorted.count) selectable text observations")
+
+        return sorted
+    }
+
+    /// Detects rectangular regions in an image (e.g., shelf price tags, product labels)
+    ///
+    /// Uses Vision framework's rectangle detection to identify potential regions of interest.
+    /// Useful for allowing users to select specific areas like shelf price tags before OCR.
+    ///
+    /// - Parameter image: The UIImage to detect rectangles in
+    /// - Returns: Array of DetectedRectangle sorted by area (largest first)
+    /// - Throws: OCRError if detection fails
+    func detectRectangles(in image: UIImage) async throws -> [DetectedRectangle] {
+        print("🔍 OCRService: detectRectangles called")
+
+        guard let cgImage = image.cgImage else {
+            print("🔍 OCRService: ERROR - cgImage is nil")
+            throw OCRError.invalidImage
+        }
+
+        print("🔍 OCRService: cgImage obtained for rectangle detection")
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = VNDetectRectanglesRequest { request, error in
+                if let error = error {
+                    print("🔍 OCRService: ERROR in rectangle detection - \(error)")
+                    continuation.resume(throwing: OCRError.recognitionFailed(error))
+                    return
+                }
+
+                guard let observations = request.results as? [VNRectangleObservation] else {
+                    print("🔍 OCRService: No rectangles detected")
+                    continuation.resume(returning: [])
+                    return
+                }
+
+                print("🔍 OCRService: Detected \(observations.count) rectangles")
+
+                var rectangles: [DetectedRectangle] = []
+
+                for observation in observations {
+                    // Filter by confidence threshold
+                    guard observation.confidence >= 0.5 else { continue }
+
+                    let rectangle = DetectedRectangle(
+                        boundingBox: observation.boundingBox,
+                        confidence: observation.confidence
+                    )
+
+                    print("🔍 DEBUG: Rectangle - confidence: \(observation.confidence), area: \(rectangle.area)")
+                    rectangles.append(rectangle)
+                }
+
+                // Sort by area (largest first) - larger rectangles likely more important
+                let sorted = rectangles.sorted { $0.area > $1.area }
+
+                print("🔍 OCRService: Returning \(sorted.count) filtered rectangles")
+                continuation.resume(returning: sorted)
+            }
+
+            // Configure rectangle detection
+            request.minimumAspectRatio = 0.3  // Allow wide rectangles (price tags)
+            request.maximumAspectRatio = 1.0  // Prevent very tall/narrow rectangles
+            request.minimumSize = 0.1         // Minimum 10% of image size
+            request.maximumObservations = 10  // Limit to top 10 rectangles
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+
+            do {
+                try handler.perform([request])
+            } catch {
+                print("🔍 OCRService: ERROR performing rectangle detection - \(error)")
+                continuation.resume(throwing: OCRError.recognitionFailed(error))
+            }
+        }
+    }
+
+    /// Extracts selectable text observations from a specific region of the image
+    ///
+    /// Filters OCR results to only include text within the specified bounding box.
+    /// Useful for extracting text from user-selected rectangular regions (e.g., shelf price tags).
+    ///
+    /// - Parameters:
+    ///   - image: The UIImage to extract text from
+    ///   - region: The bounding box (normalized 0-1) to extract text from
+    /// - Returns: Array of SelectableTextObservation within the region, sorted top-to-bottom
+    /// - Throws: OCRError if recognition fails
+    func extractSelectableText(from image: UIImage, region: CGRect) async throws -> [SelectableTextObservation] {
+        print("🔍 OCRService: extractSelectableText(region) called")
+        print("🔍 OCRService: Region - x:\(region.origin.x) y:\(region.origin.y) w:\(region.width) h:\(region.height)")
+
+        let observations = try await extractText(from: image)
+        print("🔍 OCRService: Got \(observations.count) total text observations")
+
+        var selectableObservations: [SelectableTextObservation] = []
+
+        for observation in observations {
+            guard let candidate = observation.topCandidates(1).first,
+                  candidate.confidence >= minimumConfidence else {
+                continue
+            }
+
+            let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Skip empty strings
+            if text.isEmpty {
+                continue
+            }
+
+            // Check if observation bounding box intersects with the region
+            if region.intersects(observation.boundingBox) {
+                let selectable = SelectableTextObservation(
+                    text: text,
+                    boundingBox: observation.boundingBox,
+                    confidence: candidate.confidence
+                )
+
+                selectableObservations.append(selectable)
+            }
+        }
+
+        // Sort by vertical position descending (top of image first)
+        let sorted = selectableObservations.sorted { $0.verticalPosition > $1.verticalPosition }
+
+        print("🔍 OCRService: Extracted \(sorted.count) selectable text observations from region")
 
         return sorted
     }

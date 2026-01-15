@@ -3272,3 +3272,62 @@ Session 26 resolved all critical deficiencies found during field testing. The fi
 ---
 
 *Session 26 complete - Critical bug fixes for data import, PDF generation, and image viewer with established patterns for SwiftUI timing issues.*
+
+---
+
+## Session 27: Rectangle-Based OCR and Decimal Inference
+**Date:** January 15, 2026
+**Branch:** `claude/ocr-rectangle-decimal-enhancements-Huk46`
+**Status:** ✅ Complete
+
+### Objective
+Enhance ProductCaptureFlowView with intelligent OCR improvements: rectangle detection for region-based extraction and decimal inference for price values.
+
+### Implementation Summary
+
+#### Enhancement 1: Rectangle-Based OCR Filtering
+**Files Created:**
+- `Views/Components/RectangleSelectorView.swift` (190 lines) - Tap-to-select rectangle UI
+
+**Files Modified:**
+- `Services/OCRService.swift` (+138 lines)
+  - Added `DetectedRectangle` struct
+  - Added `detectRectangles(in:)` using VNDetectRectanglesRequest
+  - Added `extractSelectableText(from:region:)` for region-based OCR
+- `Views/CaptureFlow/ProductCaptureFlowView.swift` (+78 lines)
+  - Added `.selectGFRectangle` and `.selectNonGFRectangle` steps
+  - Automatic rectangle detection after image capture
+  - Falls back to full-image OCR if no rectangles detected or user skips
+
+**Features:**
+- Vision framework rectangle detection (shelf price tags)
+- Visual overlays with tap-to-select
+- Region-based OCR extraction for selected area
+- Skip option for full-image OCR fallback
+- Aspect ratio tuned for Canadian grocery shelf tags (0.3-1.0)
+
+#### Enhancement 2: Decimal Inference for Prices
+**Files Modified:**
+- `Views/Components/OCRTextSelectorView.swift` (+88 lines)
+  - Added decimal inference logic for 3+ digit values without decimals
+  - Confirmation alert: "999" suggests "$9.99"
+  - User options: accept suggestion, use original, or cancel
+  - Only applies during price selection phase
+
+**Algorithm:**
+- Pattern: `^\d{3,}$` (3+ consecutive digits, no decimal)
+- Placement: Insert decimal before last 2 digits (e.g., "1299" → "$12.99")
+- Context-aware: Only triggers for price selection, not product names
+
+### Design Decisions
+1. **Progressive Enhancement**: Both features are optional, non-blocking
+2. **User Control**: Skip/cancel options maintain existing workflow
+3. **Conservative Triggers**: Rectangle detection requires ≥0.5 confidence; decimal inference requires 3+ digits
+4. **Coordinate Conversion**: Vision bottom-left origin → SwiftUI top-left origin
+
+### Status
+Implementation complete - Ready for user testing
+
+---
+
+*Session 27 complete - Rectangle-based OCR filtering and decimal inference for improved capture accuracy.*
