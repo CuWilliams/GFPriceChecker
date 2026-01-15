@@ -157,6 +157,11 @@ struct RectangleSelectorView: View {
                 isSelected ? Color.green : Color.blue,
                 lineWidth: isSelected ? 4 : 2
             )
+            .background(
+                Rectangle()
+                    .fill(isSelected ? Color.green.opacity(0.1) : Color.blue.opacity(0.05))
+            )
+            .contentShape(Rectangle())
             .frame(width: rectWidth, height: rectHeight)
             .position(x: rectX + rectWidth / 2, y: rectY + rectHeight / 2)
             .accessibilityLabel("Rectangle \(rectangles.firstIndex(where: { $0.id == rectangle.id })! + 1)")
