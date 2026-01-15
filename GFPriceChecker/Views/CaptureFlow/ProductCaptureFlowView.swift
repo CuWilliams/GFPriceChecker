@@ -60,6 +60,12 @@ struct ProductCaptureFlowView: View {
     @State private var gfOCRObservations: [SelectableTextObservation] = []
     @State private var nonGFOCRObservations: [SelectableTextObservation] = []
 
+    // Rectangle detection for region selection
+    @State private var gfDetectedRectangles: [DetectedRectangle] = []
+    @State private var nonGFDetectedRectangles: [DetectedRectangle] = []
+    @State private var gfSelectedRectangle: DetectedRectangle?
+    @State private var nonGFSelectedRectangle: DetectedRectangle?
+
     // MARK: - Body
 
     var body: some View {
@@ -99,10 +105,36 @@ struct ProductCaptureFlowView: View {
             introductionView
         case .captureGF:
             capturePlaceholderView(productType: "Gluten-Free")
+        case .selectGFRectangle:
+            if let image = gfImage {
+                RectangleSelectorView(
+                    image: image,
+                    rectangles: gfDetectedRectangles,
+                    onRectangleSelected: { rectangle in
+                        handleRectangleSelection(rectangle, isGF: true)
+                    },
+                    onSkip: {
+                        handleSkipRectangleSelection(isGF: true)
+                    }
+                )
+            }
         case .reviewGF:
             reviewView(isGF: true)
         case .captureNonGF:
             capturePlaceholderView(productType: "Regular")
+        case .selectNonGFRectangle:
+            if let image = nonGFImage {
+                RectangleSelectorView(
+                    image: image,
+                    rectangles: nonGFDetectedRectangles,
+                    onRectangleSelected: { rectangle in
+                        handleRectangleSelection(rectangle, isGF: false)
+                    },
+                    onSkip: {
+                        handleSkipRectangleSelection(isGF: false)
+                    }
+                )
+            }
         case .reviewNonGF:
             reviewView(isGF: false)
         case .finalize:
@@ -588,24 +620,90 @@ struct ProductCaptureFlowView: View {
             // Save image to storage
             let uuid = await ImageStorageService.shared.saveImage(image, type: .product)
 
-            // Extract selectable text observations
-            let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
+            // Detect rectangles first (for region-based OCR)
+            let rectangles = (try? await OCRService.shared.detectRectangles(in: image)) ?? []
 
             switch currentStep {
             case .captureGF:
                 gfImage = image
                 gfImageUUID = uuid
-                gfOCRObservations = observations
-                currentStep = .reviewGF
+
+                if !rectangles.isEmpty {
+                    // Rectangles detected - let user select region
+                    gfDetectedRectangles = rectangles
+                    currentStep = .selectGFRectangle
+                } else {
+                    // No rectangles - proceed with full-image OCR
+                    let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
+                    gfOCRObservations = observations
+                    currentStep = .reviewGF
+                }
 
             case .captureNonGF:
                 nonGFImage = image
                 nonGFImageUUID = uuid
-                nonGFOCRObservations = observations
-                currentStep = .reviewNonGF
+
+                if !rectangles.isEmpty {
+                    // Rectangles detected - let user select region
+                    nonGFDetectedRectangles = rectangles
+                    currentStep = .selectNonGFRectangle
+                } else {
+                    // No rectangles - proceed with full-image OCR
+                    let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
+                    nonGFOCRObservations = observations
+                    currentStep = .reviewNonGF
+                }
 
             default:
                 break
+            }
+
+            isProcessingOCR = false
+        }
+    }
+
+    /// Handles selection of a rectangle region for OCR
+    private func handleRectangleSelection(_ rectangle: DetectedRectangle, isGF: Bool) {
+        guard let image = isGF ? gfImage : nonGFImage else { return }
+
+        Task {
+            isProcessingOCR = true
+
+            // Extract text from selected region only
+            let observations = (try? await OCRService.shared.extractSelectableText(from: image, region: rectangle.boundingBox)) ?? []
+
+            if isGF {
+                gfSelectedRectangle = rectangle
+                gfOCRObservations = observations
+                currentStep = .reviewGF
+            } else {
+                nonGFSelectedRectangle = rectangle
+                nonGFOCRObservations = observations
+                currentStep = .reviewNonGF
+            }
+
+            isProcessingOCR = false
+        }
+    }
+
+    /// Handles skipping rectangle selection and using full-image OCR
+    private func handleSkipRectangleSelection(isGF: Bool) {
+        guard let image = isGF ? gfImage : nonGFImage else { return }
+
+        Task {
+            isProcessingOCR = true
+
+            // Extract text from full image
+            let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
+
+            if isGF {
+                gfSelectedRectangle = nil
+                gfOCRObservations = observations
+                currentStep = .reviewGF
+            } else {
+                nonGFSelectedRectangle = nil
+                nonGFOCRObservations = observations
+                currentStep = .reviewNonGF
             }
 
             isProcessingOCR = false
@@ -659,8 +757,10 @@ struct ProductCaptureFlowView: View {
 private enum CaptureStep {
     case introduction
     case captureGF
+    case selectGFRectangle
     case reviewGF
     case captureNonGF
+    case selectNonGFRectangle
     case reviewNonGF
     case finalize
 
@@ -670,10 +770,14 @@ private enum CaptureStep {
             return "Capture Product Pair"
         case .captureGF:
             return "Scan GF Product"
+        case .selectGFRectangle:
+            return "Select GF Region"
         case .reviewGF:
             return "Review GF Product"
         case .captureNonGF:
             return "Scan Regular Product"
+        case .selectNonGFRectangle:
+            return "Select Regular Region"
         case .reviewNonGF:
             return "Review Regular Product"
         case .finalize:

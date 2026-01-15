@@ -42,6 +42,12 @@ struct OCRTextSelectorView: View {
     @State private var selectedNameObservation: SelectableTextObservation?
     @State private var selectedPriceObservation: SelectableTextObservation?
 
+    // Decimal inference state
+    @State private var showingDecimalConfirmation = false
+    @State private var pendingPriceObservation: SelectableTextObservation?
+    @State private var suggestedDecimalPrice: String = ""
+    @State private var originalPrice: String = ""
+
     // MARK: - Body
 
     var body: some View {
@@ -62,6 +68,19 @@ struct OCRTextSelectorView: View {
             actionButtons
         }
         .padding()
+        .alert("Decimal Placement", isPresented: $showingDecimalConfirmation) {
+            Button("Use \(suggestedDecimalPrice)") {
+                acceptSuggestedDecimal()
+            }
+            Button("Use \(originalPrice)") {
+                useOriginalPrice()
+            }
+            Button("Cancel", role: .cancel) {
+                cancelPriceSelection()
+            }
+        } message: {
+            Text("The selected value '\(originalPrice)' has no decimal point. Did you mean '\(suggestedDecimalPrice)'?")
+        }
     }
 
     // MARK: - View Components
@@ -228,8 +247,18 @@ struct OCRTextSelectorView: View {
             selectionPhase = .selectingPrice
 
         case .selectingPrice:
-            selectedPriceObservation = observation
-            selectionPhase = .complete
+            // Check if we should infer decimal placement
+            if shouldInferDecimal(for: observation.text) {
+                // Store pending observation and show confirmation alert
+                pendingPriceObservation = observation
+                originalPrice = observation.text
+                suggestedDecimalPrice = suggestDecimalPlacement(for: observation.text)
+                showingDecimalConfirmation = true
+            } else {
+                // Normal price selection
+                selectedPriceObservation = observation
+                selectionPhase = .complete
+            }
 
         case .complete:
             // Taps do nothing in complete phase
@@ -294,6 +323,86 @@ struct OCRTextSelectorView: View {
         case .complete:
             return ""
         }
+    }
+
+    // MARK: - Decimal Inference Helpers
+
+    /// Checks if a text value should trigger decimal inference
+    /// - Parameter text: The text to check
+    /// - Returns: true if text is 3+ consecutive digits without decimal point
+    private func shouldInferDecimal(for text: String) -> Bool {
+        // Remove whitespace and extract numeric part
+        let cleaned = text.trimmingCharacters(in: .whitespaces)
+
+        // Pattern: 3 or more consecutive digits, no decimal point
+        let pattern = #"^\d{3,}$"#
+
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let range = NSRange(cleaned.startIndex..., in: cleaned)
+            return regex.firstMatch(in: cleaned, options: [], range: range) != nil
+        }
+
+        return false
+    }
+
+    /// Suggests decimal placement for a numeric string
+    /// - Parameter text: The numeric text (e.g., "999", "1299")
+    /// - Returns: Suggested price with decimal (e.g., "$9.99", "$12.99")
+    private func suggestDecimalPlacement(for text: String) -> String {
+        let cleaned = text.trimmingCharacters(in: .whitespaces)
+
+        // Insert decimal point before last 2 digits
+        if cleaned.count >= 3 {
+            let endIndex = cleaned.index(cleaned.endIndex, offsetBy: -2)
+            let dollars = String(cleaned[..<endIndex])
+            let cents = String(cleaned[endIndex...])
+            return "$\(dollars).\(cents)"
+        }
+
+        // Fallback: just add $
+        return "$\(cleaned)"
+    }
+
+    /// User accepted the suggested decimal placement
+    private func acceptSuggestedDecimal() {
+        guard let pending = pendingPriceObservation else { return }
+
+        // Create a modified observation with the suggested price text
+        let modifiedObservation = SelectableTextObservation(
+            text: suggestedDecimalPrice,
+            boundingBox: pending.boundingBox,
+            confidence: pending.confidence
+        )
+
+        selectedPriceObservation = modifiedObservation
+        selectionPhase = .complete
+
+        // Reset pending state
+        pendingPriceObservation = nil
+        suggestedDecimalPrice = ""
+        originalPrice = ""
+    }
+
+    /// User chose to use the original price without decimal inference
+    private func useOriginalPrice() {
+        guard let pending = pendingPriceObservation else { return }
+
+        selectedPriceObservation = pending
+        selectionPhase = .complete
+
+        // Reset pending state
+        pendingPriceObservation = nil
+        suggestedDecimalPrice = ""
+        originalPrice = ""
+    }
+
+    /// User cancelled the price selection
+    private func cancelPriceSelection() {
+        // Reset pending state
+        pendingPriceObservation = nil
+        suggestedDecimalPrice = ""
+        originalPrice = ""
+        // Stay in selectingPrice phase
     }
 }
 

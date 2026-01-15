@@ -1,0 +1,216 @@
+//
+//  RectangleSelectorView.swift
+//  GFPriceChecker
+//
+//  Created by Claude Code on 2026-01-15.
+//
+
+import SwiftUI
+import UIKit
+
+/// A view that displays detected rectangles on an image and allows tap-to-select
+///
+/// Useful for selecting specific rectangular regions like shelf price tags
+/// before performing OCR text extraction.
+struct RectangleSelectorView: View {
+
+    // MARK: - Properties
+
+    /// The scanned image to display
+    let image: UIImage
+
+    /// Detected rectangles to outline
+    let rectangles: [DetectedRectangle]
+
+    /// Callback when user selects a rectangle
+    let onRectangleSelected: (DetectedRectangle) -> Void
+
+    /// Callback when user chooses to skip rectangle selection
+    let onSkip: () -> Void
+
+    // MARK: - State
+
+    @State private var selectedRectangle: DetectedRectangle?
+
+    // MARK: - Body
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Instructions header
+            instructionsHeader
+
+            // Image with rectangle overlays
+            GeometryReader { geometry in
+                ZStack {
+                    // Base image
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+
+                    // Rectangle overlays
+                    ForEach(rectangles) { rectangle in
+                        rectangleOverlay(
+                            rectangle: rectangle,
+                            imageSize: image.size,
+                            containerSize: geometry.size,
+                            isSelected: selectedRectangle?.id == rectangle.id
+                        )
+                        .onTapGesture {
+                            handleRectangleTap(rectangle)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 400)
+            .cornerRadius(8)
+            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+
+            // Rectangle count info
+            Text("Tap a rectangle to select the area for OCR")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+
+            // Action buttons
+            actionButtons
+        }
+        .padding()
+    }
+
+    // MARK: - View Components
+
+    private var instructionsHeader: some View {
+        VStack(spacing: 8) {
+            Text("Select Region")
+                .font(.headline)
+                .foregroundColor(.blue)
+
+            Text("Found \(rectangles.count) rectangular region\(rectangles.count == 1 ? "" : "s")")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 12) {
+            Button("Skip Selection") {
+                onSkip()
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Skip rectangle selection")
+            .accessibilityHint("Use full image for OCR instead of selecting a region")
+
+            Button("Use Selected Region") {
+                if let selected = selectedRectangle {
+                    onRectangleSelected(selected)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedRectangle == nil)
+            .accessibilityLabel("Use selected region")
+            .accessibilityHint("Extract text only from the selected rectangular area")
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    private func rectangleOverlay(
+        rectangle: DetectedRectangle,
+        imageSize: CGSize,
+        containerSize: CGSize,
+        isSelected: Bool
+    ) -> some View {
+        // Calculate the actual display size of the image (aspect fit)
+        let imageAspect = imageSize.width / imageSize.height
+        let containerAspect = containerSize.width / containerSize.height
+
+        let displayWidth: CGFloat
+        let displayHeight: CGFloat
+
+        if imageAspect > containerAspect {
+            // Image is wider, fit to width
+            displayWidth = containerSize.width
+            displayHeight = containerSize.width / imageAspect
+        } else {
+            // Image is taller, fit to height
+            displayHeight = containerSize.height
+            displayWidth = containerSize.height * imageAspect
+        }
+
+        // Calculate offset to center the image
+        let xOffset = (containerSize.width - displayWidth) / 2
+        let yOffset = (containerSize.height - displayHeight) / 2
+
+        // Convert normalized bounding box to actual position
+        // Vision uses bottom-left origin, SwiftUI uses top-left
+        let visionY = rectangle.boundingBox.origin.y
+        let swiftUIY = 1.0 - visionY - rectangle.boundingBox.height
+
+        let rectX = xOffset + (rectangle.boundingBox.origin.x * displayWidth)
+        let rectY = yOffset + (swiftUIY * displayHeight)
+        let rectWidth = rectangle.boundingBox.width * displayWidth
+        let rectHeight = rectangle.boundingBox.height * displayHeight
+
+        return Rectangle()
+            .stroke(
+                isSelected ? Color.green : Color.blue,
+                lineWidth: isSelected ? 4 : 2
+            )
+            .frame(width: rectWidth, height: rectHeight)
+            .position(x: rectX + rectWidth / 2, y: rectY + rectHeight / 2)
+            .accessibilityLabel("Rectangle \(rectangles.firstIndex(where: { $0.id == rectangle.id })! + 1)")
+            .accessibilityHint("Tap to select this region for text extraction")
+    }
+
+    private func handleRectangleTap(_ rectangle: DetectedRectangle) {
+        selectedRectangle = rectangle
+        print("🔍 DEBUG: Selected rectangle - confidence: \(rectangle.confidence), area: \(rectangle.area)")
+    }
+}
+
+// MARK: - Preview
+
+#Preview {
+    RectangleSelectorView(
+        image: createSampleImage(),
+        rectangles: createSampleRectangles(),
+        onRectangleSelected: { rectangle in
+            print("Selected rectangle with area: \(rectangle.area)")
+        },
+        onSkip: {
+            print("Skipped rectangle selection")
+        }
+    )
+}
+
+// MARK: - Preview Helpers
+
+private func createSampleImage() -> UIImage {
+    let size = CGSize(width: 400, height: 300)
+    UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+    UIColor.systemGray6.setFill()
+    UIRectFill(CGRect(origin: .zero, size: size))
+
+    // Draw some sample "text" areas
+    UIColor.white.setFill()
+    UIRectFill(CGRect(x: 50, y: 50, width: 300, height: 80))
+    UIRectFill(CGRect(x: 50, y: 150, width: 200, height: 60))
+
+    let image = UIGraphicsGetImageFromCurrentImageContext() ?? UIImage()
+    UIGraphicsEndImageContext()
+    return image
+}
+
+private func createSampleRectangles() -> [DetectedRectangle] {
+    [
+        DetectedRectangle(
+            boundingBox: CGRect(x: 0.125, y: 0.55, width: 0.75, height: 0.27),
+            confidence: 0.95
+        ),
+        DetectedRectangle(
+            boundingBox: CGRect(x: 0.125, y: 0.2, width: 0.5, height: 0.2),
+            confidence: 0.88
+        )
+    ]
+}
