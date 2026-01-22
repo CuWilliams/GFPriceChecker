@@ -757,14 +757,6 @@ private struct ReceiptLineSelector: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Receipt image thumbnail
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(maxHeight: 120)
-                .cornerRadius(8)
-                .padding()
-
             // Instructions
             Text(selectedObservation == nil ? "Tap the matching line on the receipt" : "Line selected - confirm or change")
                 .font(.caption)
