@@ -594,36 +594,36 @@ final class PDFGeneratorService {
                 subtotalText.draw(at: CGPoint(x: contentRect.maxX - subtotalSize.width - 10, y: yPosition), withAttributes: subtotalAttrs)
                 yPosition += 30
 
-                // MARK: - Receipt Image Page
+                // MARK: - Receipt Image Section
 
-                // Start new page for receipt image
-                drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
-                context.beginPage()
-                pageNumber += 1
-
-                drawReceiptImagePage(
-                    context: context.cgContext,
+                // Draw receipt image section (handles multi-page images and page breaks)
+                drawReceiptImageSection(
+                    context: context,
                     pageRect: pageRect,
                     contentRect: contentRect,
                     receipt: receipt,
                     verifiedProducts: sortedProducts,
-                    receiptImage: receiptImages[receipt.id.uuidString]
+                    receiptImage: receiptImages[receipt.id.uuidString],
+                    yPosition: &yPosition,
+                    pageNumber: &pageNumber
                 )
 
-                drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
-
-                // Prepare for next receipt or section
-                yPosition = contentRect.minY
+                // yPosition and pageNumber are now updated by drawReceiptImageSection
             }
         }
 
         // MARK: - Unverified Products Section
 
         if !unverifiedProducts.isEmpty {
-            // Start new page for unverified section
-            context.beginPage()
-            pageNumber += 1
-            yPosition = contentRect.minY
+            // Check if we need a new page for unverified section (need space for title + warning + header)
+            let unverifiedHeaderSpace: CGFloat = 130
+            if yPosition + unverifiedHeaderSpace > contentRect.maxY || yPosition > contentRect.minY + 50 {
+                // Start new page for unverified section (or if we're partway down a page)
+                drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+                context.beginPage()
+                pageNumber += 1
+                yPosition = contentRect.minY
+            }
 
             let unverifiedTitle = "Unverified Products (No Receipt)"
             let unverifiedTitleAttrs: [NSAttributedString.Key: Any] = [
@@ -684,47 +684,111 @@ final class PDFGeneratorService {
         drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: pageNumber)
     }
 
-    /// Draws a receipt image page with verified products caption
-    private func drawReceiptImagePage(
-        context: CGContext,
+    /// Draws a receipt image section with verified products caption, handling multi-page images
+    /// Returns the updated yPosition and pageNumber after drawing
+    private func drawReceiptImageSection(
+        context: UIGraphicsPDFRendererContext,
         pageRect: CGRect,
         contentRect: CGRect,
         receipt: Receipt,
         verifiedProducts: [ProductPair],
-        receiptImage: UIImage?
+        receiptImage: UIImage?,
+        yPosition: inout CGFloat,
+        pageNumber: inout Int
     ) {
-        var yPosition = contentRect.minY
-
-        // Page title
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MMMM d, yyyy"
-        let title = "Receipt - \(receipt.storeName ?? "Unknown Store") - \(dateFormatter.string(from: receipt.purchaseDate))"
+        let titleText = "Receipt - \(receipt.storeName ?? "Unknown Store") - \(dateFormatter.string(from: receipt.purchaseDate))"
         let titleAttrs: [NSAttributedString.Key: Any] = [
             .font: titleFont,
             .foregroundColor: primaryColor
         ]
-        title.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: titleAttrs)
-        yPosition += 50
+        let titleHeight: CGFloat = 50
+        let captionHeight: CGFloat = 60
+        let minimumImageSpace: CGFloat = 150 // Minimum space needed to start drawing an image
 
-        // Draw receipt image
+        // Check if we need a new page for the title
+        if yPosition + titleHeight + minimumImageSpace > contentRect.maxY {
+            drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+            context.beginPage()
+            pageNumber += 1
+            yPosition = contentRect.minY
+        }
+
+        // Draw title
+        titleText.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: titleAttrs)
+        yPosition += titleHeight
+
+        // Draw receipt image (handling multi-page if needed)
         if let image = receiptImage {
-            // Calculate image size to fit page (maintain aspect ratio)
-            let maxImageHeight = contentRect.height - 150 // Leave space for title and caption
+            // Calculate scaled image dimensions to fit page width
             let imageSize = image.size
             let aspectRatio = imageSize.height / imageSize.width
+            let drawWidth = min(contentRect.width, imageSize.width)
+            let totalDrawHeight = drawWidth * aspectRatio
+            let imageX = contentRect.minX + (contentRect.width - drawWidth) / 2
 
-            var drawWidth = contentRect.width
-            var drawHeight = drawWidth * aspectRatio
+            var remainingHeight = totalDrawHeight
+            var sourceYOffset: CGFloat = 0
 
-            if drawHeight > maxImageHeight {
-                drawHeight = maxImageHeight
-                drawWidth = drawHeight / aspectRatio
+            while remainingHeight > 0 {
+                let availableHeight = contentRect.maxY - yPosition - captionHeight // Reserve space for caption on last chunk
+                let isLastChunk = remainingHeight <= availableHeight
+
+                // Determine how much to draw on this page
+                let drawHeightOnPage: CGFloat
+                if isLastChunk {
+                    drawHeightOnPage = remainingHeight
+                } else {
+                    // Leave some space at bottom, but use most of available height
+                    drawHeightOnPage = max(0, contentRect.maxY - yPosition - 20)
+                    if drawHeightOnPage < minimumImageSpace {
+                        // Not enough space on this page, start fresh on next page
+                        drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+                        context.beginPage()
+                        pageNumber += 1
+                        yPosition = contentRect.minY
+                        continue
+                    }
+                }
+
+                // Draw portion of image
+                // Calculate the source rect (portion of original image to draw)
+                let sourceYStart = sourceYOffset / totalDrawHeight * imageSize.height
+                let sourceHeight = drawHeightOnPage / totalDrawHeight * imageSize.height
+                let sourceRect = CGRect(x: 0, y: sourceYStart, width: imageSize.width, height: sourceHeight)
+
+                // Crop the image to the source rect
+                if let cgImage = image.cgImage,
+                   let croppedCGImage = cgImage.cropping(to: sourceRect) {
+                    let croppedImage = UIImage(cgImage: croppedCGImage, scale: image.scale, orientation: image.imageOrientation)
+                    let destRect = CGRect(x: imageX, y: yPosition, width: drawWidth, height: drawHeightOnPage)
+                    croppedImage.draw(in: destRect)
+                }
+
+                yPosition += drawHeightOnPage
+                remainingHeight -= drawHeightOnPage
+                sourceYOffset += drawHeightOnPage
+
+                // If more to draw, start new page
+                if remainingHeight > 0 {
+                    drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+                    context.beginPage()
+                    pageNumber += 1
+                    yPosition = contentRect.minY
+
+                    // Draw continuation header
+                    let continuationText = "Receipt (continued) - \(receipt.storeName ?? "Unknown Store")"
+                    let continuationAttrs: [NSAttributedString.Key: Any] = [
+                        .font: headingFont,
+                        .foregroundColor: secondaryColor
+                    ]
+                    continuationText.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: continuationAttrs)
+                    yPosition += 30
+                }
             }
 
-            let imageX = contentRect.minX + (contentRect.width - drawWidth) / 2
-            let imageRect = CGRect(x: imageX, y: yPosition, width: drawWidth, height: drawHeight)
-            image.draw(in: imageRect)
-            yPosition += drawHeight + 20
+            yPosition += 20 // Space after image
 
         } else {
             // Image not available
@@ -734,8 +798,16 @@ final class PDFGeneratorService {
                 .foregroundColor: secondaryColor
             ]
             let noImageSize = noImageText.size(withAttributes: noImageAttrs)
-            noImageText.draw(at: CGPoint(x: contentRect.minX + (contentRect.width - noImageSize.width) / 2, y: yPosition + 100), withAttributes: noImageAttrs)
-            yPosition += 200
+            noImageText.draw(at: CGPoint(x: contentRect.minX + (contentRect.width - noImageSize.width) / 2, y: yPosition + 50), withAttributes: noImageAttrs)
+            yPosition += 120
+        }
+
+        // Check if caption fits on current page
+        if yPosition + captionHeight > contentRect.maxY {
+            drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+            context.beginPage()
+            pageNumber += 1
+            yPosition = contentRect.minY
         }
 
         // Caption: Verified Products
@@ -745,8 +817,9 @@ final class PDFGeneratorService {
             .font: bodyFont,
             .foregroundColor: secondaryColor
         ]
-        let captionRect = CGRect(x: contentRect.minX, y: yPosition, width: contentRect.width, height: 60)
+        let captionRect = CGRect(x: contentRect.minX, y: yPosition, width: contentRect.width, height: captionHeight)
         caption.draw(in: captionRect, withAttributes: captionAttrs)
+        yPosition += captionHeight + 20
     }
 
     private func drawTransactionPages(
