@@ -949,14 +949,14 @@ final class PDFGeneratorService {
         var x = contentRect.minX
         let y = yPosition
 
-        // Background
-        context.setFillColor(primaryColor.withAlphaComponent(0.1).cgColor)
+        // Background - darker blue for better contrast
+        context.setFillColor(primaryColor.withAlphaComponent(0.15).cgColor)
         context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: 20))
 
-        // Headers
+        // Headers - dark blue text on light blue background for contrast
         let headerAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 9, weight: .semibold),
-            .foregroundColor: UIColor.label
+            .font: UIFont.systemFont(ofSize: 9, weight: .bold),
+            .foregroundColor: primaryColor
         ]
 
         for (index, header) in headers.enumerated() {
@@ -1079,14 +1079,15 @@ final class PDFGeneratorService {
         var y = yPosition
         let rowHeight: CGFloat = 20
 
-        // Header row
-        context.setFillColor(primaryColor.withAlphaComponent(0.1).cgColor)
+        // Header row - darker blue for better contrast
+        context.setFillColor(primaryColor.withAlphaComponent(0.15).cgColor)
         context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: rowHeight))
 
         var x = contentRect.minX
+        // Dark blue text on light blue background for contrast
         let headerAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
-            .foregroundColor: UIColor.label
+            .font: UIFont.systemFont(ofSize: 11, weight: .bold),
+            .foregroundColor: primaryColor
         ]
 
         for (index, header) in headers.enumerated() {
