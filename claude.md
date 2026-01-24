@@ -350,6 +350,9 @@ Ranks price candidates by:
 
 ## Development Guidelines
 
+### User Preferences
+- **Build and test in Xcode** - Do not run `xcodebuild` commands; user will build and test in Xcode directly
+
 ### SwiftData Best Practices
 - Use `@Model` macro for persistence
 - Decimal type supported natively in SwiftData

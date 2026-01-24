@@ -126,6 +126,10 @@ This template provides a standard structure for CLAUDE.md files across all proje
 
 ## Development Guidelines
 
+### User Preferences
+- **Build and test in Xcode** - Do not run `xcodebuild` commands; user will build and test in Xcode directly
+- [Add other workflow preferences here]
+
 ### [Technology/Framework] Best Practices
 - Guideline 1
 - Guideline 2
