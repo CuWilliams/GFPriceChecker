@@ -33,7 +33,7 @@ struct OnboardingView: View {
 
     // MARK: - Constants
 
-    private let totalPages = 4
+    private let totalPages = 5
 
     // MARK: - Body
 
@@ -70,11 +70,14 @@ struct OnboardingView: View {
                     howItWorksPage
                         .tag(1)
 
-                    permissionsPage
+                    smartScanningPage
                         .tag(2)
 
-                    readyPage
+                    permissionsPage
                         .tag(3)
+
+                    readyPage
+                        .tag(4)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -204,7 +207,7 @@ struct OnboardingView: View {
                             Text("Capture")
                                 .font(.title3.bold())
                         }
-                        Text("Scan product labels or enter prices manually")
+                        Text("Photograph shelf price tags for smart OCR extraction")
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
@@ -266,10 +269,80 @@ struct OnboardingView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("How it works")
-        .accessibilityValue("Step 1: Capture. Scan product labels or enter prices manually. Step 2: Verify. Link products to receipts for proof of purchase. Step 3: Export. Generate professional reports for CRA tax filing.")
+        .accessibilityValue("Step 1: Capture. Photograph shelf price tags for smart OCR extraction. Step 2: Verify. Link products to receipts for proof of purchase. Step 3: Export. Generate professional reports for CRA tax filing.")
     }
 
-    /// Page 3: Permissions
+    /// Page 3: Smart Scanning Tips
+    private var smartScanningPage: some View {
+        VStack(spacing: 25) {
+            Text("Smart Scanning")
+                .font(.system(size: 32, weight: .bold))
+                .padding(.top, 40)
+
+            Text("Our OCR technology makes price capture easy")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
+            VStack(alignment: .leading, spacing: 20) {
+                // Feature 1: Rectangle Detection
+                ScanningFeatureRow(
+                    icon: "rectangle.dashed",
+                    iconColor: .blue,
+                    title: "Tap to Select Price Tags",
+                    description: "The app detects shelf price tags automatically. Just tap the one you want to scan."
+                )
+
+                // Feature 2: Smart Price Detection
+                ScanningFeatureRow(
+                    icon: "wand.and.stars",
+                    iconColor: .purple,
+                    title: "Automatic Price Detection",
+                    description: "Prices are identified by size, position, and formatting. High-confidence results are selected automatically."
+                )
+
+                // Feature 3: Decimal Inference
+                ScanningFeatureRow(
+                    icon: "dollarsign.circle",
+                    iconColor: .green,
+                    title: "Smart Decimal Handling",
+                    description: "Prices like \"1299\" are recognized as \"$12.99\". You'll be asked to confirm when this happens."
+                )
+
+                // Feature 4: Confidence Indicators
+                ScanningFeatureRow(
+                    icon: "gauge.with.needle",
+                    iconColor: .orange,
+                    title: "Confidence Indicators",
+                    description: "Green, yellow, and red dots show OCR accuracy. Low confidence values can be corrected manually."
+                )
+            }
+            .padding(.horizontal, 25)
+            .padding(.top, 10)
+
+            // Tip box
+            HStack(spacing: 12) {
+                Image(systemName: "lightbulb.fill")
+                    .foregroundStyle(.yellow)
+                    .font(.title2)
+                Text("For best results, photograph shelf tags straight-on in good lighting.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(Color.yellow.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 25)
+
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Smart Scanning Features")
+        .accessibilityValue("Tap to select price tags. The app detects shelf price tags automatically. Automatic price detection identifies prices by size and position. Smart decimal handling recognizes prices like 1299 as $12.99. Confidence indicators show OCR accuracy with green, yellow, and red dots. For best results, photograph shelf tags straight-on in good lighting.")
+    }
+
+    /// Page 4: Permissions
     private var permissionsPage: some View {
         VStack(spacing: 30) {
             Spacer()
@@ -387,21 +460,21 @@ struct OnboardingView: View {
             // Tips
             VStack(alignment: .leading, spacing: 20) {
                 TipRow(
-                    icon: "lightbulb.fill",
-                    title: "Pro Tip",
-                    description: "Compare the same size products for the most accurate price differential"
+                    icon: "viewfinder",
+                    title: "Scan Smart",
+                    description: "Photograph shelf price tags for the best OCR accuracy"
+                )
+
+                TipRow(
+                    icon: "equal.circle.fill",
+                    title: "Match Sizes",
+                    description: "Compare the same size products for accurate price differentials"
                 )
 
                 TipRow(
                     icon: "star.fill",
                     title: "Quick Start",
                     description: "Head to the Capture tab to add your first product pair"
-                )
-
-                TipRow(
-                    icon: "book.fill",
-                    title: "Need Help?",
-                    description: "Tap the settings icon to access 'How to Use' anytime"
                 )
             }
             .padding(.horizontal, 30)
@@ -411,7 +484,7 @@ struct OnboardingView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("You're all set")
-        .accessibilityValue("Start tracking your gluten-free price differences today. Pro tip: Compare the same size products for the most accurate price differential. Quick start: Head to the Capture tab to add your first product pair. Need help? Tap the settings icon to access how to use anytime.")
+        .accessibilityValue("Start tracking your gluten-free price differences today. Scan smart: Photograph shelf price tags for the best OCR accuracy. Match sizes: Compare the same size products for accurate price differentials. Quick start: Head to the Capture tab to add your first product pair.")
     }
 
     // MARK: - Helper Methods
@@ -478,6 +551,32 @@ struct TipRow: View {
                 Text(description)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// Feature row for smart scanning page
+struct ScanningFeatureRow: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let description: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 15) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(iconColor)
+                .frame(width: 30)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
