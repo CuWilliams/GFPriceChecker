@@ -721,10 +721,12 @@ final class PDFGeneratorService {
 
         // Draw receipt image (handling multi-page if needed)
         if let image = receiptImage {
-            // Calculate scaled image dimensions to fit page width
+            // Calculate scaled image dimensions with fixed width for compact display
+            // Fixed receipt image width: 3 inches = 216 points (at 72 DPI)
+            let maxReceiptWidth: CGFloat = 216
             let imageSize = image.size
             let aspectRatio = imageSize.height / imageSize.width
-            let drawWidth = min(contentRect.width, imageSize.width)
+            let drawWidth = min(maxReceiptWidth, imageSize.width)
             let totalDrawHeight = drawWidth * aspectRatio
             let imageX = contentRect.minX + (contentRect.width - drawWidth) / 2
 
