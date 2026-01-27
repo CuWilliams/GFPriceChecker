@@ -19,6 +19,14 @@ import SwiftData
 /// 6. Finalize and save
 struct ProductCaptureFlowView: View {
 
+    // MARK: - Developer Configuration
+
+    /// Developer toggle to enable/disable rectangle selection step in capture flow.
+    /// When `false`: Scan → directly to Review (bypasses "Select Region" screen)
+    /// When `true`: Scan → Select Region → Review (if rectangles detected)
+    /// Set to `true` to re-enable rectangle-based OCR filtering during beta testing.
+    private let rectangleSelectionEnabled = false
+
     // MARK: - Environment
 
     @Environment(\.modelContext) private var modelContext
@@ -620,20 +628,25 @@ struct ProductCaptureFlowView: View {
             // Save image to storage
             let uuid = await ImageStorageService.shared.saveImage(image, type: .product)
 
-            // Detect rectangles first (for region-based OCR)
-            let rectangles = (try? await OCRService.shared.detectRectangles(in: image)) ?? []
+            // Detect rectangles only if feature is enabled
+            let rectangles: [DetectedRectangle]
+            if rectangleSelectionEnabled {
+                rectangles = (try? await OCRService.shared.detectRectangles(in: image)) ?? []
+            } else {
+                rectangles = []
+            }
 
             switch currentStep {
             case .captureGF:
                 gfImage = image
                 gfImageUUID = uuid
 
-                if !rectangles.isEmpty {
-                    // Rectangles detected - let user select region
+                if rectangleSelectionEnabled && !rectangles.isEmpty {
+                    // Rectangle selection enabled and rectangles detected - let user select region
                     gfDetectedRectangles = rectangles
                     currentStep = .selectGFRectangle
                 } else {
-                    // No rectangles - proceed with full-image OCR
+                    // Feature disabled or no rectangles - proceed with full-image OCR
                     let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
                     gfOCRObservations = observations
                     currentStep = .reviewGF
@@ -643,12 +656,12 @@ struct ProductCaptureFlowView: View {
                 nonGFImage = image
                 nonGFImageUUID = uuid
 
-                if !rectangles.isEmpty {
-                    // Rectangles detected - let user select region
+                if rectangleSelectionEnabled && !rectangles.isEmpty {
+                    // Rectangle selection enabled and rectangles detected - let user select region
                     nonGFDetectedRectangles = rectangles
                     currentStep = .selectNonGFRectangle
                 } else {
-                    // No rectangles - proceed with full-image OCR
+                    // Feature disabled or no rectangles - proceed with full-image OCR
                     let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
                     nonGFOCRObservations = observations
                     currentStep = .reviewNonGF
