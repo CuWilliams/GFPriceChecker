@@ -24,6 +24,12 @@ struct ValidationRules {
     /// Minimum allowed price
     static let minPrice: Decimal = 0.01
 
+    /// Maximum allowed numeric size value (sanity check)
+    static let maxSizeValue: Decimal = 100_000
+
+    /// Minimum allowed numeric size value
+    static let minSizeValue: Decimal = 0.001
+
     /// Maximum product name length
     static let maxProductNameLength = 200
 
@@ -154,6 +160,35 @@ struct ValidationRules {
     }
 
     // MARK: - Optional Field Validation
+
+    /// Validates a numeric size value entered as a string
+    ///
+    /// - Parameters:
+    ///   - text: The size value as a string (empty string = not provided)
+    ///   - fieldName: The field name for error messages
+    /// - Returns: Result with validated Decimal (nil means not provided) or error
+    static func validateSizeValue(_ text: String, fieldName: String = "Size") -> Result<Decimal?, ErrorHandler.AppError> {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return .success(nil) }
+
+        guard let value = Decimal(string: trimmed) else {
+            return .failure(.invalidProductName("\(fieldName) must be a number (e.g., 450 or 12.5)"))
+        }
+
+        guard value > 0 else {
+            return .failure(.invalidProductName("\(fieldName) must be greater than zero"))
+        }
+
+        guard value >= minSizeValue else {
+            return .failure(.invalidProductName("\(fieldName) is too small"))
+        }
+
+        guard value <= maxSizeValue else {
+            return .failure(.invalidProductName("\(fieldName) is unrealistically large (max \(maxSizeValue))"))
+        }
+
+        return .success(value)
+    }
 
     /// Validates an optional size field
     ///

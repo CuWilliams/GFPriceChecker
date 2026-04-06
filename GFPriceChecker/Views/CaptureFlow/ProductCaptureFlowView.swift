@@ -51,14 +51,17 @@ struct ProductCaptureFlowView: View {
     @State private var gfImageUUID: String?
     @State private var gfProductName: String = ""
     @State private var gfPriceText: String = ""
-    @State private var gfSize: String = ""
+    @State private var gfSizeText: String = ""
 
     // Non-GF Product Data
     @State private var nonGFImage: UIImage?
     @State private var nonGFImageUUID: String?
     @State private var nonGFProductName: String = ""
     @State private var nonGFPriceText: String = ""
-    @State private var nonGFSize: String = ""
+    @State private var nonGFSizeText: String = ""
+
+    // Size Unit (shared for both products)
+    @State private var selectedUnit: SizeUnit? = nil
 
     // Additional Product Pair Data
     @State private var category: String = ""
@@ -344,13 +347,23 @@ struct ProductCaptureFlowView: View {
                 .background(Color(.secondarySystemGroupedBackground))
                 .cornerRadius(12)
 
-                // Size field (optional, manual entry)
+                // Size field (optional, manual numeric entry)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Size (Optional)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    TextField("e.g., 500g, 16oz", text: isGF ? $gfSize : $nonGFSize)
-                        .textFieldStyle(.roundedBorder)
+                    HStack {
+                        TextField("0", text: isGF ? $gfSizeText : $nonGFSizeText)
+                            .textFieldStyle(.roundedBorder)
+                            .keyboardType(.decimalPad)
+                            .accessibilityLabel(isGF ? "Gluten-free product size" : "Regular product size")
+                            .accessibilityHint("Optional. Enter the numeric size, for example 400")
+                        if let unit = selectedUnit {
+                            Text(unit.displayName)
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
                 }
                 .padding(.horizontal)
 
@@ -550,6 +563,53 @@ struct ProductCaptureFlowView: View {
                     .cornerRadius(12)
                 }
 
+                // Size Unit Picker (shown when either size has been entered)
+                if !gfSizeText.isEmpty || !nonGFSizeText.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Size Unit")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("Unit", selection: $selectedUnit) {
+                            Text("Not specified").tag(Optional<SizeUnit>.none)
+                            ForEach(SizeUnit.allCases, id: \.self) { unit in
+                                Text(unit.displayName).tag(Optional<SizeUnit>.some(unit))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityLabel("Package size unit")
+                        .accessibilityHint("Choose the unit for both product sizes")
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .cornerRadius(12)
+                }
+
+                // Normalized differential preview (when both sizes and prices are available)
+                if let gfP = Decimal(string: gfPriceText),
+                   let regP = Decimal(string: nonGFPriceText),
+                   let gfV = Decimal(string: gfSizeText), gfV > 0,
+                   let regV = Decimal(string: nonGFSizeText), regV > 0 {
+                    let normDiff = ((gfP / gfV) - (regP / regV)) * gfV
+                    VStack(spacing: 4) {
+                        Text("Size-Adjusted Differential")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(normDiff.formatted(.currency(code: "CAD")))
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(normDiff >= 0 ? .orange : .green)
+                        Text("Accounts for package size difference")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue.opacity(0.08))
+                    .cornerRadius(12)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Size-adjusted differential: \(normDiff.formatted(.currency(code: "CAD"))). This accounts for the difference in package sizes.")
+                }
+
                 // Category
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Category (Optional)")
@@ -733,17 +793,30 @@ struct ProductCaptureFlowView: View {
 
         isSaving = true
 
+        // Parse optional numeric size values
+        let gfSizeValue = Decimal(string: gfSizeText)
+        let nonGFSizeValue = Decimal(string: nonGFSizeText)
+        let sizeUnitRaw: String? = (gfSizeValue != nil && nonGFSizeValue != nil) ? selectedUnit?.rawValue : nil
+
+        // Build display strings for legacy size fields
+        let unitSuffix = selectedUnit?.displayName ?? ""
+        let gfSizeDisplay: String? = gfSizeText.isEmpty ? nil : "\(gfSizeText)\(unitSuffix)"
+        let nonGFSizeDisplay: String? = nonGFSizeText.isEmpty ? nil : "\(nonGFSizeText)\(unitSuffix)"
+
         let productPair = ProductPair(
             gfProductName: gfProductName.trimmingCharacters(in: .whitespacesAndNewlines),
             gfPrice: gfPrice,
-            gfSize: gfSize.isEmpty ? nil : gfSize,
+            gfSize: gfSizeDisplay,
+            gfSizeValue: gfSizeValue,
             gfImageUUID: gfImageUUID,
             gfOCRConfidence: 0.0, // No longer tracking confidence
             nonGFProductName: nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines),
             nonGFPrice: nonGFPrice,
-            nonGFSize: nonGFSize.isEmpty ? nil : nonGFSize,
+            nonGFSize: nonGFSizeDisplay,
+            nonGFSizeValue: nonGFSizeValue,
             nonGFImageUUID: nonGFImageUUID,
             nonGFOCRConfidence: 0.0, // No longer tracking confidence
+            sizeUnit: sizeUnitRaw,
             category: category.isEmpty ? nil : category,
             notes: notes.isEmpty ? nil : notes,
             verified: false

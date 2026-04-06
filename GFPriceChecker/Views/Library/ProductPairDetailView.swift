@@ -62,6 +62,11 @@ struct ProductPairDetailView: View {
             // Differential Section
             differentialSection
 
+            // Unit Pricing Section (only shown when size data is available)
+            if productPair.hasUnitPricingData {
+                unitPricingSection
+            }
+
             // Product Images Section
             productImagesSection
 
@@ -156,6 +161,49 @@ struct ProductPairDetailView: View {
                 }
             }
             .padding(.vertical, 8)
+        }
+    }
+
+    /// Unit pricing section showing size-adjusted cost analysis
+    private var unitPricingSection: some View {
+        Section {
+            if let unit = productPair.resolvedSizeUnit {
+                if let gfSize = productPair.gfSizeValue {
+                    LabeledContent("GF Size", value: "\(gfSize) \(unit.displayName)")
+                }
+
+                if let regSize = productPair.nonGFSizeValue {
+                    LabeledContent("Regular Size", value: "\(regSize) \(unit.displayName)")
+                }
+
+                if let gfUnit = productPair.gfUnitPrice {
+                    LabeledContent("GF Price / \(unit.displayName)", value: formatCurrency(gfUnit))
+                }
+
+                if let regUnit = productPair.regularUnitPrice {
+                    LabeledContent("Regular Price / \(unit.displayName)", value: formatCurrency(regUnit))
+                }
+            }
+
+            if let normDiff = productPair.normalizedDifferential {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Size-Adjusted Differential")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(formatCurrency(normDiff))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(normDiff >= 0 ? .orange : .green)
+                    Text("The GF premium per purchase, normalized for package size. This may better reflect the true celiac cost burden when pack sizes differ.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Size-adjusted differential: \(formatCurrency(normDiff)). The GF premium per purchase, normalized for package size.")
+            }
+        } header: {
+            Label("Unit Pricing", systemImage: "scalemass")
         }
     }
 
@@ -426,21 +474,7 @@ struct ProductPairDetailView: View {
 
 #Preview {
     NavigationStack {
-        ProductPairDetailView(
-            productPair: ProductPair(
-                gfProductName: "Udi's Gluten Free Bread",
-                gfPrice: Decimal(string: "6.99")!,
-                gfSize: "450g",
-                gfOCRConfidence: 0.92,
-                nonGFProductName: "Wonder Bread",
-                nonGFPrice: Decimal(string: "3.49")!,
-                nonGFSize: "450g",
-                nonGFOCRConfidence: 0.95,
-                category: "Bread",
-                notes: "Regular weekly purchase at Loblaws",
-                verified: true
-            )
-        )
+        ProductPairDetailView(productPair: .sample)
     }
     .modelContainer(for: ProductPair.self, inMemory: true)
 }
