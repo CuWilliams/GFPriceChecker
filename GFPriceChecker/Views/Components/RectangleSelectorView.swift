@@ -121,7 +121,32 @@ struct RectangleSelectorView: View {
         containerSize: CGSize,
         isSelected: Bool
     ) -> some View {
-        // Calculate the actual display size of the image (aspect fit)
+        let index = (rectangles.firstIndex(where: { $0.id == rectangle.id }) ?? 0) + 1
+        return RectangleOverlayShape(
+            rectangle: rectangle,
+            imageSize: imageSize,
+            containerSize: containerSize,
+            isSelected: isSelected,
+            index: index
+        )
+    }
+
+    private func handleRectangleTap(_ rectangle: DetectedRectangle) {
+        selectedRectangle = rectangle
+        print("🔍 DEBUG: Selected rectangle - confidence: \(rectangle.confidence), area: \(rectangle.area)")
+    }
+}
+
+// MARK: - Rectangle Overlay Shape
+
+private struct RectangleOverlayShape: View {
+    let rectangle: DetectedRectangle
+    let imageSize: CGSize
+    let containerSize: CGSize
+    let isSelected: Bool
+    let index: Int
+
+    private var frame: CGRect {
         let imageAspect = imageSize.width / imageSize.height
         let containerAspect = containerSize.width / containerSize.height
 
@@ -129,48 +154,40 @@ struct RectangleSelectorView: View {
         let displayHeight: CGFloat
 
         if imageAspect > containerAspect {
-            // Image is wider, fit to width
             displayWidth = containerSize.width
             displayHeight = containerSize.width / imageAspect
         } else {
-            // Image is taller, fit to height
             displayHeight = containerSize.height
             displayWidth = containerSize.height * imageAspect
         }
 
-        // Calculate offset to center the image
         let xOffset = (containerSize.width - displayWidth) / 2
         let yOffset = (containerSize.height - displayHeight) / 2
 
-        // Convert normalized bounding box to actual position
-        // Vision uses bottom-left origin, SwiftUI uses top-left
-        let visionY = rectangle.boundingBox.origin.y
-        let swiftUIY = 1.0 - visionY - rectangle.boundingBox.height
+        let swiftUIY = 1.0 - rectangle.boundingBox.origin.y - rectangle.boundingBox.height
 
-        let rectX = xOffset + (rectangle.boundingBox.origin.x * displayWidth)
-        let rectY = yOffset + (swiftUIY * displayHeight)
-        let rectWidth = rectangle.boundingBox.width * displayWidth
-        let rectHeight = rectangle.boundingBox.height * displayHeight
+        let rectX = xOffset + rectangle.boundingBox.origin.x * displayWidth
+        let rectY = yOffset + swiftUIY * displayHeight
+        let rectW = rectangle.boundingBox.width * displayWidth
+        let rectH = rectangle.boundingBox.height * displayHeight
 
-        return Rectangle()
-            .stroke(
-                isSelected ? Color.green : Color.blue,
-                lineWidth: isSelected ? 4 : 2
-            )
-            .background(
-                Rectangle()
-                    .fill(isSelected ? Color.green.opacity(0.1) : Color.blue.opacity(0.05))
-            )
-            .contentShape(Rectangle())
-            .frame(width: rectWidth, height: rectHeight)
-            .position(x: rectX + rectWidth / 2, y: rectY + rectHeight / 2)
-            .accessibilityLabel("Rectangle \(rectangles.firstIndex(where: { $0.id == rectangle.id })! + 1)")
-            .accessibilityHint("Tap to select this region for text extraction")
+        return CGRect(x: rectX, y: rectY, width: rectW, height: rectH)
     }
 
-    private func handleRectangleTap(_ rectangle: DetectedRectangle) {
-        selectedRectangle = rectangle
-        print("🔍 DEBUG: Selected rectangle - confidence: \(rectangle.confidence), area: \(rectangle.area)")
+    var body: some View {
+        let f = frame
+        let strokeColor: Color = isSelected ? .green : .blue
+        let fillColor: Color = isSelected ? Color.green.opacity(0.1) : Color.blue.opacity(0.05)
+        let lineWidth: CGFloat = isSelected ? 4 : 2
+
+        Rectangle()
+            .stroke(strokeColor, lineWidth: lineWidth)
+            .background(Rectangle().fill(fillColor))
+            .contentShape(Rectangle())
+            .frame(width: f.width, height: f.height)
+            .position(x: f.midX, y: f.midY)
+            .accessibilityLabel("Rectangle \(index)")
+            .accessibilityHint("Tap to select this region for text extraction")
     }
 }
 
