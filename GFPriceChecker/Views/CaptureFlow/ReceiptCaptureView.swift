@@ -64,6 +64,9 @@ struct ReceiptCaptureView: View {
     @State private var showingAlert = false
     @State private var alertMessage = ""
 
+    /// Receipt viewer state
+    @State private var showingReceiptViewer = false
+
     // MARK: - Computed Properties
 
     /// Products selected for verification
@@ -332,9 +335,6 @@ struct ReceiptCaptureView: View {
 
     private var matchReviewView: some View {
         VStack(spacing: 0) {
-            // Receipt info header
-            receiptInfoHeader
-
             // Progress indicator
             verificationProgressHeader
 
@@ -344,6 +344,11 @@ struct ReceiptCaptureView: View {
             } else {
                 // All products verified - show summary
                 verificationCompleteView
+            }
+        }
+        .sheet(isPresented: $showingReceiptViewer) {
+            if let image = receiptImage {
+                ImageViewer(image: image, title: "Receipt")
             }
         }
     }
@@ -409,6 +414,22 @@ struct ReceiptCaptureView: View {
             }
             .padding()
             .background(Color(.secondarySystemGroupedBackground))
+
+            // View receipt button
+            if receiptImage != nil {
+                Button {
+                    showingReceiptViewer = true
+                } label: {
+                    Label("Tap to View Receipt", systemImage: "doc.text.viewfinder")
+                        .font(.subheadline)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .accessibilityLabel("View Receipt")
+                .accessibilityHint("Opens the full receipt image in a viewer")
+            }
 
             // Receipt line selector
             if let image = receiptImage {
@@ -492,42 +513,6 @@ struct ReceiptCaptureView: View {
             }
             .padding()
         }
-    }
-
-    // MARK: - Receipt Info Header
-
-    private var receiptInfoHeader: some View {
-        VStack(spacing: 12) {
-            // Receipt image thumbnail
-            if let image = receiptImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-
-            // Receipt metadata
-            VStack(spacing: 4) {
-                if !storeName.isEmpty {
-                    Text(storeName)
-                        .font(.headline)
-                }
-
-                HStack(spacing: 16) {
-                    Label(purchaseDate.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
-                        .font(.caption)
-
-                    if !totalAmount.isEmpty {
-                        Label("Total: $\(totalAmount)", systemImage: "dollarsign.circle")
-                            .font(.caption)
-                    }
-                }
-                .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-        .background(Color(.systemGroupedBackground))
     }
 
     // MARK: - Empty State
@@ -823,7 +808,7 @@ private struct ReceiptLineSelector: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? Color.blue : (isSuggested ? Color.yellow.opacity(0.2) : Color(.secondarySystemGroupedBackground)))
