@@ -42,9 +42,14 @@ struct SummaryDashboardView: View {
         viewModel.filterByYear(products: allProducts)
     }
 
-    /// Total differential for selected year
+    /// Total price differential for selected year
     private var totalDifferential: Decimal {
         viewModel.calculateTotalDifferential(for: yearProducts)
+    }
+
+    /// Total normalized (size-adjusted) differential and excluded count for selected year
+    private var normalizedResult: (total: Decimal, excludedCount: Int) {
+        viewModel.calculateTotalNormalizedDifferential(for: yearProducts)
     }
 
     /// Available years that have data
@@ -112,16 +117,47 @@ struct SummaryDashboardView: View {
             }
             .pickerStyle(.segmented)
             .disabled(availableYears.isEmpty)
+            .accessibilityLabel("Tax year selector")
 
-            // Total Differential - Prominent Display
-            VStack(spacing: 4) {
-                Text("Total Annual Differential")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            // Dual Totals Display
+            VStack(spacing: 8) {
+                // Primary: Size-Adjusted Total (CRA-recommended)
+                VStack(spacing: 2) {
+                    Text("Size-Adjusted Total (CRA Line 33099)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Size-adjusted total, recommended for CRA Line 33099")
 
-                Text(totalDifferential, format: .currency(code: "CAD"))
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundStyle(totalDifferential > 0 ? .green : .secondary)
+                    Text(normalizedResult.total, format: .currency(code: "CAD"))
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .foregroundStyle(normalizedResult.total > 0 ? .green : .secondary)
+                        .accessibilityLabel("Size-adjusted total: \(normalizedResult.total.formatted(.currency(code: "CAD")))")
+                        .accessibilityHint("This is the CRA-recommended claimable amount for Line 33099")
+                }
+
+                Divider()
+                    .padding(.horizontal, 32)
+
+                // Secondary: Simple Price Differential
+                VStack(spacing: 2) {
+                    Text("Price Differential (For Reference)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text(totalDifferential, format: .currency(code: "CAD"))
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .foregroundStyle(totalDifferential > 0 ? .blue : .secondary)
+                        .accessibilityLabel("Price differential for reference: \(totalDifferential.formatted(.currency(code: "CAD")))")
+                }
+
+                // Excluded products note
+                if normalizedResult.excludedCount > 0 {
+                    Text("\(normalizedResult.excludedCount) product\(normalizedResult.excludedCount == 1 ? "" : "s") without size data excluded from adjusted total")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                        .accessibilityLabel("\(normalizedResult.excludedCount) products without size data are excluded from the adjusted total")
+                }
 
                 Text(yearProducts.isEmpty ? "No products for \(viewModel.selectedYear)" : "\(yearProducts.count) product\(yearProducts.count == 1 ? "" : "s") tracked")
                     .font(.caption)
@@ -151,14 +187,27 @@ struct SummaryDashboardView: View {
                     icon: "basket.fill",
                     color: .blue
                 )
+                .accessibilityLabel("Products: \(yearProducts.count)")
 
-                // Average Differential Card
+                // Average Size-Adjusted Differential Card (primary)
+                let avgNormalized = viewModel.calculateAverageNormalizedDifferential(for: yearProducts)
                 StatisticCardDecimal(
-                    title: "Average",
+                    title: "Avg. Adj. Diff",
+                    value: avgNormalized ?? Decimal.zero,
+                    icon: "ruler",
+                    color: .green
+                )
+                .accessibilityLabel("Average size-adjusted differential: \((avgNormalized ?? Decimal.zero).formatted(.currency(code: "CAD")))")
+                .accessibilityHint("CRA-recommended average per product")
+
+                // Average Price Differential Card
+                StatisticCardDecimal(
+                    title: "Avg. Price Diff",
                     value: viewModel.calculateAverageDifferential(for: yearProducts),
                     icon: "chart.line.uptrend.xyaxis",
                     color: .orange
                 )
+                .accessibilityLabel("Average price differential: \(viewModel.calculateAverageDifferential(for: yearProducts).formatted(.currency(code: "CAD")))")
 
                 // Verified Products Card
                 let stats = viewModel.verificationStats(products: yearProducts)
@@ -168,6 +217,7 @@ struct SummaryDashboardView: View {
                     icon: "checkmark.seal.fill",
                     color: .green
                 )
+                .accessibilityLabel("Verified: \(stats.verified) of \(yearProducts.count) products")
 
                 // Unverified Products Card
                 StatisticCard(
@@ -176,6 +226,7 @@ struct SummaryDashboardView: View {
                     icon: "exclamationmark.triangle.fill",
                     color: stats.unverified > 0 ? .yellow : .secondary
                 )
+                .accessibilityLabel("Unverified: \(stats.unverified) products")
             }
         }
     }
@@ -197,16 +248,31 @@ struct SummaryDashboardView: View {
     }
 
     private var monthlyChart: some View {
-        let monthlyData = viewModel.monthlySummary(products: yearProducts)
+        let priceSummary = viewModel.monthlySummary(products: yearProducts)
+        let normalizedSummary = viewModel.monthlyNormalizedSummary(products: yearProducts)
 
-        return Chart(monthlyData, id: \.month) { item in
+        // Build flat array for dual-series chart
+        var chartItems: [MonthlyChartItem] = []
+        for item in priceSummary {
+            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Price Diff"))
+        }
+        for item in normalizedSummary {
+            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Adjusted (CRA)"))
+        }
+
+        return Chart(chartItems) { item in
             BarMark(
                 x: .value("Month", item.month, unit: .month),
-                y: .value("Differential", NSDecimalNumber(decimal: item.total).doubleValue)
+                y: .value("Amount", NSDecimalNumber(decimal: item.amount).doubleValue)
             )
-            .foregroundStyle(.blue.gradient)
-            .cornerRadius(4)
+            .foregroundStyle(by: .value("Series", item.series))
+            .position(by: .value("Series", item.series))
+            .cornerRadius(3)
         }
+        .chartForegroundStyleScale([
+            "Adjusted (CRA)": Color.green,
+            "Price Diff": Color.blue
+        ])
         .chartXAxis {
             AxisMarks(values: .stride(by: .month)) { value in
                 if let date = value.as(Date.self) {
@@ -227,7 +293,9 @@ struct SummaryDashboardView: View {
                 AxisGridLine()
             }
         }
-        .frame(height: 200)
+        .chartLegend(position: .top, alignment: .leading)
+        .accessibilityLabel("Monthly differential chart showing both size-adjusted and price differential by month")
+        .frame(height: 220)
         .padding()
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -252,15 +320,30 @@ struct SummaryDashboardView: View {
 
     private var categoryChart: some View {
         let topCategories = viewModel.topCategories(products: yearProducts, limit: 5)
+        let normalizedByCategory = viewModel.groupByCategoryNormalized(products: yearProducts)
 
-        return Chart(topCategories, id: \.category) { item in
+        // Build flat array for dual-series chart (top 5 categories by price differential)
+        var chartItems: [CategoryChartItem] = []
+        for item in topCategories {
+            chartItems.append(CategoryChartItem(category: item.category, amount: item.total, series: "Price Diff"))
+            if let normTotal = normalizedByCategory[item.category] {
+                chartItems.append(CategoryChartItem(category: item.category, amount: normTotal, series: "Adjusted (CRA)"))
+            }
+        }
+
+        return Chart(chartItems) { item in
             BarMark(
-                x: .value("Differential", NSDecimalNumber(decimal: item.total).doubleValue),
+                x: .value("Amount", NSDecimalNumber(decimal: item.amount).doubleValue),
                 y: .value("Category", item.category)
             )
-            .foregroundStyle(.green.gradient)
-            .cornerRadius(4)
+            .foregroundStyle(by: .value("Series", item.series))
+            .position(by: .value("Series", item.series))
+            .cornerRadius(3)
         }
+        .chartForegroundStyleScale([
+            "Adjusted (CRA)": Color.green,
+            "Price Diff": Color.blue
+        ])
         .chartXAxis {
             AxisMarks { value in
                 AxisValueLabel {
@@ -277,7 +360,9 @@ struct SummaryDashboardView: View {
                 AxisGridLine()
             }
         }
-        .frame(height: max(200, CGFloat(topCategories.count) * 50))
+        .chartLegend(position: .top, alignment: .leading)
+        .accessibilityLabel("Category breakdown chart showing both size-adjusted and price differential per category")
+        .frame(height: max(220, CGFloat(topCategories.count) * 60))
         .padding()
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -303,6 +388,24 @@ struct SummaryDashboardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
     }
+}
+
+// MARK: - Chart Data Models
+
+/// Data point for dual-series monthly chart
+private struct MonthlyChartItem: Identifiable {
+    let id = UUID()
+    let month: Date
+    let amount: Decimal
+    let series: String
+}
+
+/// Data point for dual-series category chart
+private struct CategoryChartItem: Identifiable {
+    let id = UUID()
+    let category: String
+    let amount: Decimal
+    let series: String
 }
 
 // MARK: - Statistic Card Component

@@ -85,6 +85,36 @@ final class ReportViewModel {
         return (verified: verified, unverified: unverified)
     }
 
+    // MARK: - Normalized Differential Statistics
+
+    /// Calculates the total size-adjusted (normalized) differential for given products
+    ///
+    /// Products without size data cannot be normalized and are excluded from the total.
+    /// This is the CRA-recommended figure for Line 33099 claims.
+    /// - Parameter products: Products to sum
+    /// - Returns: Tuple with total normalized differential and count of excluded products
+    func calculateTotalNormalizedDifferential(for products: [ProductPair]) -> (total: Decimal, excludedCount: Int) {
+        var total = Decimal.zero
+        var excluded = 0
+        for product in products {
+            if let nd = product.normalizedDifferential {
+                total += nd
+            } else {
+                excluded += 1
+            }
+        }
+        return (total: total, excludedCount: excluded)
+    }
+
+    /// Calculates the average size-adjusted differential per eligible product
+    /// - Parameter products: Products to average
+    /// - Returns: Average normalized differential, or nil if no products have size data
+    func calculateAverageNormalizedDifferential(for products: [ProductPair]) -> Decimal? {
+        let eligible = products.compactMap(\.normalizedDifferential)
+        guard !eligible.isEmpty else { return nil }
+        return eligible.reduce(Decimal.zero, +) / Decimal(eligible.count)
+    }
+
     // MARK: - Category Analysis
 
     /// Groups products by category and sums differentials
@@ -97,6 +127,21 @@ final class ReportViewModel {
             let category = product.category ?? "Uncategorized"
             let currentTotal = categoryTotals[category] ?? Decimal.zero
             categoryTotals[category] = currentTotal + product.differential
+        }
+
+        return categoryTotals
+    }
+
+    /// Groups products by category and sums normalized differentials (excludes products without size data)
+    /// - Parameter products: Products to group
+    /// - Returns: Dictionary mapping category name to total normalized differential
+    func groupByCategoryNormalized(products: [ProductPair]) -> [String: Decimal] {
+        var categoryTotals: [String: Decimal] = [:]
+
+        for product in products {
+            guard let nd = product.normalizedDifferential else { continue }
+            let category = product.category ?? "Uncategorized"
+            categoryTotals[category, default: Decimal.zero] += nd
         }
 
         return categoryTotals
@@ -137,11 +182,39 @@ final class ReportViewModel {
         return monthlyTotals
     }
 
+    /// Groups products by month and sums normalized differentials (excludes products without size data)
+    /// - Parameter products: Products to group
+    /// - Returns: Dictionary mapping first day of month to total normalized differential
+    func groupByMonthNormalized(products: [ProductPair]) -> [Date: Decimal] {
+        var monthlyTotals: [Date: Decimal] = [:]
+        let calendar = Calendar.current
+
+        for product in products {
+            guard let nd = product.normalizedDifferential else { continue }
+            let components = calendar.dateComponents([.year, .month], from: product.reportingDate)
+            guard let monthStart = calendar.date(from: components) else { continue }
+
+            monthlyTotals[monthStart, default: Decimal.zero] += nd
+        }
+
+        return monthlyTotals
+    }
+
     /// Returns monthly data sorted chronologically
     /// - Parameter products: Products to analyze
     /// - Returns: Array of tuples with month and total, sorted by date
     func monthlySummary(products: [ProductPair]) -> [(month: Date, total: Decimal)] {
         let monthlyTotals = groupByMonth(products: products)
+
+        return monthlyTotals.map { (month: $0.key, total: $0.value) }
+            .sorted { $0.month < $1.month }
+    }
+
+    /// Returns monthly normalized differential data sorted chronologically
+    /// - Parameter products: Products to analyze
+    /// - Returns: Array of tuples with month and normalized total, sorted by date
+    func monthlyNormalizedSummary(products: [ProductPair]) -> [(month: Date, total: Decimal)] {
+        let monthlyTotals = groupByMonthNormalized(products: products)
 
         return monthlyTotals.map { (month: $0.key, total: $0.value) }
             .sorted { $0.month < $1.month }

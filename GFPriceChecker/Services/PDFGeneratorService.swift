@@ -107,6 +107,9 @@ final class PDFGeneratorService {
         // Generate PDF data
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: format)
 
+        let simpleTotalDiff = calculateTotalDifferential(products: sortedProducts)
+        let normalizedResult = calculateNormalizedDifferential(products: sortedProducts)
+
         let data = renderer.pdfData { context in
             // Page 1: Cover Page
             context.beginPage()
@@ -116,7 +119,9 @@ final class PDFGeneratorService {
                 contentRect: contentRect,
                 year: year,
                 userName: userName,
-                totalDifferential: calculateTotalDifferential(products: sortedProducts),
+                totalDifferential: simpleTotalDiff,
+                normalizedTotal: normalizedResult.total,
+                normalizedExcluded: normalizedResult.excludedCount,
                 productCount: sortedProducts.count,
                 receiptCount: receiptsWithProducts.count
             )
@@ -171,6 +176,8 @@ final class PDFGeneratorService {
         year: Int,
         userName: String?,
         totalDifferential: Decimal,
+        normalizedTotal: Decimal,
+        normalizedExcluded: Int,
         productCount: Int,
         receiptCount: Int
     ) {
@@ -252,20 +259,45 @@ final class PDFGeneratorService {
         )
         yPosition += 80
 
-        // Total Differential (Prominent)
+        // Primary: Size-Adjusted Total (CRA-recommended)
+        let normalizedText = normalizedTotal.formatted(.currency(code: "CAD"))
+        let normalizedAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 40, weight: .bold),
+            .foregroundColor: accentColor
+        ]
+        let normalizedSize = normalizedText.size(withAttributes: normalizedAttrs)
+        normalizedText.draw(
+            at: CGPoint(x: centerX - normalizedSize.width / 2, y: yPosition),
+            withAttributes: normalizedAttrs
+        )
+        yPosition += 48
+
+        let normalizedLabel = "Size-Adjusted Total (Recommended for CRA Line 33099)"
+        let normalizedLabelAttrs: [NSAttributedString.Key: Any] = [
+            .font: bodyFont,
+            .foregroundColor: secondaryColor
+        ]
+        let normalizedLabelSize = normalizedLabel.size(withAttributes: normalizedLabelAttrs)
+        normalizedLabel.draw(
+            at: CGPoint(x: centerX - normalizedLabelSize.width / 2, y: yPosition),
+            withAttributes: normalizedLabelAttrs
+        )
+        yPosition += 28
+
+        // Secondary: Simple Price Differential
         let totalText = totalDifferential.formatted(.currency(code: "CAD"))
         let totalAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 48, weight: .bold),
-            .foregroundColor: accentColor
+            .font: UIFont.systemFont(ofSize: 26, weight: .semibold),
+            .foregroundColor: primaryColor
         ]
         let totalSize = totalText.size(withAttributes: totalAttrs)
         totalText.draw(
             at: CGPoint(x: centerX - totalSize.width / 2, y: yPosition),
             withAttributes: totalAttrs
         )
-        yPosition += 60
+        yPosition += 30
 
-        let totalLabel = "Total Annual Differential"
+        let totalLabel = "Simple Price Differential Total (For Reference)"
         let totalLabelAttrs: [NSAttributedString.Key: Any] = [
             .font: bodyFont,
             .foregroundColor: secondaryColor
@@ -275,7 +307,24 @@ final class PDFGeneratorService {
             at: CGPoint(x: centerX - totalLabelSize.width / 2, y: yPosition),
             withAttributes: totalLabelAttrs
         )
-        yPosition += 40
+        yPosition += 26
+
+        // Excluded products note (if any)
+        if normalizedExcluded > 0 {
+            let excludedNote = "\(normalizedExcluded) product\(normalizedExcluded == 1 ? "" : "s") without size data not included in adjusted total"
+            let excludedAttrs: [NSAttributedString.Key: Any] = [
+                .font: captionFont,
+                .foregroundColor: UIColor.systemOrange
+            ]
+            let excludedSize = excludedNote.size(withAttributes: excludedAttrs)
+            excludedNote.draw(
+                at: CGPoint(x: centerX - excludedSize.width / 2, y: yPosition),
+                withAttributes: excludedAttrs
+            )
+            yPosition += 20
+        }
+
+        yPosition += 14
 
         // Product and Receipt Summary
         let summaryText = "\(productCount) products verified with \(receiptCount) receipts"
@@ -371,33 +420,39 @@ final class PDFGeneratorService {
         heading.draw(at: CGPoint(x: contentRect.minX, y: y), withAttributes: headingAttrs)
         y += 30
 
-        // Group by category
+        // Group by category — both simple and normalized differentials
         var categoryTotals: [String: Decimal] = [:]
+        var categoryNormalized: [String: Decimal] = [:]
         var categoryCounts: [String: Int] = [:]
 
         for product in products {
             let category = product.category ?? "Uncategorized"
             categoryTotals[category, default: 0] += product.differential
             categoryCounts[category, default: 0] += 1
+            if let nd = product.normalizedDifferential {
+                categoryNormalized[category, default: 0] += nd
+            }
         }
 
-        // Sort by total (descending)
+        // Sort by price differential (descending)
         let sortedCategories = categoryTotals.sorted { $0.value > $1.value }
 
-        // Draw table
+        // Draw table with both metrics
         y = drawTable(
             context: context,
             contentRect: contentRect,
             yPosition: y,
-            headers: ["Category", "Count", "Total Differential"],
+            headers: ["Category", "Count", "Adj. Diff (CRA)", "Price Diff"],
             rows: sortedCategories.map { category, total in
-                [
+                let adjTotal = categoryNormalized[category]?.formatted(.currency(code: "CAD")) ?? "—"
+                return [
                     category,
                     String(categoryCounts[category] ?? 0),
+                    adjTotal,
                     total.formatted(.currency(code: "CAD"))
                 ]
             },
-            columnWidths: [200, 80, 150]
+            columnWidths: [160, 60, 110, 110]
         )
 
         return y
@@ -420,9 +475,10 @@ final class PDFGeneratorService {
         heading.draw(at: CGPoint(x: contentRect.minX, y: y), withAttributes: headingAttrs)
         y += 30
 
-        // Group by month
+        // Group by month — both simple and normalized differentials
         let calendar = Calendar.current
         var monthlyTotals: [Date: Decimal] = [:]
+        var monthlyNormalized: [Date: Decimal] = [:]
         var monthlyCounts: [Date: Int] = [:]
 
         for product in products {
@@ -431,6 +487,9 @@ final class PDFGeneratorService {
 
             monthlyTotals[monthStart, default: 0] += product.differential
             monthlyCounts[monthStart, default: 0] += 1
+            if let nd = product.normalizedDifferential {
+                monthlyNormalized[monthStart, default: 0] += nd
+            }
         }
 
         // Sort by date
@@ -439,20 +498,22 @@ final class PDFGeneratorService {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MMMM yyyy"
 
-        // Draw table
+        // Draw table with both metrics
         y = drawTable(
             context: context,
             contentRect: contentRect,
             yPosition: y,
-            headers: ["Month", "Count", "Total"],
+            headers: ["Month", "Count", "Adj. Diff (CRA)", "Price Diff"],
             rows: sortedMonths.map { month, total in
-                [
+                let adjTotal = monthlyNormalized[month]?.formatted(.currency(code: "CAD")) ?? "—"
+                return [
                     dateFormatter.string(from: month),
                     String(monthlyCounts[month] ?? 0),
+                    adjTotal,
                     total.formatted(.currency(code: "CAD"))
                 ]
             },
-            columnWidths: [200, 80, 150]
+            columnWidths: [160, 60, 110, 110]
         )
 
         return y
@@ -583,16 +644,41 @@ final class PDFGeneratorService {
 
                 yPosition += 10
 
-                // Receipt subtotal
-                let subtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.differential }
-                let subtotalText = "Receipt Subtotal: \(subtotal.formatted(.currency(code: "CAD")))"
-                let subtotalAttrs: [NSAttributedString.Key: Any] = [
+                // Receipt subtotals — both adjusted and simple
+                let adjSubtotal = sortedProducts.compactMap(\.normalizedDifferential).reduce(Decimal.zero, +)
+                let adjExcluded = sortedProducts.filter { $0.normalizedDifferential == nil }.count
+                let priceSubtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.differential }
+
+                let adjSubtotalText = "Adj. Subtotal (CRA): \(adjSubtotal.formatted(.currency(code: "CAD")))"
+                let adjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                     .foregroundColor: accentColor
                 ]
-                let subtotalSize = subtotalText.size(withAttributes: subtotalAttrs)
-                subtotalText.draw(at: CGPoint(x: contentRect.maxX - subtotalSize.width - 10, y: yPosition), withAttributes: subtotalAttrs)
-                yPosition += 30
+                let adjSubtotalSize = adjSubtotalText.size(withAttributes: adjSubtotalAttrs)
+                adjSubtotalText.draw(at: CGPoint(x: contentRect.maxX - adjSubtotalSize.width - 10, y: yPosition), withAttributes: adjSubtotalAttrs)
+                yPosition += 16
+
+                let priceSubtotalText = "Price Subtotal: \(priceSubtotal.formatted(.currency(code: "CAD")))"
+                let priceSubtotalAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 10, weight: .regular),
+                    .foregroundColor: secondaryColor
+                ]
+                let priceSubtotalSize = priceSubtotalText.size(withAttributes: priceSubtotalAttrs)
+                priceSubtotalText.draw(at: CGPoint(x: contentRect.maxX - priceSubtotalSize.width - 10, y: yPosition), withAttributes: priceSubtotalAttrs)
+                yPosition += 14
+
+                if adjExcluded > 0 {
+                    let excludedText = "\(adjExcluded) product\(adjExcluded == 1 ? "" : "s") without size data excluded from adjusted subtotal"
+                    let excludedAttrs: [NSAttributedString.Key: Any] = [
+                        .font: UIFont.systemFont(ofSize: 9, weight: .light),
+                        .foregroundColor: UIColor.systemOrange
+                    ]
+                    let excludedSize = excludedText.size(withAttributes: excludedAttrs)
+                    excludedText.draw(at: CGPoint(x: contentRect.maxX - excludedSize.width - 10, y: yPosition), withAttributes: excludedAttrs)
+                    yPosition += 12
+                }
+
+                yPosition += 8
 
                 // MARK: - Receipt Image Section
 
@@ -668,16 +754,41 @@ final class PDFGeneratorService {
 
             yPosition += 10
 
-            // Unverified subtotal
+            // Unverified subtotals — both adjusted and simple
+            let unvAdjSubtotal = unverifiedProducts.compactMap(\.normalizedDifferential).reduce(Decimal.zero, +)
+            let unvAdjExcluded = unverifiedProducts.filter { $0.normalizedDifferential == nil }.count
             let unverifiedSubtotal = unverifiedProducts.reduce(Decimal.zero) { $0 + $1.differential }
-            let unverifiedSubtotalText = "Unverified Subtotal: \(unverifiedSubtotal.formatted(.currency(code: "CAD")))"
-            let unverifiedSubtotalAttrs: [NSAttributedString.Key: Any] = [
+
+            let unvAdjSubtotalText = "Adj. Subtotal (CRA): \(unvAdjSubtotal.formatted(.currency(code: "CAD")))"
+            let unvAdjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                 .foregroundColor: UIColor.systemOrange
             ]
-            let unverifiedSubtotalSize = unverifiedSubtotalText.size(withAttributes: unverifiedSubtotalAttrs)
-            unverifiedSubtotalText.draw(at: CGPoint(x: contentRect.maxX - unverifiedSubtotalSize.width - 10, y: yPosition), withAttributes: unverifiedSubtotalAttrs)
-            yPosition += 30
+            let unvAdjSubtotalSize = unvAdjSubtotalText.size(withAttributes: unvAdjSubtotalAttrs)
+            unvAdjSubtotalText.draw(at: CGPoint(x: contentRect.maxX - unvAdjSubtotalSize.width - 10, y: yPosition), withAttributes: unvAdjSubtotalAttrs)
+            yPosition += 16
+
+            let unvPriceSubtotalText = "Price Subtotal: \(unverifiedSubtotal.formatted(.currency(code: "CAD")))"
+            let unvPriceSubtotalAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 10, weight: .regular),
+                .foregroundColor: secondaryColor
+            ]
+            let unvPriceSubtotalSize = unvPriceSubtotalText.size(withAttributes: unvPriceSubtotalAttrs)
+            unvPriceSubtotalText.draw(at: CGPoint(x: contentRect.maxX - unvPriceSubtotalSize.width - 10, y: yPosition), withAttributes: unvPriceSubtotalAttrs)
+            yPosition += 14
+
+            if unvAdjExcluded > 0 {
+                let excludedText = "\(unvAdjExcluded) product\(unvAdjExcluded == 1 ? "" : "s") without size data excluded from adjusted subtotal"
+                let excludedAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 9, weight: .light),
+                    .foregroundColor: UIColor.systemOrange
+                ]
+                let excludedSize = excludedText.size(withAttributes: excludedAttrs)
+                excludedText.draw(at: CGPoint(x: contentRect.maxX - excludedSize.width - 10, y: yPosition), withAttributes: excludedAttrs)
+                yPosition += 12
+            }
+
+            yPosition += 8
         }
 
         // Draw final footer
@@ -919,14 +1030,16 @@ final class PDFGeneratorService {
             )
         }
 
-        // Grand total
+        // Grand totals — both adjusted and simple
         yPosition += 10
-        let grandTotal = calculateTotalDifferential(products: products)
-        yPosition = drawGrandTotal(
+        let grandPriceTotal = calculateTotalDifferential(products: products)
+        let grandNormalizedResult = calculateNormalizedDifferential(products: products)
+        yPosition = drawGrandTotals(
             context: context.cgContext,
             contentRect: contentRect,
             yPosition: yPosition,
-            total: grandTotal
+            normalizedTotal: grandNormalizedResult.total,
+            priceTotal: grandPriceTotal
         )
 
         // Footer on last page
@@ -943,8 +1056,8 @@ final class PDFGeneratorService {
         contentRect: CGRect,
         yPosition: CGFloat
     ) -> CGFloat {
-        let headers = ["Date", "GF Product", "GF $", "Regular Product", "Reg $", "Diff", "Store"]
-        let columnWidths: [CGFloat] = [70, 100, 50, 100, 50, 50, 80]
+        let headers = ["Date", "GF Product", "GF $", "Regular", "Reg $", "Price Diff", "Adj. Diff (CRA)"]
+        let columnWidths: [CGFloat] = [60, 100, 42, 100, 42, 54, 53]
 
         var x = contentRect.minX
         let y = yPosition
@@ -967,9 +1080,9 @@ final class PDFGeneratorService {
         return y + 22
     }
 
-    /// Returns the estimated total height for a product row (including unit pricing sub-row if applicable)
+    /// Returns the estimated total height for a product row
     private func estimatedRowHeight(for product: ProductPair) -> CGFloat {
-        product.hasUnitPricingData ? 30 : 20
+        return 20
     }
 
     private func drawTransactionRow(
@@ -980,7 +1093,7 @@ final class PDFGeneratorService {
         dateFormatter: DateFormatter,
         isAlternate: Bool
     ) -> CGFloat {
-        let columnWidths: [CGFloat] = [70, 100, 50, 100, 50, 50, 80]
+        let columnWidths: [CGFloat] = [60, 100, 42, 100, 42, 54, 53]
         let rowHeight: CGFloat = 18
 
         var x = contentRect.minX
@@ -992,15 +1105,23 @@ final class PDFGeneratorService {
             context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: rowHeight))
         }
 
-        // Row data
+        // Adjusted differential: show value if available, dash if not
+        let adjDiffStr: String
+        if let nd = product.normalizedDifferential {
+            adjDiffStr = String(format: "%.2f", NSDecimalNumber(decimal: nd).doubleValue)
+        } else {
+            adjDiffStr = "—"
+        }
+
+        // Row data (7 columns — Store removed, Adj. Diff promoted to full column)
         let rowData = [
             dateFormatter.string(from: product.reportingDate),
-            product.gfProductName.truncated(to: 15),
+            product.gfProductName.truncated(to: 14),
             String(format: "%.2f", NSDecimalNumber(decimal: product.gfPrice).doubleValue),
-            product.nonGFProductName.truncated(to: 15),
+            product.nonGFProductName.truncated(to: 14),
             String(format: "%.2f", NSDecimalNumber(decimal: product.nonGFPrice).doubleValue),
             String(format: "%.2f", NSDecimalNumber(decimal: product.differential).doubleValue),
-            product.receipt?.storeName?.truncated(to: 12) ?? ""
+            adjDiffStr
         ]
 
         let cellAttrs: [NSAttributedString.Key: Any] = [
@@ -1008,8 +1129,15 @@ final class PDFGeneratorService {
             .foregroundColor: UIColor.label
         ]
 
+        // Highlight the Adj. Diff column in green when available
+        let adjCellAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 10, weight: .medium),
+            .foregroundColor: product.normalizedDifferential != nil ? accentColor : UIColor.systemGray3
+        ]
+
         for (index, data) in rowData.enumerated() {
-            data.draw(at: CGPoint(x: x + 4, y: y + 4), withAttributes: cellAttrs)
+            let attrs = (index == 6) ? adjCellAttrs : cellAttrs
+            data.draw(at: CGPoint(x: x + 4, y: y + 4), withAttributes: attrs)
             x += columnWidths[index]
         }
 
@@ -1018,27 +1146,7 @@ final class PDFGeneratorService {
         context.setLineWidth(0.5)
         context.stroke(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: rowHeight))
 
-        var nextY = y + rowHeight
-
-        // Unit pricing sub-row (drawn below main row when size data is available)
-        if product.hasUnitPricingData,
-           let gfUnit = product.gfUnitPrice,
-           let regUnit = product.regularUnitPrice,
-           let normDiff = product.normalizedDifferential,
-           let unit = product.resolvedSizeUnit {
-            let subRowAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 8, weight: .light),
-                .foregroundColor: UIColor.systemGray
-            ]
-            let gfUnitStr = String(format: "%.4f", NSDecimalNumber(decimal: gfUnit).doubleValue)
-            let regUnitStr = String(format: "%.4f", NSDecimalNumber(decimal: regUnit).doubleValue)
-            let normDiffStr = String(format: "%.2f", NSDecimalNumber(decimal: normDiff).doubleValue)
-            let subText = "  GF: $\(gfUnitStr)/\(unit.displayName)  |  Reg: $\(regUnitStr)/\(unit.displayName)  |  Adj. Diff: $\(normDiffStr)"
-            subText.draw(at: CGPoint(x: contentRect.minX + 4, y: nextY + 2), withAttributes: subRowAttrs)
-            nextY += 12
-        }
-
-        return nextY
+        return y + rowHeight
     }
 
     private func drawCategorySubtotal(
@@ -1064,31 +1172,45 @@ final class PDFGeneratorService {
         return y + 20
     }
 
-    private func drawGrandTotal(
+    private func drawGrandTotals(
         context: CGContext,
         contentRect: CGRect,
         yPosition: CGFloat,
-        total: Decimal
+        normalizedTotal: Decimal,
+        priceTotal: Decimal
     ) -> CGFloat {
-        let y = yPosition
+        var y = yPosition
 
-        // Background
-        context.setFillColor(accentColor.withAlphaComponent(0.1).cgColor)
-        context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: 25))
+        // Background for both rows
+        context.setFillColor(accentColor.withAlphaComponent(0.08).cgColor)
+        context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: 48))
 
-        let totalText = "Grand Total: \(total.formatted(.currency(code: "CAD")))"
-        let totalAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 14, weight: .bold),
+        // Row 1: Size-Adjusted Grand Total (primary / CRA)
+        let adjTotalText = "Size-Adjusted Grand Total (CRA Line 33099): \(normalizedTotal.formatted(.currency(code: "CAD")))"
+        let adjTotalAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 13, weight: .bold),
             .foregroundColor: accentColor
         ]
+        let adjSize = adjTotalText.size(withAttributes: adjTotalAttrs)
+        adjTotalText.draw(
+            at: CGPoint(x: contentRect.maxX - adjSize.width - 10, y: y + 6),
+            withAttributes: adjTotalAttrs
+        )
+        y += 24
 
-        let textSize = totalText.size(withAttributes: totalAttrs)
-        totalText.draw(
-            at: CGPoint(x: contentRect.maxX - textSize.width - 10, y: y + 6),
-            withAttributes: totalAttrs
+        // Row 2: Price Differential Grand Total (for reference)
+        let priceTotalText = "Price Differential Grand Total (For Reference): \(priceTotal.formatted(.currency(code: "CAD")))"
+        let priceTotalAttrs: [NSAttributedString.Key: Any] = [
+            .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: primaryColor
+        ]
+        let priceSize = priceTotalText.size(withAttributes: priceTotalAttrs)
+        priceTotalText.draw(
+            at: CGPoint(x: contentRect.maxX - priceSize.width - 10, y: y + 4),
+            withAttributes: priceTotalAttrs
         )
 
-        return y + 30
+        return y + 26
     }
 
     // MARK: - Table Helper
@@ -1193,6 +1315,19 @@ final class PDFGeneratorService {
 
     private func calculateTotalDifferential(products: [ProductPair]) -> Decimal {
         products.reduce(Decimal.zero) { $0 + $1.differential }
+    }
+
+    private func calculateNormalizedDifferential(products: [ProductPair]) -> (total: Decimal, excludedCount: Int) {
+        var total = Decimal.zero
+        var excluded = 0
+        for product in products {
+            if let nd = product.normalizedDifferential {
+                total += nd
+            } else {
+                excluded += 1
+            }
+        }
+        return (total: total, excludedCount: excluded)
     }
 }
 
