@@ -32,13 +32,17 @@ struct ManualProductEntryView: View {
 
     @State private var gfProductName: String = ""
     @State private var gfPriceText: String = ""
-    @State private var gfSize: String = ""
+    @State private var gfSizeText: String = ""
 
     // MARK: - State - Non-Gluten-Free Product
 
     @State private var nonGFProductName: String = ""
     @State private var nonGFPriceText: String = ""
-    @State private var nonGFSize: String = ""
+    @State private var nonGFSizeText: String = ""
+
+    // MARK: - State - Size Unit
+
+    @State private var selectedUnit: SizeUnit? = nil
 
     // MARK: - State - Optional Fields
 
@@ -86,10 +90,17 @@ struct ManualProductEntryView: View {
                             .accessibilityHint("Enter price in dollars")
                     }
 
-                    TextField("Size (optional)", text: $gfSize)
-                        .autocorrectionDisabled()
-                        .accessibilityLabel("Gluten-free product size")
-                        .accessibilityHint("Optional. Enter size like 450g or 12oz")
+                    HStack {
+                        TextField("0", text: $gfSizeText)
+                            .keyboardType(.decimalPad)
+                            .accessibilityLabel("Gluten-free product size")
+                            .accessibilityHint("Optional. Enter the numeric size, for example 450")
+                        if let unit = selectedUnit {
+                            Text(unit.displayName)
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
 
                     if showingValidationErrors {
                         validationMessages(for: .gfProduct)
@@ -114,10 +125,17 @@ struct ManualProductEntryView: View {
                             .accessibilityHint("Enter price in dollars")
                     }
 
-                    TextField("Size (optional)", text: $nonGFSize)
-                        .autocorrectionDisabled()
-                        .accessibilityLabel("Regular product size")
-                        .accessibilityHint("Optional. Enter size like 450g or 12oz")
+                    HStack {
+                        TextField("0", text: $nonGFSizeText)
+                            .keyboardType(.decimalPad)
+                            .accessibilityLabel("Regular product size")
+                            .accessibilityHint("Optional. Enter the numeric size, for example 675")
+                        if let unit = selectedUnit {
+                            Text(unit.displayName)
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
 
                     if showingValidationErrors {
                         validationMessages(for: .nonGFProduct)
@@ -126,7 +144,23 @@ struct ManualProductEntryView: View {
                     Text("Non-Gluten-Free Equivalent")
                 }
 
-                // Section 3: Category
+                // Section 3: Size Unit
+                Section {
+                    Picker("Unit", selection: $selectedUnit) {
+                        Text("Not specified").tag(Optional<SizeUnit>.none)
+                        ForEach(SizeUnit.allCases, id: \.self) { unit in
+                            Text(unit.displayName).tag(Optional<SizeUnit>.some(unit))
+                        }
+                    }
+                    .accessibilityLabel("Package size unit")
+                    .accessibilityHint("Required when sizes are entered. Choose the unit for both products.")
+                } header: {
+                    Text("Size Unit (shared for both products)")
+                } footer: {
+                    Text("Entering sizes enables unit price comparison and a more accurate tax differential calculation.")
+                }
+
+                // Section 4: Category
                 Section {
                     Picker("Category", selection: $category) {
                         ForEach(commonCategories, id: \.self) { category in
@@ -193,12 +227,25 @@ struct ManualProductEntryView: View {
         // GF Product
         gfProductName = productPair.gfProductName
         gfPriceText = String(describing: productPair.gfPrice)
-        gfSize = productPair.gfSize ?? ""
 
         // Non-GF Product
         nonGFProductName = productPair.nonGFProductName
         nonGFPriceText = String(describing: productPair.nonGFPrice)
-        nonGFSize = productPair.nonGFSize ?? ""
+
+        // Size: prefer numeric values; fall back to legacy string for display
+        if let gfVal = productPair.gfSizeValue {
+            gfSizeText = String(describing: gfVal)
+        } else if let gfStr = productPair.gfSize {
+            // Legacy record: string may contain unit suffix like "450g"; leave for user to re-enter numerically
+            gfSizeText = ""
+            _ = gfStr // acknowledged; not migrated automatically
+        }
+
+        if let regVal = productPair.nonGFSizeValue {
+            nonGFSizeText = String(describing: regVal)
+        }
+
+        selectedUnit = productPair.resolvedSizeUnit
 
         // Optional fields
         category = productPair.category ?? "None"
@@ -340,26 +387,47 @@ struct ManualProductEntryView: View {
             validatedNonGFPrice = price
         }
 
-        // Validate optional fields
-        let validatedGFSize: String?
-        switch ValidationRules.validateSize(gfSize) {
-        case .success(let size):
-            validatedGFSize = size
+        // Validate numeric size values
+        let validatedGFSizeValue: Decimal?
+        switch ValidationRules.validateSizeValue(gfSizeText, fieldName: "GF size") {
+        case .success(let value):
+            validatedGFSizeValue = value
         case .failure(let error):
             errorMessage = ErrorHandler.shared.userMessage(for: error)
             showingError = true
             return
         }
 
-        let validatedNonGFSize: String?
-        switch ValidationRules.validateSize(nonGFSize) {
-        case .success(let size):
-            validatedNonGFSize = size
+        let validatedNonGFSizeValue: Decimal?
+        switch ValidationRules.validateSizeValue(nonGFSizeText, fieldName: "Regular size") {
+        case .success(let value):
+            validatedNonGFSizeValue = value
         case .failure(let error):
             errorMessage = ErrorHandler.shared.userMessage(for: error)
             showingError = true
             return
         }
+
+        // If either size is entered, both sizes and a unit are required
+        let eitherSizeEntered = validatedGFSizeValue != nil || validatedNonGFSizeValue != nil
+        if eitherSizeEntered {
+            if validatedGFSizeValue == nil || validatedNonGFSizeValue == nil {
+                errorMessage = "Please enter both sizes to enable unit price comparison, or leave both sizes empty."
+                showingError = true
+                return
+            }
+            if selectedUnit == nil {
+                errorMessage = "Please select a size unit when entering sizes."
+                showingError = true
+                return
+            }
+        }
+
+        // Build display strings for legacy size fields
+        let unitSuffix = selectedUnit?.displayName ?? ""
+        let validatedGFSize: String? = validatedGFSizeValue.map { "\($0)\(unitSuffix)" }
+        let validatedNonGFSize: String? = validatedNonGFSizeValue.map { "\($0)\(unitSuffix)" }
+        let validatedSizeUnit: String? = eitherSizeEntered ? selectedUnit?.rawValue : nil
 
         let validatedNotes: String?
         switch ValidationRules.validateNotes(notes) {
@@ -389,11 +457,14 @@ struct ManualProductEntryView: View {
                 existingProductPair.gfProductName = validatedGFName
                 existingProductPair.gfPrice = validatedGFPrice
                 existingProductPair.gfSize = validatedGFSize
+                existingProductPair.gfSizeValue = validatedGFSizeValue
 
                 existingProductPair.nonGFProductName = validatedNonGFName
                 existingProductPair.nonGFPrice = validatedNonGFPrice
                 existingProductPair.nonGFSize = validatedNonGFSize
+                existingProductPair.nonGFSizeValue = validatedNonGFSizeValue
 
+                existingProductPair.sizeUnit = validatedSizeUnit
                 existingProductPair.category = validatedCategory
                 existingProductPair.notes = validatedNotes
 
@@ -404,9 +475,12 @@ struct ManualProductEntryView: View {
                     gfProductName: validatedGFName,
                     gfPrice: validatedGFPrice,
                     gfSize: validatedGFSize,
+                    gfSizeValue: validatedGFSizeValue,
                     nonGFProductName: validatedNonGFName,
                     nonGFPrice: validatedNonGFPrice,
                     nonGFSize: validatedNonGFSize,
+                    nonGFSizeValue: validatedNonGFSizeValue,
+                    sizeUnit: validatedSizeUnit,
                     category: validatedCategory,
                     notes: validatedNotes
                 )

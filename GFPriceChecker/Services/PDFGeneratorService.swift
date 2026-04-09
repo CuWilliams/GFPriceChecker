@@ -562,7 +562,7 @@ final class PDFGeneratorService {
 
                 // Draw products for this receipt
                 for (index, product) in sortedProducts.enumerated() {
-                    if yPosition + 20 > contentRect.maxY {
+                    if yPosition + estimatedRowHeight(for: product) > contentRect.maxY {
                         drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
                         context.beginPage()
                         pageNumber += 1
@@ -648,7 +648,7 @@ final class PDFGeneratorService {
 
             // Draw unverified products
             for (index, product) in unverifiedProducts.enumerated() {
-                if yPosition + 20 > contentRect.maxY {
+                if yPosition + estimatedRowHeight(for: product) > contentRect.maxY {
                     drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
                     context.beginPage()
                     pageNumber += 1
@@ -967,6 +967,11 @@ final class PDFGeneratorService {
         return y + 22
     }
 
+    /// Returns the estimated total height for a product row (including unit pricing sub-row if applicable)
+    private func estimatedRowHeight(for product: ProductPair) -> CGFloat {
+        product.hasUnitPricingData ? 30 : 20
+    }
+
     private func drawTransactionRow(
         context: CGContext,
         contentRect: CGRect,
@@ -1013,7 +1018,27 @@ final class PDFGeneratorService {
         context.setLineWidth(0.5)
         context.stroke(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: rowHeight))
 
-        return y + rowHeight
+        var nextY = y + rowHeight
+
+        // Unit pricing sub-row (drawn below main row when size data is available)
+        if product.hasUnitPricingData,
+           let gfUnit = product.gfUnitPrice,
+           let regUnit = product.regularUnitPrice,
+           let normDiff = product.normalizedDifferential,
+           let unit = product.resolvedSizeUnit {
+            let subRowAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 8, weight: .light),
+                .foregroundColor: UIColor.systemGray
+            ]
+            let gfUnitStr = String(format: "%.4f", NSDecimalNumber(decimal: gfUnit).doubleValue)
+            let regUnitStr = String(format: "%.4f", NSDecimalNumber(decimal: regUnit).doubleValue)
+            let normDiffStr = String(format: "%.2f", NSDecimalNumber(decimal: normDiff).doubleValue)
+            let subText = "  GF: $\(gfUnitStr)/\(unit.displayName)  |  Reg: $\(regUnitStr)/\(unit.displayName)  |  Adj. Diff: $\(normDiffStr)"
+            subText.draw(at: CGPoint(x: contentRect.minX + 4, y: nextY + 2), withAttributes: subRowAttrs)
+            nextY += 12
+        }
+
+        return nextY
     }
 
     private func drawCategorySubtotal(

@@ -87,10 +87,16 @@ final class CSVExportService {
             "GF Product",
             "GF Price",
             "GF Size",
+            "GF Size (num)",
             "Non-GF Product",
             "Non-GF Price",
             "Non-GF Size",
+            "Non-GF Size (num)",
+            "Size Unit",
+            "GF Unit Price",
+            "Regular Unit Price",
             "Differential",
+            "Normalized Differential",
             "Category",
             "Store",
             "Receipt Verified",
@@ -114,10 +120,16 @@ final class CSVExportService {
             escapeField(product.gfProductName),
             formatPrice(product.gfPrice),
             escapeField(product.gfSize ?? ""),
+            formatOptionalDecimal(product.gfSizeValue),
             escapeField(product.nonGFProductName),
             formatPrice(product.nonGFPrice),
             escapeField(product.nonGFSize ?? ""),
+            formatOptionalDecimal(product.nonGFSizeValue),
+            escapeField(product.sizeUnit ?? ""),
+            formatOptionalDecimal(product.gfUnitPrice),
+            formatOptionalDecimal(product.regularUnitPrice),
             formatPrice(product.differential),
+            formatOptionalDecimal(product.normalizedDifferential),
             escapeField(product.category ?? "Uncategorized"),
             escapeField(product.receipt?.storeName ?? ""),
             formatBoolean(product.verified),
@@ -125,6 +137,12 @@ final class CSVExportService {
         ]
 
         return fields.joined(separator: ",")
+    }
+
+    /// Formats an optional Decimal as a price string, or empty string if nil
+    private func formatOptionalDecimal(_ value: Decimal?) -> String {
+        guard let value else { return "" }
+        return formatPrice(value)
     }
 
     /// Formats a date as YYYY-MM-DD
