@@ -621,6 +621,7 @@ enum OCRError: LocalizedError {
 
 // MARK: - Preview Helper
 
+#if DEBUG
 #Preview {
     Text("OCRService - See console for test results")
         .task {
@@ -630,3 +631,4 @@ enum OCRError: LocalizedError {
             print("✅ OCRService ready for use")
         }
 }
+#endif

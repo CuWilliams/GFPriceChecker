@@ -510,6 +510,7 @@ private struct StatisticCardDecimal: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("With Data") {
@@ -546,3 +547,4 @@ private struct StatisticCardDecimal: View {
     SummaryDashboardView()
         .modelContainer(for: [ProductPair.self, Receipt.self], inMemory: true)
 }
+#endif

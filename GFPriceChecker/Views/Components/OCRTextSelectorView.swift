@@ -406,6 +406,7 @@ struct OCRTextSelectorView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("Initial State") {
@@ -476,3 +477,4 @@ private func createSampleObservations() -> [SelectableTextObservation] {
         )
     ]
 }
+#endif

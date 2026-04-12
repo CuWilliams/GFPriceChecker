@@ -129,6 +129,7 @@ struct ImageViewer: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
@@ -148,3 +149,4 @@ struct ImageViewer: View {
 
     return ImageViewer(image: sampleImage, title: "Receipt Image")
 }
+#endif

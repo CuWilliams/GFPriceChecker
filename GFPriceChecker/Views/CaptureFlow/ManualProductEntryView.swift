@@ -498,9 +498,11 @@ struct ManualProductEntryView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
     ManualProductEntryView()
         .modelContainer(for: ProductPair.self, inMemory: true)
 }
+#endif

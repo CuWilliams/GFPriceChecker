@@ -64,9 +64,11 @@ struct ContentView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
     ContentView()
         .modelContainer(for: [ProductPair.self, Receipt.self], inMemory: true)
 }
+#endif

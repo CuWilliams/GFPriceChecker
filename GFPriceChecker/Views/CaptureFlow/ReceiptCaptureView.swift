@@ -818,6 +818,7 @@ private struct ReceiptLineSelector: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("With Unverified Products") {
@@ -857,3 +858,4 @@ private struct ReceiptLineSelector: View {
     return ReceiptCaptureView()
         .modelContainer(container)
 }
+#endif

@@ -247,6 +247,7 @@ extension ConfidenceIndicatorView {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("High Confidence") {
@@ -275,3 +276,4 @@ extension ConfidenceIndicatorView {
     }
     .padding()
 }
+#endif

@@ -191,6 +191,7 @@ private struct RectangleOverlayShape: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
@@ -236,3 +237,4 @@ private func createSampleRectangles() -> [DetectedRectangle] {
         )
     ]
 }
+#endif

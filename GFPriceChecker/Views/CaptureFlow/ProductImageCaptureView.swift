@@ -285,8 +285,10 @@ struct ProductImageCaptureView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
     ProductImageCaptureView()
 }
+#endif

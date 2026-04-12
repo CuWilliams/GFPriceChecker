@@ -104,6 +104,7 @@ struct DocumentScannerView: UIViewControllerRepresentable {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
@@ -111,3 +112,4 @@ struct DocumentScannerView: UIViewControllerRepresentable {
         // Preview can't actually show scanner
     }
 }
+#endif

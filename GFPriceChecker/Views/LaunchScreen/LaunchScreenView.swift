@@ -54,8 +54,10 @@ struct LaunchScreenView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("Launch Screen") {
     LaunchScreenView()
 }
+#endif

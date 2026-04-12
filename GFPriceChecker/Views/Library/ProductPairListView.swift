@@ -344,6 +344,7 @@ struct ProductPairRow: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("With Products") {
@@ -397,3 +398,4 @@ struct ProductPairRow: View {
     ProductPairListView()
         .modelContainer(for: ProductPair.self, inMemory: true)
 }
+#endif

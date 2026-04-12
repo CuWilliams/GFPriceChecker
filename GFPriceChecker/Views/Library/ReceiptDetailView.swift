@@ -271,6 +271,7 @@ struct ReceiptDetailView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("Receipt with Products") {
@@ -329,3 +330,4 @@ struct ReceiptDetailView: View {
     }
     .modelContainer(container)
 }
+#endif

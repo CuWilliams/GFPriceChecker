@@ -582,8 +582,10 @@ struct ScanningFeatureRow: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("Onboarding") {
     OnboardingView(isPresented: .constant(true))
 }
+#endif

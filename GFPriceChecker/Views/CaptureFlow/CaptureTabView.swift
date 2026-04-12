@@ -61,8 +61,10 @@ struct CaptureTabView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
     CaptureTabView()
 }
+#endif

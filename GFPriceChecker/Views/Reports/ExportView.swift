@@ -721,6 +721,7 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
@@ -746,3 +747,4 @@ struct ShareSheet: UIViewControllerRepresentable {
     return ExportView()
         .modelContainer(container)
 }
+#endif

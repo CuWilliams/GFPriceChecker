@@ -384,9 +384,11 @@ private struct BackupDocument: FileDocument {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
     SettingsView()
         .modelContainer(for: [ProductPair.self, Receipt.self], inMemory: true)
 }
+#endif

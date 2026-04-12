@@ -872,9 +872,11 @@ private enum CaptureStep {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
     ProductCaptureFlowView()
         .modelContainer(for: [ProductPair.self], inMemory: true)
 }
+#endif

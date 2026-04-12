@@ -34,6 +34,7 @@ extension AppLogo {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
@@ -44,3 +45,4 @@ extension AppLogo {
     }
     .padding()
 }
+#endif
