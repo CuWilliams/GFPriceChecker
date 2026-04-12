@@ -232,7 +232,7 @@ struct SettingsView: View {
         } header: {
             Text("About")
         } footer: {
-            Text("GFPriceChecker helps track gluten-free product price differentials for Canadian tax deductions.")
+            Text("GFPriceChecker helps track gluten-free product price differentials for consumers managing celiac disease or gluten sensitivity.")
         }
     }
 

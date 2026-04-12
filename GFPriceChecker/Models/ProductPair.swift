@@ -26,8 +26,8 @@ enum SizeUnit: String, CaseIterable, Sendable {
 
 /// Represents a comparison between a gluten-free product and its non-gluten-free equivalent
 ///
-/// This model is the core data structure for tracking price differentials that can be
-/// claimed as medical expense deductions for celiac disease tax purposes with the CRA.
+/// This model is the core data structure for tracking price differentials between
+/// gluten-free and regular products for celiac disease cost documentation.
 @Model
 final class ProductPair {
 
@@ -93,7 +93,7 @@ final class ProductPair {
     var notes: String?
 
     /// Indicates whether this product pair has been verified with a receipt
-    /// - Note: Important for CRA audit trail and documentation requirements
+    /// - Note: Important for audit trail and documentation requirements
     var verified: Bool
 
     /// Optional receipt that verifies this product pair

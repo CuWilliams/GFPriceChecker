@@ -7,9 +7,9 @@
 
 import Foundation
 
-/// Service for generating CRA-compliant CSV exports
+/// Service for generating CSV exports
 ///
-/// Generates CSV files with proper formatting for Canadian tax filing:
+/// Generates CSV files with proper formatting for data exchange:
 /// - UTF-8 encoding with BOM for Excel compatibility
 /// - Proper CSV escaping for special characters
 /// - Date format: YYYY-MM-DD
@@ -26,7 +26,7 @@ final class CSVExportService {
 
     // MARK: - CSV Generation
 
-    /// Generates a CRA-compliant CSV file from product pairs
+    /// Generates a CSV file from product pairs
     ///
     /// - Parameters:
     ///   - products: Product pairs to export
@@ -95,8 +95,8 @@ final class CSVExportService {
             "Size Unit",
             "GF Unit Price",
             "Regular Unit Price",
-            "Differential",
-            "Normalized Differential",
+            "Package Price Differential",
+            "Unit Price Differential",
             "Category",
             "Store",
             "Receipt Verified",

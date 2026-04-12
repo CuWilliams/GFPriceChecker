@@ -12,7 +12,7 @@ import SwiftUI
 
 /// Represents a receipt that can verify one or more product pairs
 ///
-/// Receipts provide documentation for CRA audits and establish purchase verification.
+/// Receipts provide documentation for audits and establish purchase verification.
 /// One receipt can be associated with multiple ProductPair objects from the same shopping trip.
 @Model
 final class Receipt {

@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 import Charts
 
-/// Summary dashboard displaying annual tax differential statistics and charts
+/// Summary dashboard displaying annual price differential statistics and charts
 ///
 /// Provides a professional overview suitable for accountant review:
 /// - Total annual differential (prominent)
@@ -121,18 +121,18 @@ struct SummaryDashboardView: View {
 
             // Dual Totals Display
             VStack(spacing: 8) {
-                // Primary: Size-Adjusted Total (CRA-recommended)
+                // Primary: Unit Price Differential Total
                 VStack(spacing: 2) {
-                    Text("Size-Adjusted Total (CRA Line 33099)")
+                    Text("Unit Price Differential Total")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel("Size-adjusted total, recommended for CRA Line 33099")
+                        .accessibilityLabel("Unit price differential total")
 
                     Text(normalizedResult.total, format: .currency(code: "CAD"))
                         .font(.system(size: 48, weight: .bold, design: .rounded))
                         .foregroundStyle(normalizedResult.total > 0 ? .green : .secondary)
-                        .accessibilityLabel("Size-adjusted total: \(normalizedResult.total.formatted(.currency(code: "CAD")))")
-                        .accessibilityHint("This is the CRA-recommended claimable amount for Line 33099")
+                        .accessibilityLabel("Unit price differential total: \(normalizedResult.total.formatted(.currency(code: "CAD")))")
+                        .accessibilityHint("Total adjusted for package size differences")
                 }
 
                 Divider()
@@ -140,7 +140,7 @@ struct SummaryDashboardView: View {
 
                 // Secondary: Simple Price Differential
                 VStack(spacing: 2) {
-                    Text("Price Differential (For Reference)")
+                    Text("Package Price Differential (For Reference)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -189,16 +189,16 @@ struct SummaryDashboardView: View {
                 )
                 .accessibilityLabel("Products: \(yearProducts.count)")
 
-                // Average Size-Adjusted Differential Card (primary)
+                // Average Unit Price Differential Card (primary)
                 let avgNormalized = viewModel.calculateAverageNormalizedDifferential(for: yearProducts)
                 StatisticCardDecimal(
-                    title: "Avg. Adj. Diff",
+                    title: "Avg. Unit Price Diff",
                     value: avgNormalized ?? Decimal.zero,
                     icon: "ruler",
                     color: .green
                 )
-                .accessibilityLabel("Average size-adjusted differential: \((avgNormalized ?? Decimal.zero).formatted(.currency(code: "CAD")))")
-                .accessibilityHint("CRA-recommended average per product")
+                .accessibilityLabel("Average unit price differential: \((avgNormalized ?? Decimal.zero).formatted(.currency(code: "CAD")))")
+                .accessibilityHint("Average unit price differential per product")
 
                 // Average Price Differential Card
                 StatisticCardDecimal(
@@ -235,7 +235,7 @@ struct SummaryDashboardView: View {
 
     private var monthlyChartSection: some View {
         VStack(spacing: 16) {
-            Text("Monthly Differential")
+            Text("Monthly Price Differentials")
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -254,10 +254,10 @@ struct SummaryDashboardView: View {
         // Build flat array for dual-series chart
         var chartItems: [MonthlyChartItem] = []
         for item in priceSummary {
-            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Price Diff"))
+            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Package Price Diff"))
         }
         for item in normalizedSummary {
-            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Adjusted (CRA)"))
+            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Unit Price Diff"))
         }
 
         return Chart(chartItems) { item in
@@ -270,8 +270,8 @@ struct SummaryDashboardView: View {
             .cornerRadius(3)
         }
         .chartForegroundStyleScale([
-            "Adjusted (CRA)": Color.green,
-            "Price Diff": Color.blue
+            "Unit Price Diff": Color.green,
+            "Package Price Diff": Color.blue
         ])
         .chartXAxis {
             AxisMarks(values: .stride(by: .month)) { value in
@@ -325,9 +325,9 @@ struct SummaryDashboardView: View {
         // Build flat array for dual-series chart (top 5 categories by price differential)
         var chartItems: [CategoryChartItem] = []
         for item in topCategories {
-            chartItems.append(CategoryChartItem(category: item.category, amount: item.total, series: "Price Diff"))
+            chartItems.append(CategoryChartItem(category: item.category, amount: item.total, series: "Package Price Diff"))
             if let normTotal = normalizedByCategory[item.category] {
-                chartItems.append(CategoryChartItem(category: item.category, amount: normTotal, series: "Adjusted (CRA)"))
+                chartItems.append(CategoryChartItem(category: item.category, amount: normTotal, series: "Unit Price Diff"))
             }
         }
 
@@ -341,8 +341,8 @@ struct SummaryDashboardView: View {
             .cornerRadius(3)
         }
         .chartForegroundStyleScale([
-            "Adjusted (CRA)": Color.green,
-            "Price Diff": Color.blue
+            "Unit Price Diff": Color.green,
+            "Package Price Diff": Color.blue
         ])
         .chartXAxis {
             AxisMarks { value in

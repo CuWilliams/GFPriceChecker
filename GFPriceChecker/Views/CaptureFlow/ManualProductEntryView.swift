@@ -157,7 +157,7 @@ struct ManualProductEntryView: View {
                 } header: {
                     Text("Size Unit (shared for both products)")
                 } footer: {
-                    Text("Entering sizes enables unit price comparison and a more accurate tax differential calculation.")
+                    Text("Entering sizes enables unit price comparison and a more accurate price differential calculation.")
                 }
 
                 // Section 4: Category

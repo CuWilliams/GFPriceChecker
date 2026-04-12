@@ -85,12 +85,12 @@ final class ReportViewModel {
         return (verified: verified, unverified: unverified)
     }
 
-    // MARK: - Normalized Differential Statistics
+    // MARK: - Unit Price Differential Statistics
 
     /// Calculates the total size-adjusted (normalized) differential for given products
     ///
     /// Products without size data cannot be normalized and are excluded from the total.
-    /// This is the CRA-recommended figure for Line 33099 claims.
+    /// This is the primary figure for unit price differential reporting.
     /// - Parameter products: Products to sum
     /// - Returns: Tuple with total normalized differential and count of excluded products
     func calculateTotalNormalizedDifferential(for products: [ProductPair]) -> (total: Decimal, excludedCount: Int) {
