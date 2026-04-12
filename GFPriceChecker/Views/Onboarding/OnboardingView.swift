@@ -166,7 +166,7 @@ struct OnboardingView: View {
                 .padding(.horizontal)
 
             // Description
-            Text("Compare gluten-free and regular product prices to document your additional food costs for Canadian tax deductions.")
+            Text("Compare gluten-free and regular product prices to document the true cost of your gluten-free diet.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -177,7 +177,7 @@ struct OnboardingView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Welcome to GF Price Checker")
-        .accessibilityValue("Track the cost of eating gluten-free. Compare gluten-free and regular product prices to document your additional food costs for Canadian tax deductions.")
+        .accessibilityValue("Track the cost of eating gluten-free. Compare gluten-free and regular product prices to document the true cost of your gluten-free diet.")
     }
 
     /// Page 2: How It Works
@@ -257,7 +257,7 @@ struct OnboardingView: View {
                             Text("Export")
                                 .font(.title3.bold())
                         }
-                        Text("Generate professional reports for CRA tax filing")
+                        Text("Generate professional price differential reports")
                             .font(.body)
                             .foregroundStyle(.secondary)
                     }
@@ -269,7 +269,7 @@ struct OnboardingView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("How it works")
-        .accessibilityValue("Step 1: Capture. Photograph shelf price tags for smart OCR extraction. Step 2: Verify. Link products to receipts for proof of purchase. Step 3: Export. Generate professional reports for CRA tax filing.")
+        .accessibilityValue("Step 1: Capture. Photograph shelf price tags for smart OCR extraction. Step 2: Verify. Link products to receipts for proof of purchase. Step 3: Export. Generate professional price differential reports.")
     }
 
     /// Page 3: Smart Scanning Tips

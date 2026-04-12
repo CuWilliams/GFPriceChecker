@@ -11,7 +11,7 @@ import PDFKit
 
 /// Service for generating professional PDF reports
 ///
-/// Creates multi-page PDF reports suitable for CRA tax filing with:
+/// Creates multi-page PDF reports suitable for price differential documentation with:
 /// - Branded cover page
 /// - Summary statistics
 /// - Detailed transaction table
@@ -98,7 +98,7 @@ final class PDFGeneratorService {
         let pdfMetaData: [String: Any] = [
             kCGPDFContextCreator as String: "GFPriceChecker",
             kCGPDFContextAuthor as String: userName ?? "User",
-            kCGPDFContextTitle as String: "GF Tax Differential Report - \(year)"
+            kCGPDFContextTitle as String: "GF Price Differential Report - \(year)"
         ]
 
         let format = UIGraphicsPDFRendererFormat()
@@ -204,7 +204,7 @@ final class PDFGeneratorService {
         yPosition += 50
 
         // Subtitle
-        let subtitle = "Gluten-Free Tax Differential Report"
+        let subtitle = "Gluten-Free Price Differential Report"
         let subtitleAttrs: [NSAttributedString.Key: Any] = [
             .font: headingFont,
             .foregroundColor: secondaryColor
@@ -259,7 +259,7 @@ final class PDFGeneratorService {
         )
         yPosition += 80
 
-        // Primary: Size-Adjusted Total (CRA-recommended)
+        // Primary: Unit Price Differential Total
         let normalizedText = normalizedTotal.formatted(.currency(code: "CAD"))
         let normalizedAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 40, weight: .bold),
@@ -272,7 +272,7 @@ final class PDFGeneratorService {
         )
         yPosition += 48
 
-        let normalizedLabel = "Size-Adjusted Total (Recommended for CRA Line 33099)"
+        let normalizedLabel = "Unit Price Differential Total (Primary)"
         let normalizedLabelAttrs: [NSAttributedString.Key: Any] = [
             .font: bodyFont,
             .foregroundColor: secondaryColor
@@ -284,7 +284,7 @@ final class PDFGeneratorService {
         )
         yPosition += 28
 
-        // Secondary: Simple Price Differential
+        // Secondary: Package Price Differential
         let totalText = totalDifferential.formatted(.currency(code: "CAD"))
         let totalAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 26, weight: .semibold),
@@ -297,7 +297,7 @@ final class PDFGeneratorService {
         )
         yPosition += 30
 
-        let totalLabel = "Simple Price Differential Total (For Reference)"
+        let totalLabel = "Package Price Differential Total (For Reference)"
         let totalLabelAttrs: [NSAttributedString.Key: Any] = [
             .font: bodyFont,
             .foregroundColor: secondaryColor
@@ -442,7 +442,7 @@ final class PDFGeneratorService {
             context: context,
             contentRect: contentRect,
             yPosition: y,
-            headers: ["Category", "Count", "Adj. Diff (CRA)", "Price Diff"],
+            headers: ["Category", "Count", "Unit Price Diff", "Package Price Diff"],
             rows: sortedCategories.map { category, total in
                 let adjTotal = categoryNormalized[category]?.formatted(.currency(code: "CAD")) ?? "—"
                 return [
@@ -503,7 +503,7 @@ final class PDFGeneratorService {
             context: context,
             contentRect: contentRect,
             yPosition: y,
-            headers: ["Month", "Count", "Adj. Diff (CRA)", "Price Diff"],
+            headers: ["Month", "Count", "Unit Price Diff", "Package Price Diff"],
             rows: sortedMonths.map { month, total in
                 let adjTotal = monthlyNormalized[month]?.formatted(.currency(code: "CAD")) ?? "—"
                 return [
@@ -649,7 +649,7 @@ final class PDFGeneratorService {
                 let adjExcluded = sortedProducts.filter { $0.normalizedDifferential == nil }.count
                 let priceSubtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.differential }
 
-                let adjSubtotalText = "Adj. Subtotal (CRA): \(adjSubtotal.formatted(.currency(code: "CAD")))"
+                let adjSubtotalText = "Unit Price Subtotal: \(adjSubtotal.formatted(.currency(code: "CAD")))"
                 let adjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                     .foregroundColor: accentColor
@@ -759,7 +759,7 @@ final class PDFGeneratorService {
             let unvAdjExcluded = unverifiedProducts.filter { $0.normalizedDifferential == nil }.count
             let unverifiedSubtotal = unverifiedProducts.reduce(Decimal.zero) { $0 + $1.differential }
 
-            let unvAdjSubtotalText = "Adj. Subtotal (CRA): \(unvAdjSubtotal.formatted(.currency(code: "CAD")))"
+            let unvAdjSubtotalText = "Unit Price Subtotal: \(unvAdjSubtotal.formatted(.currency(code: "CAD")))"
             let unvAdjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                 .foregroundColor: UIColor.systemOrange
@@ -1056,7 +1056,7 @@ final class PDFGeneratorService {
         contentRect: CGRect,
         yPosition: CGFloat
     ) -> CGFloat {
-        let headers = ["Date", "GF Product", "GF $", "Regular", "Reg $", "Price Diff", "Adj. Diff (CRA)"]
+        let headers = ["Date", "GF Product", "GF $", "Regular", "Reg $", "Pkg. Price Diff", "Unit Price Diff"]
         let columnWidths: [CGFloat] = [60, 100, 42, 100, 42, 54, 53]
 
         var x = contentRect.minX
@@ -1113,7 +1113,7 @@ final class PDFGeneratorService {
             adjDiffStr = "—"
         }
 
-        // Row data (7 columns — Store removed, Adj. Diff promoted to full column)
+        // Row data (7 columns — Store removed, Unit Price Diff promoted to full column)
         let rowData = [
             dateFormatter.string(from: product.reportingDate),
             product.gfProductName.truncated(to: 14),
@@ -1129,7 +1129,7 @@ final class PDFGeneratorService {
             .foregroundColor: UIColor.label
         ]
 
-        // Highlight the Adj. Diff column in green when available
+        // Highlight the Unit Price Diff column in green when available
         let adjCellAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 10, weight: .medium),
             .foregroundColor: product.normalizedDifferential != nil ? accentColor : UIColor.systemGray3
@@ -1185,8 +1185,8 @@ final class PDFGeneratorService {
         context.setFillColor(accentColor.withAlphaComponent(0.08).cgColor)
         context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: 48))
 
-        // Row 1: Size-Adjusted Grand Total (primary / CRA)
-        let adjTotalText = "Size-Adjusted Grand Total (CRA Line 33099): \(normalizedTotal.formatted(.currency(code: "CAD")))"
+        // Row 1: Unit Price Differential Total (primary)
+        let adjTotalText = "Unit Price Differential Total: \(normalizedTotal.formatted(.currency(code: "CAD")))"
         let adjTotalAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 13, weight: .bold),
             .foregroundColor: accentColor
@@ -1199,7 +1199,7 @@ final class PDFGeneratorService {
         y += 24
 
         // Row 2: Price Differential Grand Total (for reference)
-        let priceTotalText = "Price Differential Grand Total (For Reference): \(priceTotal.formatted(.currency(code: "CAD")))"
+        let priceTotalText = "Package Price Differential Total (For Reference): \(priceTotal.formatted(.currency(code: "CAD")))"
         let priceTotalAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
             .foregroundColor: primaryColor

@@ -100,7 +100,7 @@ struct ExportView: View {
     }
 
     /// Export summary statistics
-    private var exportSummary: (count: Int, totalDifferential: Decimal) {
+    private var exportSummary: (count: Int, unitPriceDifferential: Decimal?, packagePriceDifferential: Decimal) {
         let productsToExport: [ProductPair]
 
         switch exportFormat {
@@ -113,8 +113,10 @@ struct ExportView: View {
             }
         }
 
-        let total = productsToExport.reduce(Decimal.zero) { $0 + $1.differential }
-        return (count: productsToExport.count, totalDifferential: total)
+        let packageTotal = productsToExport.reduce(Decimal.zero) { $0 + $1.differential }
+        let normalizedValues = productsToExport.compactMap(\.normalizedDifferential)
+        let unitTotal: Decimal? = normalizedValues.isEmpty ? nil : normalizedValues.reduce(Decimal.zero, +)
+        return (count: productsToExport.count, unitPriceDifferential: unitTotal, packagePriceDifferential: packageTotal)
     }
 
     // MARK: - Body
@@ -310,7 +312,7 @@ struct ExportView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 20) {
+            HStack(spacing: 12) {
                 // Product Count
                 VStack(spacing: 4) {
                     Text("\(exportSummary.count)")
@@ -326,13 +328,35 @@ struct ExportView: View {
                 Divider()
                     .frame(height: 40)
 
-                // Total Differential
+                // Primary: Unit Price Differential Total
                 VStack(spacing: 4) {
-                    Text(exportSummary.totalDifferential, format: .currency(code: "CAD"))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.green)
-                    Text("Total Differential")
+                    if let unitTotal = exportSummary.unitPriceDifferential {
+                        Text(unitTotal, format: .currency(code: "CAD"))
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.green)
+                    } else {
+                        Text("—")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("Unit Price Differential")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+
+                Divider()
+                    .frame(height: 40)
+
+                // Secondary: Package Price Differential Total
+                VStack(spacing: 4) {
+                    Text(exportSummary.packagePriceDifferential, format: .currency(code: "CAD"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.blue)
+                    Text("Package Price Diff")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

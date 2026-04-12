@@ -91,7 +91,7 @@ struct ReceiptDetailView: View {
                         .fontWeight(.medium)
                 }
 
-                LabeledContent("Total Differential") {
+                LabeledContent("Package Price Differential Total") {
                     Text("$\(receipt.totalDifferential as NSDecimalNumber)")
                         .fontWeight(.bold)
                         .foregroundStyle(receipt.totalDifferential > 0 ? .green : .secondary)

@@ -549,7 +549,7 @@ struct ProductCaptureFlowView: View {
                    let nonGFPrice = Decimal(string: nonGFPriceText) {
                     let differential = gfPrice - nonGFPrice
                     VStack(spacing: 4) {
-                        Text("Price Differential")
+                        Text("Package Price Differential")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(differential.formatted(.currency(code: "CAD")))
@@ -591,7 +591,7 @@ struct ProductCaptureFlowView: View {
                    let regV = Decimal(string: nonGFSizeText), regV > 0 {
                     let normDiff = ((gfP / gfV) - (regP / regV)) * gfV
                     VStack(spacing: 4) {
-                        Text("Size-Adjusted Differential")
+                        Text("Unit Price Differential")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(normDiff.formatted(.currency(code: "CAD")))
@@ -607,7 +607,7 @@ struct ProductCaptureFlowView: View {
                     .background(Color.blue.opacity(0.08))
                     .cornerRadius(12)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Size-adjusted differential: \(normDiff.formatted(.currency(code: "CAD"))). This accounts for the difference in package sizes.")
+                    .accessibilityLabel("Unit price differential: \(normDiff.formatted(.currency(code: "CAD"))). This accounts for the difference in package sizes.")
                 }
 
                 // Category

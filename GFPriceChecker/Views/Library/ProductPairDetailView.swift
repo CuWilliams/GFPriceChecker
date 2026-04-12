@@ -142,7 +142,7 @@ struct ProductPairDetailView: View {
         Section {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Price Differential")
+                    Text("Package Price Differential")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
@@ -187,7 +187,7 @@ struct ProductPairDetailView: View {
 
             if let normDiff = productPair.normalizedDifferential {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Size-Adjusted Differential")
+                    Text("Unit Price Differential")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Text(formatCurrency(normDiff))
@@ -200,7 +200,7 @@ struct ProductPairDetailView: View {
                 }
                 .padding(.vertical, 4)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Size-adjusted differential: \(formatCurrency(normDiff)). The GF premium per purchase, normalized for package size.")
+                .accessibilityLabel("Unit price differential: \(formatCurrency(normDiff)). The GF premium per purchase, normalized for package size.")
             }
         } header: {
             Label("Unit Pricing", systemImage: "scalemass")
