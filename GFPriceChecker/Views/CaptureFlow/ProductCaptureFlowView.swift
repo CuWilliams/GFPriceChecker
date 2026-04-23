@@ -71,6 +71,10 @@ struct ProductCaptureFlowView: View {
     @State private var gfUnitPriceText: String = ""
     @State private var nonGFUnitPriceText: String = ""
 
+    // Currency basis for unit price entry (cents vs dollars per unit)
+    @State private var gfUnitPriceBasis: UnitPriceBasis = .cents
+    @State private var nonGFUnitPriceBasis: UnitPriceBasis = .cents
+
     // Selected OCR row for size (used for highlight tracking)
     @State private var gfSelectedSizeObservationID: UUID?
     @State private var nonGFSelectedSizeObservationID: UUID?
@@ -452,6 +456,27 @@ struct ProductCaptureFlowView: View {
                         Text("App calculates size from price ÷ unit price.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+
+                        // Currency basis picker — only shown in unit price / manual modes
+                        HStack {
+                            Text("Value basis")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Picker("Unit price basis", selection: isGF ? $gfUnitPriceBasis : $nonGFUnitPriceBasis) {
+                                ForEach(UnitPriceBasis.allCases, id: \.self) { basis in
+                                    Text(basis.rawValue).tag(basis)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(maxWidth: 200)
+                            .accessibilityLabel("Unit price currency basis")
+                            .accessibilityHint("Choose whether the unit price is in cents or dollars")
+                        }
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 12)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
                     }
 
                     HStack {
@@ -504,6 +529,7 @@ struct ProductCaptureFlowView: View {
                             gfSizeText = ""
                             gfUnitPriceText = ""
                             gfSizeMode = .packageSize
+                            gfUnitPriceBasis = .cents
                             gfSelectedSizeObservationID = nil
                         } else {
                             nonGFProductName = ""
@@ -511,6 +537,7 @@ struct ProductCaptureFlowView: View {
                             nonGFSizeText = ""
                             nonGFUnitPriceText = ""
                             nonGFSizeMode = .packageSize
+                            nonGFUnitPriceBasis = .cents
                             nonGFSelectedSizeObservationID = nil
                         }
                     } label: {
@@ -526,6 +553,7 @@ struct ProductCaptureFlowView: View {
                             gfSizeText = ""
                             gfUnitPriceText = ""
                             gfSizeMode = .packageSize
+                            gfUnitPriceBasis = .cents
                             gfSelectedSizeObservationID = nil
                             gfOCRObservations = []
                             currentStep = .captureGF
@@ -535,6 +563,7 @@ struct ProductCaptureFlowView: View {
                             nonGFSizeText = ""
                             nonGFUnitPriceText = ""
                             nonGFSizeMode = .packageSize
+                            nonGFUnitPriceBasis = .cents
                             nonGFSelectedSizeObservationID = nil
                             nonGFOCRObservations = []
                             currentStep = .captureNonGF
@@ -718,7 +747,8 @@ struct ProductCaptureFlowView: View {
                         return Decimal(string: gfSizeText)
                     } else if let p = Decimal(string: gfPriceText),
                               let u = Decimal(string: gfUnitPriceText), u > 0 {
-                        return p / u
+                        let uDollars = gfUnitPriceBasis == .cents ? u / 100 : u
+                        return p / uDollars
                     }
                     return nil
                 }()
@@ -727,7 +757,8 @@ struct ProductCaptureFlowView: View {
                         return Decimal(string: nonGFSizeText)
                     } else if let p = Decimal(string: nonGFPriceText),
                               let u = Decimal(string: nonGFUnitPriceText), u > 0 {
-                        return p / u
+                        let uDollars = nonGFUnitPriceBasis == .cents ? u / 100 : u
+                        return p / uDollars
                     }
                     return nil
                 }()
@@ -1026,10 +1057,12 @@ struct ProductCaptureFlowView: View {
         if gfSizeMode == .packageSize {
             finalGFSizeValue = Decimal(string: gfSizeText)
         } else {
-            // Unit Price / Manual: back-calculate size = productPrice / unitPrice
+            // Unit Price / Manual: back-calculate size = productPrice / unitPrice (in dollars)
+            // If basis is cents, divide by 100 to convert to dollars before dividing
             if let price = Decimal(string: gfPriceText),
                let unitPrice = Decimal(string: gfUnitPriceText), unitPrice > 0 {
-                finalGFSizeValue = price / unitPrice
+                let unitPriceInDollars = gfUnitPriceBasis == .cents ? unitPrice / 100 : unitPrice
+                finalGFSizeValue = price / unitPriceInDollars
             } else {
                 finalGFSizeValue = nil
             }
@@ -1041,7 +1074,8 @@ struct ProductCaptureFlowView: View {
         } else {
             if let price = Decimal(string: nonGFPriceText),
                let unitPrice = Decimal(string: nonGFUnitPriceText), unitPrice > 0 {
-                finalNonGFSizeValue = price / unitPrice
+                let unitPriceInDollars = nonGFUnitPriceBasis == .cents ? unitPrice / 100 : unitPrice
+                finalNonGFSizeValue = price / unitPriceInDollars
             } else {
                 finalNonGFSizeValue = nil
             }
@@ -1097,6 +1131,13 @@ private enum SizeInputMode: String, CaseIterable {
     case packageSize = "Package Size"
     case unitPrice = "Unit Price"
     case manual = "Manual"
+}
+
+// MARK: - Unit Price Basis
+
+private enum UnitPriceBasis: String, CaseIterable {
+    case cents = "Cents (¢)"
+    case dollars = "Dollars ($)"
 }
 
 // MARK: - Capture Step Enum
