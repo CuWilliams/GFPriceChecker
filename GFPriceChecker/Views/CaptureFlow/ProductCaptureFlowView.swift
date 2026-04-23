@@ -63,6 +63,18 @@ struct ProductCaptureFlowView: View {
     // Size Unit (shared for both products)
     @State private var selectedUnit: SizeUnit? = nil
 
+    // Size input mode per product
+    @State private var gfSizeMode: SizeInputMode = .packageSize
+    @State private var nonGFSizeMode: SizeInputMode = .packageSize
+
+    // Unit price text for .unitPrice and .manual modes
+    @State private var gfUnitPriceText: String = ""
+    @State private var nonGFUnitPriceText: String = ""
+
+    // Selected OCR row for size (used for highlight tracking)
+    @State private var gfSelectedSizeObservationID: UUID?
+    @State private var nonGFSelectedSizeObservationID: UUID?
+
     // Additional Product Pair Data
     @State private var category: String = ""
     @State private var notes: String = ""
@@ -314,7 +326,12 @@ struct ProductCaptureFlowView: View {
     // MARK: - Selection Confirmation View
 
     private func selectionConfirmationView(isGF: Bool) -> some View {
-        ScrollView {
+        let observations = isGF ? gfOCRObservations : nonGFOCRObservations
+        let productImage = isGF ? gfImage : nonGFImage
+        let sizeMode = isGF ? gfSizeMode : nonGFSizeMode
+        let selectedSizeID = isGF ? gfSelectedSizeObservationID : nonGFSelectedSizeObservationID
+
+        return ScrollView {
             VStack(spacing: 20) {
                 // Success indicator
                 Image(systemName: "checkmark.circle.fill")
@@ -324,7 +341,7 @@ struct ProductCaptureFlowView: View {
                 Text("Selection Complete")
                     .font(.headline)
 
-                // Selected values display
+                // Confirmed name + price
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Product Name:")
@@ -333,7 +350,6 @@ struct ProductCaptureFlowView: View {
                         Text(isGF ? gfProductName : nonGFProductName)
                             .fontWeight(.medium)
                     }
-
                     HStack {
                         Text("Price:")
                             .foregroundStyle(.secondary)
@@ -347,25 +363,169 @@ struct ProductCaptureFlowView: View {
                 .background(Color(.secondarySystemGroupedBackground))
                 .cornerRadius(12)
 
-                // Size field (optional, manual numeric entry)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Size (Optional)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HStack {
-                        TextField("0", text: isGF ? $gfSizeText : $nonGFSizeText)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.decimalPad)
-                            .accessibilityLabel(isGF ? "Gluten-free product size" : "Regular product size")
-                            .accessibilityHint("Optional. Enter the numeric size, for example 400")
-                        if let unit = selectedUnit {
-                            Text(unit.displayName)
-                                .foregroundStyle(.secondary)
-                                .accessibilityHidden(true)
+                // Small image thumbnail for reference
+                if let img = productImage {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 120)
+                        .cornerRadius(8)
+                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        .accessibilityHidden(true)
+                }
+
+                // Size capture section
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Package Size")
+                        .font(.headline)
+
+                    // Mode picker
+                    Picker("Size Entry Mode", selection: isGF ? $gfSizeMode : $nonGFSizeMode) {
+                        ForEach(SizeInputMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
                         }
                     }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Size entry mode")
+                    .accessibilityHint("Choose how to enter the package size")
+
+                    switch sizeMode {
+                    case .packageSize:
+                        VStack(alignment: .leading, spacing: 8) {
+                            if !observations.isEmpty {
+                                Text("Tap a value from your scan:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                VStack(spacing: 4) {
+                                    ForEach(observations) { obs in
+                                        Button {
+                                            let parsed = parseSizeFromOCR(obs.text)
+                                            if isGF {
+                                                gfSizeText = parsed.value
+                                                gfSelectedSizeObservationID = obs.id
+                                            } else {
+                                                nonGFSizeText = parsed.value
+                                                nonGFSelectedSizeObservationID = obs.id
+                                            }
+                                            if let suggestedUnit = parsed.unit, selectedUnit == nil {
+                                                selectedUnit = suggestedUnit
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Text(obs.text)
+                                                    .foregroundStyle(.primary)
+                                                    .multilineTextAlignment(.leading)
+                                                Spacer()
+                                                Text("\(Int(obs.confidence * 100))%")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .frame(minHeight: 44)
+                                            .background(selectedSizeID == obs.id ? Color.orange.opacity(0.3) : Color(.systemBackground))
+                                            .cornerRadius(8)
+                                        }
+                                        .accessibilityLabel("Select \(obs.text) as package size")
+                                    }
+                                }
+                                .frame(maxHeight: 200)
+
+                                Text("Or enter manually:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            TextField("Size (e.g. 400)", text: isGF ? $gfSizeText : $nonGFSizeText)
+                                .textFieldStyle(.roundedBorder)
+                                .keyboardType(.decimalPad)
+                                .accessibilityLabel(isGF ? "Gluten-free package size" : "Regular package size")
+                                .accessibilityHint("Enter the numeric size value, for example 400")
+                        }
+
+                    case .unitPrice, .manual:
+                        VStack(alignment: .leading, spacing: 8) {
+                            if sizeMode == .unitPrice && !observations.isEmpty {
+                                Text("Tap the unit price from your scan:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+
+                                VStack(spacing: 4) {
+                                    ForEach(observations) { obs in
+                                        Button {
+                                            let parsed = parseUnitPriceFromOCR(obs.text)
+                                            if isGF {
+                                                gfUnitPriceText = parsed.value
+                                                gfSelectedSizeObservationID = obs.id
+                                            } else {
+                                                nonGFUnitPriceText = parsed.value
+                                                nonGFSelectedSizeObservationID = obs.id
+                                            }
+                                            if let suggestedUnit = parsed.unit, selectedUnit == nil {
+                                                selectedUnit = suggestedUnit
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Text(obs.text)
+                                                    .foregroundStyle(.primary)
+                                                    .multilineTextAlignment(.leading)
+                                                Spacer()
+                                                Text("\(Int(obs.confidence * 100))%")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .frame(minHeight: 44)
+                                            .background(selectedSizeID == obs.id ? Color.orange.opacity(0.3) : Color(.systemBackground))
+                                            .cornerRadius(8)
+                                        }
+                                        .accessibilityLabel("Select \(obs.text) as unit price")
+                                    }
+                                }
+                                .frame(maxHeight: 200)
+
+                                Text("Or enter manually:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Enter the unit price from the tag:")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            TextField("Unit price (e.g. 1.49)", text: isGF ? $gfUnitPriceText : $nonGFUnitPriceText)
+                                .textFieldStyle(.roundedBorder)
+                                .keyboardType(.decimalPad)
+                                .accessibilityLabel(isGF ? "Gluten-free unit price" : "Regular unit price")
+                                .accessibilityHint("Enter the price per unit shown on the shelf tag")
+
+                            Text("The app will back-calculate package size from price ÷ unit price.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // Shared unit picker (always visible in size section)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Unit")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("Unit", selection: $selectedUnit) {
+                            Text("Not specified").tag(Optional<SizeUnit>.none)
+                            ForEach(SizeUnit.allCases, id: \.self) { unit in
+                                Text(unit.displayName).tag(Optional<SizeUnit>.some(unit))
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityLabel("Package size unit")
+                        .accessibilityHint("Choose the unit of measurement for both products")
+                    }
                 }
-                .padding(.horizontal)
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(12)
 
                 // Action buttons
                 VStack(spacing: 12) {
@@ -387,13 +547,20 @@ struct ProductCaptureFlowView: View {
                     }
 
                     Button {
-                        // Clear selection and re-select
                         if isGF {
                             gfProductName = ""
                             gfPriceText = ""
+                            gfSizeText = ""
+                            gfUnitPriceText = ""
+                            gfSizeMode = .packageSize
+                            gfSelectedSizeObservationID = nil
                         } else {
                             nonGFProductName = ""
                             nonGFPriceText = ""
+                            nonGFSizeText = ""
+                            nonGFUnitPriceText = ""
+                            nonGFSizeMode = .packageSize
+                            nonGFSelectedSizeObservationID = nil
                         }
                     } label: {
                         Text("Re-select from OCR")
@@ -402,15 +569,22 @@ struct ProductCaptureFlowView: View {
                     }
 
                     Button {
-                        // Retake photo
                         if isGF {
                             gfProductName = ""
                             gfPriceText = ""
+                            gfSizeText = ""
+                            gfUnitPriceText = ""
+                            gfSizeMode = .packageSize
+                            gfSelectedSizeObservationID = nil
                             gfOCRObservations = []
                             currentStep = .captureGF
                         } else {
                             nonGFProductName = ""
                             nonGFPriceText = ""
+                            nonGFSizeText = ""
+                            nonGFUnitPriceText = ""
+                            nonGFSizeMode = .packageSize
+                            nonGFSelectedSizeObservationID = nil
                             nonGFOCRObservations = []
                             currentStep = .captureNonGF
                         }
@@ -511,6 +685,18 @@ struct ProductCaptureFlowView: View {
                                 .font(.headline)
                                 .foregroundStyle(.green)
                         }
+
+                        if let unit = selectedUnit {
+                            Group {
+                                if gfSizeMode == .packageSize, !gfSizeText.isEmpty {
+                                    Text("\(gfSizeText) \(unit.displayName)")
+                                } else if gfSizeMode != .packageSize, !gfUnitPriceText.isEmpty {
+                                    Text("$\(gfUnitPriceText)/\(unit.displayName)")
+                                }
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        }
                     }
                     .frame(maxWidth: .infinity)
 
@@ -536,6 +722,18 @@ struct ProductCaptureFlowView: View {
                             Text(price.formatted(.currency(code: "CAD")))
                                 .font(.headline)
                                 .foregroundStyle(.blue)
+                        }
+
+                        if let unit = selectedUnit {
+                            Group {
+                                if nonGFSizeMode == .packageSize, !nonGFSizeText.isEmpty {
+                                    Text("\(nonGFSizeText) \(unit.displayName)")
+                                } else if nonGFSizeMode != .packageSize, !nonGFUnitPriceText.isEmpty {
+                                    Text("$\(nonGFUnitPriceText)/\(unit.displayName)")
+                                }
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -563,32 +761,30 @@ struct ProductCaptureFlowView: View {
                     .cornerRadius(12)
                 }
 
-                // Size Unit Picker (shown when either size has been entered)
-                if !gfSizeText.isEmpty || !nonGFSizeText.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Size Unit")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Picker("Unit", selection: $selectedUnit) {
-                            Text("Not specified").tag(Optional<SizeUnit>.none)
-                            ForEach(SizeUnit.allCases, id: \.self) { unit in
-                                Text(unit.displayName).tag(Optional<SizeUnit>.some(unit))
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .accessibilityLabel("Package size unit")
-                        .accessibilityHint("Choose the unit for both product sizes")
+                // Unit price differential preview (uses same back-calc logic as saveProductPair)
+                let previewGFSize: Decimal? = {
+                    if gfSizeMode == .packageSize {
+                        return Decimal(string: gfSizeText)
+                    } else if let p = Decimal(string: gfPriceText),
+                              let u = Decimal(string: gfUnitPriceText), u > 0 {
+                        return p / u
                     }
-                    .padding()
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .cornerRadius(12)
-                }
+                    return nil
+                }()
+                let previewNonGFSize: Decimal? = {
+                    if nonGFSizeMode == .packageSize {
+                        return Decimal(string: nonGFSizeText)
+                    } else if let p = Decimal(string: nonGFPriceText),
+                              let u = Decimal(string: nonGFUnitPriceText), u > 0 {
+                        return p / u
+                    }
+                    return nil
+                }()
 
-                // Normalized differential preview (when both sizes and prices are available)
                 if let gfP = Decimal(string: gfPriceText),
                    let regP = Decimal(string: nonGFPriceText),
-                   let gfV = Decimal(string: gfSizeText), gfV > 0,
-                   let regV = Decimal(string: nonGFSizeText), regV > 0 {
+                   let gfV = previewGFSize, gfV > 0,
+                   let regV = previewNonGFSize, regV > 0 {
                     let normDiff = ((gfP / gfV) - (regP / regV)) * gfV
                     VStack(spacing: 4) {
                         Text("Unit Price Differential")
@@ -783,6 +979,61 @@ struct ProductCaptureFlowView: View {
         }
     }
 
+    // MARK: - Size OCR Parsing
+
+    /// Extracts a numeric size and suggests a SizeUnit from text like "400g", "1.5 L", "12oz"
+    private func parseSizeFromOCR(_ text: String) -> (value: String, unit: SizeUnit?) {
+        let unitPatterns: [(pattern: String, unit: SizeUnit)] = [
+            (#"(\d+\.?\d*)\s*fl\.?\s*oz"#, .flOunces),
+            (#"(\d+\.?\d*)\s*kg"#, .kilograms),
+            (#"(\d+\.?\d*)\s*mL"#, .milliliters),
+            (#"(\d+\.?\d*)\s*L\b"#, .liters),
+            (#"(\d+\.?\d*)\s*oz"#, .ounces),
+            (#"(\d+\.?\d*)\s*lb"#, .pounds),
+            (#"(\d+\.?\d*)\s*g\b"#, .grams),
+            (#"(\d+\.?\d*)\s*count"#, .count),
+        ]
+
+        for (pattern, unit) in unitPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                let range = NSRange(text.startIndex..., in: text)
+                if let match = regex.firstMatch(in: text, options: [], range: range),
+                   match.numberOfRanges > 1,
+                   let valRange = Range(match.range(at: 1), in: text) {
+                    return (String(text[valRange]), unit)
+                }
+            }
+        }
+        // No pattern matched — return raw text for manual editing
+        return (text, nil)
+    }
+
+    /// Extracts a unit price and suggests a SizeUnit from text like "$1.49/100g", "0.99/oz"
+    private func parseUnitPriceFromOCR(_ text: String) -> (value: String, unit: SizeUnit?) {
+        let unitPatterns: [(pattern: String, unit: SizeUnit)] = [
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*fl\.?\s*oz"#, .flOunces),
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*kg"#, .kilograms),
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*mL"#, .milliliters),
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*L\b"#, .liters),
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*oz"#, .ounces),
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*lb"#, .pounds),
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*g\b"#, .grams),
+            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*count"#, .count),
+        ]
+
+        for (pattern, unit) in unitPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                let range = NSRange(text.startIndex..., in: text)
+                if let match = regex.firstMatch(in: text, options: [], range: range),
+                   match.numberOfRanges > 1,
+                   let valRange = Range(match.range(at: 1), in: text) {
+                    return (String(text[valRange]), unit)
+                }
+            }
+        }
+        return (text, nil)
+    }
+
     /// Saves the product pair to SwiftData
     private func saveProductPair() {
         guard let gfPrice = Decimal(string: gfPriceText),
@@ -793,29 +1044,54 @@ struct ProductCaptureFlowView: View {
 
         isSaving = true
 
-        // Parse optional numeric size values
-        let gfSizeValue = Decimal(string: gfSizeText)
-        let nonGFSizeValue = Decimal(string: nonGFSizeText)
-        let sizeUnitRaw: String? = (gfSizeValue != nil && nonGFSizeValue != nil) ? selectedUnit?.rawValue : nil
+        // Compute size values based on the input mode chosen during review
+        let finalGFSizeValue: Decimal?
+        if gfSizeMode == .packageSize {
+            finalGFSizeValue = Decimal(string: gfSizeText)
+        } else {
+            // Unit Price / Manual: back-calculate size = productPrice / unitPrice
+            if let price = Decimal(string: gfPriceText),
+               let unitPrice = Decimal(string: gfUnitPriceText), unitPrice > 0 {
+                finalGFSizeValue = price / unitPrice
+            } else {
+                finalGFSizeValue = nil
+            }
+        }
+
+        let finalNonGFSizeValue: Decimal?
+        if nonGFSizeMode == .packageSize {
+            finalNonGFSizeValue = Decimal(string: nonGFSizeText)
+        } else {
+            if let price = Decimal(string: nonGFPriceText),
+               let unitPrice = Decimal(string: nonGFUnitPriceText), unitPrice > 0 {
+                finalNonGFSizeValue = price / unitPrice
+            } else {
+                finalNonGFSizeValue = nil
+            }
+        }
+
+        let sizeUnitRaw: String? = (finalGFSizeValue != nil && finalNonGFSizeValue != nil) ? selectedUnit?.rawValue : nil
 
         // Build display strings for legacy size fields
         let unitSuffix = selectedUnit?.displayName ?? ""
-        let gfSizeDisplay: String? = gfSizeText.isEmpty ? nil : "\(gfSizeText)\(unitSuffix)"
-        let nonGFSizeDisplay: String? = nonGFSizeText.isEmpty ? nil : "\(nonGFSizeText)\(unitSuffix)"
+        let gfDisplayNum = gfSizeMode == .packageSize ? gfSizeText : gfUnitPriceText
+        let nonGFDisplayNum = nonGFSizeMode == .packageSize ? nonGFSizeText : nonGFUnitPriceText
+        let gfSizeDisplay: String? = gfDisplayNum.isEmpty ? nil : "\(gfDisplayNum)\(unitSuffix)"
+        let nonGFSizeDisplay: String? = nonGFDisplayNum.isEmpty ? nil : "\(nonGFDisplayNum)\(unitSuffix)"
 
         let productPair = ProductPair(
             gfProductName: gfProductName.trimmingCharacters(in: .whitespacesAndNewlines),
             gfPrice: gfPrice,
             gfSize: gfSizeDisplay,
-            gfSizeValue: gfSizeValue,
+            gfSizeValue: finalGFSizeValue,
             gfImageUUID: gfImageUUID,
-            gfOCRConfidence: 0.0, // No longer tracking confidence
+            gfOCRConfidence: 0.0,
             nonGFProductName: nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines),
             nonGFPrice: nonGFPrice,
             nonGFSize: nonGFSizeDisplay,
-            nonGFSizeValue: nonGFSizeValue,
+            nonGFSizeValue: finalNonGFSizeValue,
             nonGFImageUUID: nonGFImageUUID,
-            nonGFOCRConfidence: 0.0, // No longer tracking confidence
+            nonGFOCRConfidence: 0.0,
             sizeUnit: sizeUnitRaw,
             category: category.isEmpty ? nil : category,
             notes: notes.isEmpty ? nil : notes,
@@ -836,6 +1112,14 @@ struct ProductCaptureFlowView: View {
             isSaving = false
         }
     }
+}
+
+// MARK: - Size Input Mode
+
+private enum SizeInputMode: String, CaseIterable {
+    case packageSize = "Package Size"
+    case unitPrice = "Unit Price"
+    case manual = "Manual"
 }
 
 // MARK: - Capture Step Enum
