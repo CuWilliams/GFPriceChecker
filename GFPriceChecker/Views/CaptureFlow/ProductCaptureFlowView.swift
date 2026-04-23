@@ -374,6 +374,12 @@ struct ProductCaptureFlowView: View {
                         .accessibilityHidden(true)
                 }
 
+                Text("Validate Product Size")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityAddTraits(.isHeader)
+
                 // Scan results — flat list outside the size card to avoid layout overflow
                 if !observations.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -448,10 +454,11 @@ struct ProductCaptureFlowView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    HStack {
                         Text("Unit")
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
+                        Spacer()
                         Picker("Unit", selection: $selectedUnit) {
                             Text("Not specified").tag(Optional<SizeUnit>.none)
                             ForEach(SizeUnit.allCases, id: \.self) { unit in
@@ -462,6 +469,10 @@ struct ProductCaptureFlowView: View {
                         .accessibilityLabel("Package size unit")
                         .accessibilityHint("Choose the unit of measurement for both products")
                     }
+                    .frame(minHeight: 44)
+                    .padding(.horizontal, 12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
                 }
                 .padding()
                 .background(Color(.secondarySystemGroupedBackground))
