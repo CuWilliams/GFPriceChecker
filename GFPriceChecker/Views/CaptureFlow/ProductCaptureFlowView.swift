@@ -27,6 +27,11 @@ struct ProductCaptureFlowView: View {
     /// Set to `true` to re-enable rectangle-based OCR filtering during beta testing.
     private let rectangleSelectionEnabled = false
 
+    private let commonCategories = [
+        "None", "Bread", "Pasta", "Flour", "Crackers",
+        "Cookies", "Cereal", "Pizza", "Sauce"
+    ]
+
     // MARK: - Environment
 
     @Environment(\.modelContext) private var modelContext
@@ -80,7 +85,7 @@ struct ProductCaptureFlowView: View {
     @State private var nonGFSelectedSizeObservationID: UUID?
 
     // Additional Product Pair Data
-    @State private var category: String = ""
+    @State private var category: String = "None"
     @State private var notes: String = ""
 
     // OCR observations for tap-to-select
@@ -793,8 +798,12 @@ struct ProductCaptureFlowView: View {
                     Text("Category (Optional)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    TextField("e.g., Bread, Pasta", text: $category)
-                        .textFieldStyle(.roundedBorder)
+                    Picker("Category", selection: $category) {
+                        ForEach(commonCategories, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                    .accessibilityLabel("Product category")
+                    .accessibilityHint("Choose a category to organise your products")
                 }
 
                 // Notes
@@ -1104,7 +1113,7 @@ struct ProductCaptureFlowView: View {
             nonGFImageUUID: nonGFImageUUID,
             nonGFOCRConfidence: 0.0,
             sizeUnit: sizeUnitRaw,
-            category: category.isEmpty ? nil : category,
+            category: (category.isEmpty || category == "None") ? nil : category,
             notes: notes.isEmpty ? nil : notes,
             verified: false
         )
