@@ -140,16 +140,40 @@ struct ProductPairDetailView: View {
     /// Differential section showing price difference
     private var differentialSection: some View {
         Section {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Package Price Differential")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if let normDiff = productPair.normalizedDifferential {
+                        // Unit Price Differential — value of record (primary)
+                        Text("Unit Price Differential")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
 
-                    Text(formatCurrency(productPair.differential))
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundStyle(differentialColor(productPair.differential))
+                        Text(formatCurrency(normDiff))
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundStyle(normDiff >= 0 ? .green : .red)
+
+                        // Package Price Differential — reference only (secondary)
+                        Text("Package Price Differential")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 6)
+
+                        Text(formatCurrency(productPair.differential))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                    } else {
+                        // No unit data — show package diff as primary
+                        Text("Package Price Differential")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        Text(formatCurrency(productPair.differential))
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundStyle(differentialColor(productPair.differential))
+                    }
                 }
 
                 Spacer()
@@ -185,23 +209,6 @@ struct ProductPairDetailView: View {
                 }
             }
 
-            if let normDiff = productPair.normalizedDifferential {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Unit Price Differential")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(formatCurrency(normDiff))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(normDiff >= 0 ? .orange : .green)
-                    Text("The GF premium per purchase, normalized for package size. This may better reflect the true celiac cost burden when pack sizes differ.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Unit price differential: \(formatCurrency(normDiff)). The GF premium per purchase, normalized for package size.")
-            }
         } header: {
             Label("Unit Pricing", systemImage: "scalemass")
         }

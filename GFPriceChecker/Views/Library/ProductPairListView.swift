@@ -50,6 +50,8 @@ struct ProductPairListView: View {
             return productPairs.filter { $0.verified }
         case .unverified:
             return productPairs.filter { !$0.verified }
+        case .missingSizeData:
+            return productPairs.filter { !$0.hasUnitPricingData }
         }
     }
 
@@ -198,6 +200,7 @@ enum ProductFilter: String, CaseIterable {
     case all = "All Products"
     case verified = "Verified Products"
     case unverified = "Unverified Products"
+    case missingSizeData = "Missing Size Data"
 
     var title: String {
         rawValue
@@ -211,6 +214,8 @@ enum ProductFilter: String, CaseIterable {
             return "checkmark.circle.fill"
         case .unverified:
             return "exclamationmark.circle"
+        case .missingSizeData:
+            return "ruler"
         }
     }
 
@@ -222,6 +227,8 @@ enum ProductFilter: String, CaseIterable {
             return "No verified products yet. Scan a receipt to verify your products."
         case .unverified:
             return "All products are verified! Great job."
+        case .missingSizeData:
+            return "All products have size data entered."
         }
     }
 }
@@ -263,10 +270,22 @@ struct ProductPairRow: View {
 
             // Right side: Differential and Status
             VStack(alignment: .trailing, spacing: 4) {
-                // Price Differential
-                Text(formatCurrency(productPair.differential))
-                    .font(.headline)
-                    .foregroundStyle(differentialColor(productPair.differential))
+                if let unitDiff = productPair.normalizedDifferential {
+                    // Unit Price Differential (primary)
+                    Text(formatCurrency(unitDiff))
+                        .font(.headline)
+                        .foregroundStyle(differentialColor(unitDiff))
+
+                    // Package Price Differential (secondary)
+                    Text(formatCurrency(productPair.differential))
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else {
+                    // Package Price Differential (primary, no unit data available)
+                    Text(formatCurrency(productPair.differential))
+                        .font(.headline)
+                        .foregroundStyle(differentialColor(productPair.differential))
+                }
 
                 // Verification Status
                 if productPair.verified {
@@ -302,10 +321,13 @@ struct ProductPairRow: View {
 
     /// VoiceOver value for the product row (dynamic info)
     private var accessibilityValue: String {
-        let differential = formatCurrency(productPair.differential)
         let verifiedStatus = productPair.verified ? "Verified" : "Not verified"
         let receiptStatus = productPair.receipt != nil ? ", has receipt" : ""
-        return "Price difference \(differential), \(verifiedStatus)\(receiptStatus)"
+        if let unitDiff = productPair.normalizedDifferential {
+            return "Unit price differential \(formatCurrency(unitDiff)), package difference \(formatCurrency(productPair.differential)), \(verifiedStatus)\(receiptStatus)"
+        } else {
+            return "Price difference \(formatCurrency(productPair.differential)), \(verifiedStatus)\(receiptStatus)"
+        }
     }
 
     // MARK: - Helper Views

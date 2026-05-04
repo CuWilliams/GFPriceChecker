@@ -143,6 +143,12 @@ final class ProductPair {
         return (gfU - regU) * s
     }
 
+    /// Price difference per unit between GF and regular products (nil if size data incomplete)
+    var unitPriceDifferential: Decimal? {
+        guard let gfU = gfUnitPrice, let regU = regularUnitPrice else { return nil }
+        return gfU - regU
+    }
+
     /// True when both size values and a unit are available to compute unit pricing
     var hasUnitPricingData: Bool {
         gfSizeValue != nil && nonGFSizeValue != nil && sizeUnit != nil

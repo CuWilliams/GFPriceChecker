@@ -60,13 +60,13 @@ struct ManualProductEntryView: View {
     private let commonCategories = [
         "None",
         "Bread",
-        "Pasta",
-        "Flour",
-        "Crackers",
-        "Cookies",
         "Cereal",
-        "Pizza",
-        "Sauce"
+        "Crackers",
+        "Flour",
+        "Pasta",
+        "Sauce",
+        "Snacks & Chips",
+        "Soup & Broth"
     ]
 
     // MARK: - Body

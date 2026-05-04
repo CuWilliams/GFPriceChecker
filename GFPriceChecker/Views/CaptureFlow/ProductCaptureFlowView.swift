@@ -28,8 +28,8 @@ struct ProductCaptureFlowView: View {
     private let rectangleSelectionEnabled = false
 
     private let commonCategories = [
-        "None", "Bread", "Pasta", "Flour", "Crackers",
-        "Cookies", "Cereal", "Pizza", "Sauce"
+        "None", "Bread", "Cereal", "Crackers", "Flour",
+        "Pasta", "Sauce", "Snacks & Chips", "Soup & Broth"
     ]
 
     // MARK: - Environment
