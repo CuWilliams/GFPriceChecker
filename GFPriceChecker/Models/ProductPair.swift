@@ -22,6 +22,16 @@ enum SizeUnit: String, CaseIterable, Sendable {
     case count = "count"
 
     var displayName: String { rawValue }
+
+    /// Scaling factor for display: grams use $/100g convention; all other units display as-is
+    var unitPriceScaleFactor: Decimal {
+        self == .grams ? 100 : 1
+    }
+
+    /// Label used when displaying a unit price (e.g. "100g" for grams, "oz" for ounces)
+    var unitPriceLabel: String {
+        self == .grams ? "100g" : rawValue
+    }
 }
 
 /// Represents a comparison between a gluten-free product and its non-gluten-free equivalent

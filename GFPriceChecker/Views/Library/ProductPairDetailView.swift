@@ -201,11 +201,11 @@ struct ProductPairDetailView: View {
                 }
 
                 if let gfUnit = productPair.gfUnitPrice {
-                    LabeledContent("GF Price / \(unit.displayName)", value: formatCurrency(gfUnit))
+                    LabeledContent("GF Price / \(unit.unitPriceLabel)", value: formatCurrency(gfUnit * unit.unitPriceScaleFactor))
                 }
 
                 if let regUnit = productPair.regularUnitPrice {
-                    LabeledContent("Regular Price / \(unit.displayName)", value: formatCurrency(regUnit))
+                    LabeledContent("Regular Price / \(unit.unitPriceLabel)", value: formatCurrency(regUnit * unit.unitPriceScaleFactor))
                 }
             }
 
