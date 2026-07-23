@@ -8,18 +8,31 @@
 import SwiftUI
 import UIKit
 
-/// Selection phase for the two-step selection workflow
+/// Selection phase for the three-step selection workflow
 private enum SelectionPhase {
     case selectingName
     case selectingPrice
+    case selectingSize
     case complete
+
+    /// 1-based step number for the progress indicator
+    var stepNumber: Int {
+        switch self {
+        case .selectingName: return 1
+        case .selectingPrice: return 2
+        case .selectingSize, .complete: return 3
+        }
+    }
 }
 
 /// A view that displays OCR text observations and allows tap-to-select
 ///
-/// Supports two selection modes:
-/// - Product capture: User selects product name, then price
-/// - Receipt verification: User confirms or changes a suggested match
+/// Guides the user through a single uninterrupted product verification pass:
+/// name → price → size. The observation list stays on screen for all three
+/// phases and simply retargets which field a tap populates, so the review
+/// never swaps out from under the user.
+///
+/// Size entry is optional — the user can skip it and continue.
 struct OCRTextSelectorView: View {
 
     // MARK: - Properties
@@ -30,17 +43,50 @@ struct OCRTextSelectorView: View {
     /// OCR text observations to display
     let observations: [SelectableTextObservation]
 
-    /// Callback when selection is complete (name, price as string)
-    let onSelectionComplete: (String, String) -> Void
+    /// Selected product name (owned by the capture flow)
+    @Binding var productName: String
 
-    /// Optional: Pre-selected name (for receipt verification mode)
-    var suggestedName: String?
+    /// Selected price as a plain decimal string, no currency symbol
+    @Binding var priceText: String
+
+    /// How the user is entering size: package size, unit price, or manual
+    @Binding var sizeMode: SizeInputMode
+
+    /// Numeric package size, used in `.packageSize` mode
+    @Binding var sizeText: String
+
+    /// Unit price, used in `.unitPrice` and `.manual` modes
+    @Binding var unitPriceText: String
+
+    /// Whether the entered unit price is in cents or dollars
+    @Binding var unitPriceBasis: UnitPriceBasis
+
+    /// Shared unit of measurement for both products in the pair
+    @Binding var selectedUnit: SizeUnit?
+
+    /// Observation currently feeding the size field, for highlight tracking
+    let selectedSizeObservationID: UUID?
+
+    /// Called when a row is tapped during the size phase
+    ///
+    /// The capture flow parses the row and routes it to the correct field
+    /// based on the active size mode.
+    let onSizeRowTapped: (SelectableTextObservation) -> Void
+
+    /// Title for the primary advance button (varies by product step)
+    let continueTitle: String
+
+    /// Advances the capture flow to the next step
+    let onContinue: () -> Void
+
+    /// Discards this capture and returns to the scanner
+    let onRetake: () -> Void
 
     // MARK: - State
 
     @State private var selectionPhase: SelectionPhase = .selectingName
-    @State private var selectedNameObservation: SelectableTextObservation?
-    @State private var selectedPriceObservation: SelectableTextObservation?
+    @State private var selectedNameObservationID: UUID?
+    @State private var selectedPriceObservationID: UUID?
 
     // Decimal inference state
     @State private var showingDecimalConfirmation = false
@@ -51,23 +97,30 @@ struct OCRTextSelectorView: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Instructions header
-            instructionsHeader
+        ScrollView {
+            VStack(spacing: 16) {
+                // Instructions header
+                instructionsHeader
 
-            // Selected values display
-            selectedValuesDisplay
+                // Selected values display
+                selectedValuesDisplay
 
-            // Scanned image thumbnail
-            imageThumbnail
+                // Scanned image thumbnail
+                imageThumbnail
 
-            // OCR text list (scrollable)
-            ocrTextList
+                // OCR text list
+                ocrTextList
 
-            // Action buttons
-            actionButtons
+                // Size entry controls (third phase only)
+                if selectionPhase == .selectingSize || selectionPhase == .complete {
+                    sizeInputCard
+                }
+
+                // Action buttons
+                actionButtons
+            }
+            .padding()
         }
-        .padding()
         .alert("Decimal Placement", isPresented: $showingDecimalConfirmation) {
             Button("Use \(suggestedDecimalPrice)") {
                 acceptSuggestedDecimal()
@@ -86,32 +139,51 @@ struct OCRTextSelectorView: View {
     // MARK: - View Components
 
     private var instructionsHeader: some View {
-        Text(instructionText)
-            .font(.headline)
-            .foregroundColor(instructionColor)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, 8)
+        VStack(spacing: 4) {
+            Text("Step \(selectionPhase.stepNumber) of 3")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+
+            Text(instructionText)
+                .font(.headline)
+                .foregroundColor(instructionColor)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(selectionPhase.stepNumber) of 3. \(instructionText)")
     }
 
     private var selectedValuesDisplay: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: selectedNameObservation != nil ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(selectedNameObservation != nil ? .green : .gray)
+                Image(systemName: productName.isEmpty ? "circle" : "checkmark.circle.fill")
+                    .foregroundColor(productName.isEmpty ? .gray : .green)
                 Text("Name: ")
                     .fontWeight(.semibold)
-                Text(selectedNameObservation?.text ?? "(not selected)")
-                    .foregroundColor(selectedNameObservation != nil ? .primary : .secondary)
+                Text(productName.isEmpty ? "(not selected)" : productName)
+                    .foregroundColor(productName.isEmpty ? .secondary : .primary)
                 Spacer()
             }
 
             HStack {
-                Image(systemName: selectedPriceObservation != nil ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(selectedPriceObservation != nil ? .green : .gray)
+                Image(systemName: priceText.isEmpty ? "circle" : "checkmark.circle.fill")
+                    .foregroundColor(priceText.isEmpty ? .gray : .green)
                 Text("Price: ")
                     .fontWeight(.semibold)
-                Text(extractedPriceText)
-                    .foregroundColor(selectedPriceObservation != nil ? .primary : .secondary)
+                Text(priceText.isEmpty ? "(not selected)" : "$\(priceText)")
+                    .foregroundColor(priceText.isEmpty ? .secondary : .primary)
+                Spacer()
+            }
+
+            HStack {
+                Image(systemName: hasSizeEntry ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(hasSizeEntry ? .green : .gray)
+                Text("Size: ")
+                    .fontWeight(.semibold)
+                Text(sizeSummaryText)
+                    .foregroundColor(hasSizeEntry ? .primary : .secondary)
                 Spacer()
             }
         }
@@ -127,17 +199,27 @@ struct OCRTextSelectorView: View {
             .frame(maxHeight: 150)
             .cornerRadius(8)
             .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+            .accessibilityHidden(true)
     }
 
     private var ocrTextList: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Scan Results")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(listHintText)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             VStack(spacing: 4) {
                 ForEach(observations) { observation in
                     observationRow(observation)
                 }
             }
         }
-        .frame(maxHeight: 300)
     }
 
     private func observationRow(_ observation: SelectableTextObservation) -> some View {
@@ -162,22 +244,127 @@ struct OCRTextSelectorView: View {
         .accessibilityHint(accessibilityHint(for: observation))
     }
 
-    private var actionButtons: some View {
-        HStack(spacing: 12) {
-            Button("Clear Selection") {
-                clearSelection()
-            }
-            .buttonStyle(.bordered)
-            .accessibilityLabel("Clear selection")
-            .accessibilityHint("Resets name and price selections")
+    /// Size entry controls, shown once name and price are confirmed
+    private var sizeInputCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Package Size")
+                .font(.headline)
 
-            Button("Confirm") {
-                confirmSelection()
+            Picker("Size Entry Mode", selection: $sizeMode) {
+                ForEach(SizeInputMode.allCases, id: \.self) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(!canConfirm)
-            .accessibilityLabel("Confirm selection")
-            .accessibilityHint("Confirms the selected product name and price")
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Size entry mode")
+            .accessibilityHint("Choose how to enter the package size")
+
+            if sizeMode == .packageSize {
+                TextField("Size (e.g. 400)", text: $sizeText)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.decimalPad)
+                    .accessibilityLabel("Package size")
+                    .accessibilityHint("Enter the numeric size value, for example 400")
+            } else {
+                TextField("Unit price (e.g. 1.49)", text: $unitPriceText)
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.decimalPad)
+                    .accessibilityLabel("Unit price")
+                    .accessibilityHint("Enter the price per unit shown on the shelf tag")
+                Text("App calculates size from price ÷ unit price.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                // Currency basis picker — only shown in unit price / manual modes
+                HStack {
+                    Text("Value basis")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Picker("Unit price basis", selection: $unitPriceBasis) {
+                        ForEach(UnitPriceBasis.allCases, id: \.self) { basis in
+                            Text(basis.rawValue).tag(basis)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 200)
+                    .accessibilityLabel("Unit price currency basis")
+                    .accessibilityHint("Choose whether the unit price is in cents or dollars")
+                }
+                .frame(minHeight: 44)
+                .padding(.horizontal, 12)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+            }
+
+            HStack {
+                Text("Unit")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Picker("Unit", selection: $selectedUnit) {
+                    Text("Not specified").tag(Optional<SizeUnit>.none)
+                    ForEach(SizeUnit.allCases, id: \.self) { unit in
+                        Text(unit.displayName).tag(Optional<SizeUnit>.some(unit))
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityLabel("Package size unit")
+                .accessibilityHint("Choose the unit of measurement for both products")
+            }
+            .frame(minHeight: 44)
+            .padding(.horizontal, 12)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
+            Button {
+                onContinue()
+            } label: {
+                Text(continueTitle)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(canContinue ? Color.blue : Color.gray)
+                    .cornerRadius(12)
+            }
+            .disabled(!canContinue)
+            .accessibilityLabel(continueTitle)
+            .accessibilityHint(canContinue
+                ? "Continues to the next step"
+                : "Select a product name and price first")
+
+            if selectionPhase == .selectingSize {
+                Button("Skip Size") {
+                    selectionPhase = .complete
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Skip size")
+                .accessibilityHint("Continues without recording a package size")
+            }
+
+            HStack(spacing: 12) {
+                Button("Clear Selections") {
+                    clearSelection()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Clear selections")
+                .accessibilityHint("Resets name, price, and size selections")
+
+                Button("Retake Photo") {
+                    onRetake()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Retake photo")
+                .accessibilityHint("Discards this scan and opens the camera again")
+            }
         }
     }
 
@@ -189,8 +376,10 @@ struct OCRTextSelectorView: View {
             return "Tap the product name"
         case .selectingPrice:
             return "Now tap the price"
+        case .selectingSize:
+            return "Now tap the size, or skip it"
         case .complete:
-            return "Selection complete"
+            return "Review complete"
         }
     }
 
@@ -200,41 +389,69 @@ struct OCRTextSelectorView: View {
             return .blue
         case .selectingPrice:
             return .green
+        case .selectingSize:
+            return .orange
         case .complete:
             return .primary
         }
     }
 
-    private var extractedPriceText: String {
-        guard let priceObs = selectedPriceObservation else {
-            return "(not selected)"
+    private var listHintText: String {
+        switch selectionPhase {
+        case .selectingName:
+            return "Tap a row to set the name"
+        case .selectingPrice:
+            return "Tap a row to set the price"
+        case .selectingSize:
+            return "Tap a row to set the size"
+        case .complete:
+            return "Tap a row to change the size"
         }
-        return extractPrice(from: priceObs.text)
     }
 
-    private var canConfirm: Bool {
-        selectedNameObservation != nil && selectedPriceObservation != nil
+    /// True when the user has entered a size in whichever mode is active
+    private var hasSizeEntry: Bool {
+        sizeMode == .packageSize ? !sizeText.isEmpty : !unitPriceText.isEmpty
+    }
+
+    /// Human-readable summary of the current size entry
+    private var sizeSummaryText: String {
+        guard hasSizeEntry else {
+            return selectionPhase == .complete ? "(skipped)" : "(not selected)"
+        }
+
+        let unitLabel = selectedUnit?.displayName ?? ""
+        if sizeMode == .packageSize {
+            return "\(sizeText) \(unitLabel)".trimmingCharacters(in: .whitespaces)
+        }
+
+        let symbol = unitPriceBasis == .cents ? "¢" : "$"
+        return unitLabel.isEmpty
+            ? "\(symbol)\(unitPriceText) per unit"
+            : "\(symbol)\(unitPriceText) per \(unitLabel)"
+    }
+
+    /// Size is optional, so only name and price gate the advance
+    private var canContinue: Bool {
+        !productName.isEmpty && !priceText.isEmpty
     }
 
     // MARK: - Helper Methods
 
     private func backgroundColor(for observation: SelectableTextObservation) -> Color {
         // Check if this is the selected name
-        if let selectedName = selectedNameObservation,
-           selectedName.id == observation.id {
+        if selectedNameObservationID == observation.id {
             return Color.blue.opacity(0.3)
         }
 
         // Check if this is the selected price
-        if let selectedPrice = selectedPriceObservation,
-           selectedPrice.id == observation.id {
+        if selectedPriceObservationID == observation.id {
             return Color.green.opacity(0.3)
         }
 
-        // Check if this matches the suggested name
-        if let suggested = suggestedName,
-           observation.text.localizedCaseInsensitiveContains(suggested) {
-            return Color.yellow.opacity(0.3)
+        // Check if this is the row feeding the size field
+        if selectedSizeObservationID == observation.id {
+            return Color.orange.opacity(0.3)
         }
 
         return Color(.systemBackground)
@@ -243,7 +460,8 @@ struct OCRTextSelectorView: View {
     private func handleObservationTap(_ observation: SelectableTextObservation) {
         switch selectionPhase {
         case .selectingName:
-            selectedNameObservation = observation
+            productName = observation.text
+            selectedNameObservationID = observation.id
             selectionPhase = .selectingPrice
 
         case .selectingPrice:
@@ -256,30 +474,27 @@ struct OCRTextSelectorView: View {
                 showingDecimalConfirmation = true
             } else {
                 // Normal price selection
-                selectedPriceObservation = observation
-                selectionPhase = .complete
+                priceText = extractPrice(from: observation.text)
+                selectedPriceObservationID = observation.id
+                selectionPhase = .selectingSize
             }
 
-        case .complete:
-            // Taps do nothing in complete phase
-            break
+        case .selectingSize, .complete:
+            // Stay in phase so the user can retap a different row
+            onSizeRowTapped(observation)
         }
     }
 
     private func clearSelection() {
-        selectedNameObservation = nil
-        selectedPriceObservation = nil
+        productName = ""
+        priceText = ""
+        sizeText = ""
+        unitPriceText = ""
+        sizeMode = .packageSize
+        unitPriceBasis = .cents
+        selectedNameObservationID = nil
+        selectedPriceObservationID = nil
         selectionPhase = .selectingName
-    }
-
-    private func confirmSelection() {
-        guard let name = selectedNameObservation?.text,
-              let priceObs = selectedPriceObservation else {
-            return
-        }
-
-        let price = extractPrice(from: priceObs.text)
-        onSelectionComplete(name, price)
     }
 
     /// Extracts price from text using regex pattern
@@ -309,8 +524,8 @@ struct OCRTextSelectorView: View {
             return "Select \(observation.text) as product name"
         case .selectingPrice:
             return "Select \(observation.text) as price"
-        case .complete:
-            return observation.text
+        case .selectingSize, .complete:
+            return "Select \(observation.text) for size"
         }
     }
 
@@ -320,8 +535,8 @@ struct OCRTextSelectorView: View {
             return "Double tap to select this as the product name"
         case .selectingPrice:
             return "Double tap to select this as the price"
-        case .complete:
-            return ""
+        case .selectingSize, .complete:
+            return "Double tap to populate the size field below based on the current mode"
         }
     }
 
@@ -367,67 +582,76 @@ struct OCRTextSelectorView: View {
     private func acceptSuggestedDecimal() {
         guard let pending = pendingPriceObservation else { return }
 
-        // Create a modified observation with the suggested price text
-        let modifiedObservation = SelectableTextObservation(
-            text: suggestedDecimalPrice,
-            boundingBox: pending.boundingBox,
-            confidence: pending.confidence
-        )
+        priceText = extractPrice(from: suggestedDecimalPrice)
+        selectedPriceObservationID = pending.id
+        selectionPhase = .selectingSize
 
-        selectedPriceObservation = modifiedObservation
-        selectionPhase = .complete
-
-        // Reset pending state
-        pendingPriceObservation = nil
-        suggestedDecimalPrice = ""
-        originalPrice = ""
+        resetPendingPriceState()
     }
 
     /// User chose to use the original price without decimal inference
     private func useOriginalPrice() {
         guard let pending = pendingPriceObservation else { return }
 
-        selectedPriceObservation = pending
-        selectionPhase = .complete
+        priceText = extractPrice(from: pending.text)
+        selectedPriceObservationID = pending.id
+        selectionPhase = .selectingSize
 
-        // Reset pending state
-        pendingPriceObservation = nil
-        suggestedDecimalPrice = ""
-        originalPrice = ""
+        resetPendingPriceState()
     }
 
-    /// User cancelled the price selection
+    /// User cancelled the price selection — stay in the price phase
     private func cancelPriceSelection() {
-        // Reset pending state
+        resetPendingPriceState()
+    }
+
+    private func resetPendingPriceState() {
         pendingPriceObservation = nil
         suggestedDecimalPrice = ""
         originalPrice = ""
-        // Stay in selectingPrice phase
     }
 }
 
 #if DEBUG
 // MARK: - Preview
 
-#Preview("Initial State") {
-    OCRTextSelectorView(
-        image: createSampleImage(),
-        observations: createSampleObservations(),
-        onSelectionComplete: { name, price in
-            print("Selected - Name: \(name), Price: \(price)")
-        }
-    )
+private struct OCRTextSelectorPreviewHost: View {
+    @State private var productName = ""
+    @State private var priceText = ""
+    @State private var sizeMode: SizeInputMode = .packageSize
+    @State private var sizeText = ""
+    @State private var unitPriceText = ""
+    @State private var unitPriceBasis: UnitPriceBasis = .cents
+    @State private var selectedUnit: SizeUnit?
+    @State private var selectedSizeObservationID: UUID?
+
+    let observations = createSampleObservations()
+
+    var body: some View {
+        OCRTextSelectorView(
+            image: createSampleImage(),
+            observations: observations,
+            productName: $productName,
+            priceText: $priceText,
+            sizeMode: $sizeMode,
+            sizeText: $sizeText,
+            unitPriceText: $unitPriceText,
+            unitPriceBasis: $unitPriceBasis,
+            selectedUnit: $selectedUnit,
+            selectedSizeObservationID: selectedSizeObservationID,
+            onSizeRowTapped: { observation in
+                sizeText = observation.text
+                selectedSizeObservationID = observation.id
+            },
+            continueTitle: "Continue to Regular Product",
+            onContinue: { print("Continue tapped") },
+            onRetake: { print("Retake tapped") }
+        )
+    }
 }
 
-#Preview("With Suggested Name") {
-    OCRTextSelectorView(
-        image: createSampleImage(),
-        observations: createSampleObservations(),
-        onSelectionComplete: { name, price in
-            print("Selected - Name: \(name), Price: \(price)")
-        },
-        suggestedName: "Organic Bananas"
-    )
+#Preview("Guided Selection") {
+    OCRTextSelectorPreviewHost()
 }
 
 // MARK: - Preview Helpers
@@ -461,7 +685,7 @@ private func createSampleObservations() -> [SelectableTextObservation] {
             confidence: 0.98
         ),
         SelectableTextObservation(
-            text: "Fresh Produce",
+            text: "400g",
             boundingBox: CGRect(x: 0.1, y: 0.6, width: 0.4, height: 0.05),
             confidence: 0.88
         ),

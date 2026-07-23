@@ -447,10 +447,33 @@ struct ProductPairDetailView: View {
 
     // MARK: - Actions
 
-    /// Deletes the product pair from SwiftData
+    /// Deletes the product pair and its stored images
+    ///
+    /// Both product images must be removed from disk here — nothing else cleans them
+    /// up, so skipping this leaves orphaned files in Documents/products/ forever.
     private func deleteProductPair() {
+        // Capture UUIDs before the model is deleted
+        let gfImageUUID = productPair.gfImageUUID
+        let nonGFImageUUID = productPair.nonGFImageUUID
+
+        Task {
+            if let gfImageUUID {
+                await ImageStorageService.shared.deleteImage(uuid: gfImageUUID, type: .product)
+            }
+            if let nonGFImageUUID {
+                await ImageStorageService.shared.deleteImage(uuid: nonGFImageUUID, type: .product)
+            }
+        }
+
         modelContext.delete(productPair)
-        dismiss()
+
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            ErrorHandler.shared.log(error, context: "ProductPairDetailView.deleteProductPair")
+            dismiss()
+        }
     }
 
     /// Loads product images from storage

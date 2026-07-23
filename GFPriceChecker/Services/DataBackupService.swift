@@ -38,11 +38,16 @@ final class DataBackupService {
     }
 
     /// ProductPair backup representation
+    ///
+    /// - Note: `gfSizeValue`, `nonGFSizeValue` and `sizeUnit` are optional so that
+    ///   backup files written before unit pricing existed still decode — a missing
+    ///   key is only tolerated by `JSONDecoder` for optional properties.
     struct ProductPairBackup: Codable {
         let id: UUID
         let gfProductName: String
         let gfPrice: String // Decimal as String for JSON compatibility
         let gfSize: String?
+        let gfSizeValue: String? // Decimal as String
         let gfImageUUID: String?
         let gfImageData: String? // Base64 encoded image
         let gfOCRConfidence: Float
@@ -50,9 +55,12 @@ final class DataBackupService {
         let nonGFProductName: String
         let nonGFPrice: String // Decimal as String
         let nonGFSize: String?
+        let nonGFSizeValue: String? // Decimal as String
         let nonGFImageUUID: String?
         let nonGFImageData: String? // Base64 encoded image
         let nonGFOCRConfidence: Float
+
+        let sizeUnit: String? // SizeUnit raw value, shared by both products
 
         let createdDate: Date
         let category: String?
@@ -109,15 +117,18 @@ final class DataBackupService {
                 gfProductName: product.gfProductName,
                 gfPrice: "\(product.gfPrice)",
                 gfSize: product.gfSize,
+                gfSizeValue: product.gfSizeValue.map { "\($0)" },
                 gfImageUUID: product.gfImageUUID,
                 gfImageData: gfImageData,
                 gfOCRConfidence: product.gfOCRConfidence,
                 nonGFProductName: product.nonGFProductName,
                 nonGFPrice: "\(product.nonGFPrice)",
                 nonGFSize: product.nonGFSize,
+                nonGFSizeValue: product.nonGFSizeValue.map { "\($0)" },
                 nonGFImageUUID: product.nonGFImageUUID,
                 nonGFImageData: nonGFImageData,
                 nonGFOCRConfidence: product.nonGFOCRConfidence,
+                sizeUnit: product.sizeUnit,
                 createdDate: product.createdDate,
                 category: product.category,
                 notes: product.notes,
@@ -264,13 +275,16 @@ final class DataBackupService {
                 gfProductName: productBackup.gfProductName,
                 gfPrice: Decimal(string: productBackup.gfPrice) ?? 0,
                 gfSize: productBackup.gfSize,
+                gfSizeValue: productBackup.gfSizeValue.flatMap { Decimal(string: $0) },
                 gfImageUUID: gfImageUUID ?? productBackup.gfImageUUID,
                 gfOCRConfidence: productBackup.gfOCRConfidence,
                 nonGFProductName: productBackup.nonGFProductName,
                 nonGFPrice: Decimal(string: productBackup.nonGFPrice) ?? 0,
                 nonGFSize: productBackup.nonGFSize,
+                nonGFSizeValue: productBackup.nonGFSizeValue.flatMap { Decimal(string: $0) },
                 nonGFImageUUID: nonGFImageUUID ?? productBackup.nonGFImageUUID,
                 nonGFOCRConfidence: productBackup.nonGFOCRConfidence,
+                sizeUnit: productBackup.sizeUnit,
                 id: productBackup.id,
                 createdDate: productBackup.createdDate,
                 category: productBackup.category,
