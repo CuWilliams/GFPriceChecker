@@ -84,6 +84,10 @@ struct ProductCaptureFlowView: View {
     @State private var gfSelectedSizeObservationID: UUID?
     @State private var nonGFSelectedSizeObservationID: UUID?
 
+    /// Identity for the review selector — regenerated on every fresh OCR run so
+    /// the selector restarts at phase one instead of reusing the previous product's state
+    @State private var reviewToken = UUID()
+
     // Additional Product Pair Data
     @State private var category: String = "None"
     @State private var notes: String = ""
@@ -297,292 +301,78 @@ struct ProductCaptureFlowView: View {
 
     // MARK: - Review View
 
+    /// Single-screen guided review: name → price → size in one uninterrupted pass
+    ///
+    /// The selector stays mounted for all three phases so the scan results never
+    /// disappear mid-review. `reviewToken` gives each fresh scan a new identity,
+    /// which resets the selector's phase when the user retakes a photo or moves
+    /// on to the regular product.
+    @ViewBuilder
     private func reviewView(isGF: Bool) -> some View {
         let observations = isGF ? gfOCRObservations : nonGFOCRObservations
         let image = isGF ? gfImage : nonGFImage
 
-        // Check if user has already selected name and price
-        let hasSelection = isGF
-            ? (!gfProductName.isEmpty && !gfPriceText.isEmpty)
-            : (!nonGFProductName.isEmpty && !nonGFPriceText.isEmpty)
-
-        return VStack(spacing: 0) {
-            if hasSelection {
-                // Show confirmation view with selections and size field
-                selectionConfirmationView(isGF: isGF)
-            } else if let image = image, !observations.isEmpty {
-                // Show tap-to-select interface
-                OCRTextSelectorView(
-                    image: image,
-                    observations: observations,
-                    onSelectionComplete: { name, price in
-                        if isGF {
-                            gfProductName = name
-                            gfPriceText = price
-                        } else {
-                            nonGFProductName = name
-                            nonGFPriceText = price
-                        }
+        if let image = image, !observations.isEmpty {
+            OCRTextSelectorView(
+                image: image,
+                observations: observations,
+                productName: isGF ? $gfProductName : $nonGFProductName,
+                priceText: isGF ? $gfPriceText : $nonGFPriceText,
+                sizeMode: isGF ? $gfSizeMode : $nonGFSizeMode,
+                sizeText: isGF ? $gfSizeText : $nonGFSizeText,
+                unitPriceText: isGF ? $gfUnitPriceText : $nonGFUnitPriceText,
+                unitPriceBasis: isGF ? $gfUnitPriceBasis : $nonGFUnitPriceBasis,
+                selectedUnit: $selectedUnit,
+                selectedSizeObservationID: isGF ? gfSelectedSizeObservationID : nonGFSelectedSizeObservationID,
+                onSizeRowTapped: { observation in
+                    handleSizeRowTap(observation, isGF: isGF)
+                },
+                continueTitle: isGF ? "Continue to Regular Product" : "Continue to Finalize",
+                onContinue: {
+                    if isGF {
+                        currentStep = .captureNonGF
+                        showingScanner = true
+                    } else {
+                        currentStep = .finalize
                     }
-                )
-            } else {
-                // Fallback: No OCR data, show manual entry prompt
-                noOCRDataView(isGF: isGF)
-            }
+                },
+                onRetake: {
+                    resetProductFields(isGF: isGF)
+                    if isGF {
+                        gfOCRObservations = []
+                        currentStep = .captureGF
+                    } else {
+                        nonGFOCRObservations = []
+                        currentStep = .captureNonGF
+                    }
+                    showingScanner = true
+                }
+            )
+            .id(reviewToken)
+        } else {
+            // Fallback: No OCR data, show manual entry prompt
+            noOCRDataView(isGF: isGF)
         }
     }
 
-    // MARK: - Selection Confirmation View
-
-    private func selectionConfirmationView(isGF: Bool) -> some View {
-        let observations = isGF ? gfOCRObservations : nonGFOCRObservations
-        let productImage = isGF ? gfImage : nonGFImage
-        let sizeMode = isGF ? gfSizeMode : nonGFSizeMode
-        let selectedSizeID = isGF ? gfSelectedSizeObservationID : nonGFSelectedSizeObservationID
-
-        return ScrollView {
-            VStack(spacing: 20) {
-                // Success indicator
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.green)
-
-                Text("Selection Complete")
-                    .font(.headline)
-
-                // Confirmed name + price
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Product Name:")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(isGF ? gfProductName : nonGFProductName)
-                            .fontWeight(.medium)
-                    }
-                    HStack {
-                        Text("Price:")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text("$\(isGF ? gfPriceText : nonGFPriceText)")
-                            .fontWeight(.medium)
-                            .foregroundStyle(.green)
-                    }
-                }
-                .padding()
-                .background(Color(.secondarySystemGroupedBackground))
-                .cornerRadius(12)
-
-                // Small image thumbnail for reference
-                if let img = productImage {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxHeight: 120)
-                        .cornerRadius(8)
-                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                        .accessibilityHidden(true)
-                }
-
-                Text("Validate Product Size")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityAddTraits(.isHeader)
-
-                // Scan results — flat list outside the size card to avoid layout overflow
-                if !observations.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Scan Results")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            Spacer()
-                            Text("Tap a row to set size below")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        VStack(spacing: 4) {
-                            ForEach(observations) { obs in
-                                Button {
-                                    handleSizeRowTap(obs, isGF: isGF)
-                                } label: {
-                                    HStack {
-                                        Text(obs.text)
-                                            .foregroundStyle(.primary)
-                                            .multilineTextAlignment(.leading)
-                                        Spacer()
-                                        Text("\(Int(obs.confidence * 100))%")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .frame(minHeight: 44)
-                                    .background(selectedSizeID == obs.id ? Color.orange.opacity(0.3) : Color(.systemBackground))
-                                    .cornerRadius(8)
-                                }
-                                .accessibilityLabel("Select \(obs.text) for size")
-                                .accessibilityHint("Tap to populate the size field below based on the current mode")
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color(.secondarySystemGroupedBackground))
-                    .cornerRadius(12)
-                }
-
-                // Size input card — clean controls only, no nested OCR list
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Package Size")
-                        .font(.headline)
-
-                    Picker("Size Entry Mode", selection: isGF ? $gfSizeMode : $nonGFSizeMode) {
-                        ForEach(SizeInputMode.allCases, id: \.self) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityLabel("Size entry mode")
-                    .accessibilityHint("Choose how to enter the package size")
-
-                    if sizeMode == .packageSize {
-                        TextField("Size (e.g. 400)", text: isGF ? $gfSizeText : $nonGFSizeText)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.decimalPad)
-                            .accessibilityLabel(isGF ? "Gluten-free package size" : "Regular package size")
-                            .accessibilityHint("Enter the numeric size value, for example 400")
-                    } else {
-                        TextField("Unit price (e.g. 1.49)", text: isGF ? $gfUnitPriceText : $nonGFUnitPriceText)
-                            .textFieldStyle(.roundedBorder)
-                            .keyboardType(.decimalPad)
-                            .accessibilityLabel(isGF ? "Gluten-free unit price" : "Regular unit price")
-                            .accessibilityHint("Enter the price per unit shown on the shelf tag")
-                        Text("App calculates size from price ÷ unit price.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-
-                        // Currency basis picker — only shown in unit price / manual modes
-                        HStack {
-                            Text("Value basis")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Picker("Unit price basis", selection: isGF ? $gfUnitPriceBasis : $nonGFUnitPriceBasis) {
-                                ForEach(UnitPriceBasis.allCases, id: \.self) { basis in
-                                    Text(basis.rawValue).tag(basis)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(maxWidth: 200)
-                            .accessibilityLabel("Unit price currency basis")
-                            .accessibilityHint("Choose whether the unit price is in cents or dollars")
-                        }
-                        .frame(minHeight: 44)
-                        .padding(.horizontal, 12)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                    }
-
-                    HStack {
-                        Text("Unit")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Picker("Unit", selection: $selectedUnit) {
-                            Text("Not specified").tag(Optional<SizeUnit>.none)
-                            ForEach(SizeUnit.allCases, id: \.self) { unit in
-                                Text(unit.displayName).tag(Optional<SizeUnit>.some(unit))
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .accessibilityLabel("Package size unit")
-                        .accessibilityHint("Choose the unit of measurement for both products")
-                    }
-                    .frame(minHeight: 44)
-                    .padding(.horizontal, 12)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
-                }
-                .padding()
-                .background(Color(.secondarySystemGroupedBackground))
-                .cornerRadius(12)
-
-                // Action buttons
-                VStack(spacing: 12) {
-                    Button {
-                        if isGF {
-                            currentStep = .captureNonGF
-                            showingScanner = true
-                        } else {
-                            currentStep = .finalize
-                        }
-                    } label: {
-                        Text(isGF ? "Continue to Regular Product" : "Continue to Finalize")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(12)
-                    }
-
-                    Button {
-                        if isGF {
-                            gfProductName = ""
-                            gfPriceText = ""
-                            gfSizeText = ""
-                            gfUnitPriceText = ""
-                            gfSizeMode = .packageSize
-                            gfUnitPriceBasis = .cents
-                            gfSelectedSizeObservationID = nil
-                        } else {
-                            nonGFProductName = ""
-                            nonGFPriceText = ""
-                            nonGFSizeText = ""
-                            nonGFUnitPriceText = ""
-                            nonGFSizeMode = .packageSize
-                            nonGFUnitPriceBasis = .cents
-                            nonGFSelectedSizeObservationID = nil
-                        }
-                    } label: {
-                        Text("Re-select from OCR")
-                            .font(.subheadline)
-                            .foregroundStyle(.blue)
-                    }
-
-                    Button {
-                        if isGF {
-                            gfProductName = ""
-                            gfPriceText = ""
-                            gfSizeText = ""
-                            gfUnitPriceText = ""
-                            gfSizeMode = .packageSize
-                            gfUnitPriceBasis = .cents
-                            gfSelectedSizeObservationID = nil
-                            gfOCRObservations = []
-                            currentStep = .captureGF
-                        } else {
-                            nonGFProductName = ""
-                            nonGFPriceText = ""
-                            nonGFSizeText = ""
-                            nonGFUnitPriceText = ""
-                            nonGFSizeMode = .packageSize
-                            nonGFUnitPriceBasis = .cents
-                            nonGFSelectedSizeObservationID = nil
-                            nonGFOCRObservations = []
-                            currentStep = .captureNonGF
-                        }
-                        showingScanner = true
-                    } label: {
-                        Text("Retake Photo")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding()
-            }
-            .padding()
+    /// Clears every captured field for one product of the pair
+    private func resetProductFields(isGF: Bool) {
+        if isGF {
+            gfProductName = ""
+            gfPriceText = ""
+            gfSizeText = ""
+            gfUnitPriceText = ""
+            gfSizeMode = .packageSize
+            gfUnitPriceBasis = .cents
+            gfSelectedSizeObservationID = nil
+        } else {
+            nonGFProductName = ""
+            nonGFPriceText = ""
+            nonGFSizeText = ""
+            nonGFUnitPriceText = ""
+            nonGFSizeMode = .packageSize
+            nonGFUnitPriceBasis = .cents
+            nonGFSelectedSizeObservationID = nil
         }
     }
 
@@ -871,6 +661,7 @@ struct ProductCaptureFlowView: View {
 
         Task {
             isProcessingOCR = true
+            reviewToken = UUID()
 
             // Save image to storage
             let uuid = await ImageStorageService.shared.saveImage(image, type: .product)
@@ -928,6 +719,7 @@ struct ProductCaptureFlowView: View {
 
         Task {
             isProcessingOCR = true
+            reviewToken = UUID()
 
             // Extract text from selected region only
             let observations = (try? await OCRService.shared.extractSelectableText(from: image, region: rectangle.boundingBox)) ?? []
@@ -952,6 +744,7 @@ struct ProductCaptureFlowView: View {
 
         Task {
             isProcessingOCR = true
+            reviewToken = UUID()
 
             // Extract text from full image
             let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
@@ -1136,7 +929,7 @@ struct ProductCaptureFlowView: View {
 
 // MARK: - Size Input Mode
 
-private enum SizeInputMode: String, CaseIterable {
+enum SizeInputMode: String, CaseIterable {
     case packageSize = "Package Size"
     case unitPrice = "Unit Price"
     case manual = "Manual"
@@ -1144,7 +937,7 @@ private enum SizeInputMode: String, CaseIterable {
 
 // MARK: - Unit Price Basis
 
-private enum UnitPriceBasis: String, CaseIterable {
+enum UnitPriceBasis: String, CaseIterable {
     case cents = "Cents (¢)"
     case dollars = "Dollars ($)"
 }
