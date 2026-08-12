@@ -1,3 +1,35 @@
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+# Re-include the nested workspace: git will not descend into a directory
+# excluded by the rule above, so the directory must be unexcluded first.
+!*.xcodeproj/project.xcworkspace/
+*.xcodeproj/project.xcworkspace/*
+!*.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+!*.xcodeproj/project.xcworkspace/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+
+# Build products
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+Packages/
+
+# CocoaPods (if used)
+Pods/
+
+# macOS
+.DS_Store
+
 # Claude Code
 # Shared project permissions are tracked; per-machine overrides are not.
 .claude/settings.local.json
