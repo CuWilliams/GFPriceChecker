@@ -1,0 +1,3 @@
+# Claude Code
+# Shared project permissions are tracked; per-machine overrides are not.
+.claude/settings.local.json
