@@ -39,9 +39,11 @@ final class DataBackupService {
 
     /// ProductPair backup representation
     ///
-    /// - Note: `gfSizeValue`, `nonGFSizeValue` and `sizeUnit` are optional so that
-    ///   backup files written before unit pricing existed still decode — a missing
-    ///   key is only tolerated by `JSONDecoder` for optional properties.
+    /// - Note: `gfSizeValue`, `nonGFSizeValue`, `sizeUnit` and `quantity` are optional so that
+    ///   backup files written before those fields existed still decode — a missing
+    ///   key is only tolerated by `JSONDecoder` for optional properties. The `version` gate in
+    ///   `importBackup` is all-or-nothing and has never been bumped, so a non-optional new
+    ///   field here would reject every older backup outright.
     struct ProductPairBackup: Codable {
         let id: UUID
         let gfProductName: String
@@ -61,6 +63,7 @@ final class DataBackupService {
         let nonGFOCRConfidence: Float
 
         let sizeUnit: String? // SizeUnit raw value, shared by both products
+        let quantity: Int? // Units purchased; nil in backups written before quantity existed
 
         let createdDate: Date
         let category: String?
@@ -129,6 +132,7 @@ final class DataBackupService {
                 nonGFImageData: nonGFImageData,
                 nonGFOCRConfidence: product.nonGFOCRConfidence,
                 sizeUnit: product.sizeUnit,
+                quantity: product.quantity,
                 createdDate: product.createdDate,
                 category: product.category,
                 notes: product.notes,
@@ -285,6 +289,7 @@ final class DataBackupService {
                 nonGFImageUUID: nonGFImageUUID ?? productBackup.nonGFImageUUID,
                 nonGFOCRConfidence: productBackup.nonGFOCRConfidence,
                 sizeUnit: productBackup.sizeUnit,
+                quantity: productBackup.quantity ?? 1,
                 id: productBackup.id,
                 createdDate: productBackup.createdDate,
                 category: productBackup.category,

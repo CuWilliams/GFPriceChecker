@@ -30,6 +30,15 @@ struct ValidationRules {
     /// Minimum allowed numeric size value
     static let minSizeValue: Decimal = 0.001
 
+    /// Minimum purchase quantity
+    ///
+    /// - Note: `nonisolated` so `ErrorHandler.AppError.errorDescription`, which is not
+    ///   main-actor isolated, can quote the range in its message.
+    nonisolated static let minQuantity = 1
+
+    /// Maximum purchase quantity (sanity check)
+    nonisolated static let maxQuantity = 999
+
     /// Maximum product name length
     static let maxProductNameLength = 200
 
@@ -185,6 +194,30 @@ struct ValidationRules {
 
         guard value <= maxSizeValue else {
             return .failure(.invalidProductName("\(fieldName) is unrealistically large (max \(maxSizeValue))"))
+        }
+
+        return .success(value)
+    }
+
+    /// Validates a purchase quantity entered as text
+    ///
+    /// An empty field means "one unit", matching the model default, so the form does not
+    /// force the user to type a 1 for the overwhelmingly common single-item case.
+    ///
+    /// - Parameters:
+    ///   - text: The raw quantity string
+    ///   - fieldName: Field name for the error message
+    /// - Returns: Result with the validated quantity or error
+    static func validateQuantityString(_ text: String, fieldName: String = "Quantity") -> Result<Int, ErrorHandler.AppError> {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return .success(minQuantity) }
+
+        guard let value = Int(trimmed) else {
+            return .failure(.invalidQuantity(fieldName))
+        }
+
+        guard value >= minQuantity, value <= maxQuantity else {
+            return .failure(.invalidQuantity(fieldName))
         }
 
         return .success(value)

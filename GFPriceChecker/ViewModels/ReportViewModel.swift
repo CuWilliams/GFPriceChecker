@@ -59,21 +59,28 @@ final class ReportViewModel {
     // MARK: - Basic Statistics
 
     /// Calculates the total differential for given products
+    ///
+    /// Uses `extendedDifferential` so a pair bought in multiples contributes its full
+    /// purchase amount rather than a single unit's.
     /// - Parameter products: Products to sum
     /// - Returns: Total price differential
     func calculateTotalDifferential(for products: [ProductPair]) -> Decimal {
         products.reduce(Decimal.zero) { sum, product in
-            sum + product.differential
+            sum + product.extendedDifferential
         }
     }
 
-    /// Calculates the average differential per product
+    /// Calculates the average differential per unit purchased
+    ///
+    /// The denominator is total units, not pair count, so the figure stays "average premium
+    /// per item bought" rather than shifting meaning when quantities differ.
     /// - Parameter products: Products to average
     /// - Returns: Average differential, or zero if no products
     func calculateAverageDifferential(for products: [ProductPair]) -> Decimal {
-        guard !products.isEmpty else { return Decimal.zero }
+        let unitCount = products.reduce(0) { $0 + $1.quantity }
+        guard unitCount > 0 else { return Decimal.zero }
         let total = calculateTotalDifferential(for: products)
-        return total / Decimal(products.count)
+        return total / Decimal(unitCount)
     }
 
     /// Counts verified vs unverified products
@@ -97,7 +104,7 @@ final class ReportViewModel {
         var total = Decimal.zero
         var excluded = 0
         for product in products {
-            if let nd = product.normalizedDifferential {
+            if let nd = product.extendedNormalizedDifferential {
                 total += nd
             } else {
                 excluded += 1
@@ -106,13 +113,18 @@ final class ReportViewModel {
         return (total: total, excludedCount: excluded)
     }
 
-    /// Calculates the average size-adjusted differential per eligible product
+    /// Calculates the average size-adjusted differential per unit purchased
+    ///
+    /// Only products with size data contribute, and the denominator counts their units so
+    /// the result stays comparable to `calculateAverageDifferential`.
     /// - Parameter products: Products to average
     /// - Returns: Average normalized differential, or nil if no products have size data
     func calculateAverageNormalizedDifferential(for products: [ProductPair]) -> Decimal? {
-        let eligible = products.compactMap(\.normalizedDifferential)
-        guard !eligible.isEmpty else { return nil }
-        return eligible.reduce(Decimal.zero, +) / Decimal(eligible.count)
+        let eligible = products.filter { $0.normalizedDifferential != nil }
+        let unitCount = eligible.reduce(0) { $0 + $1.quantity }
+        guard unitCount > 0 else { return nil }
+        let total = eligible.reduce(Decimal.zero) { $0 + ($1.extendedNormalizedDifferential ?? .zero) }
+        return total / Decimal(unitCount)
     }
 
     // MARK: - Category Analysis
@@ -126,7 +138,7 @@ final class ReportViewModel {
         for product in products {
             let category = product.category ?? "Uncategorized"
             let currentTotal = categoryTotals[category] ?? Decimal.zero
-            categoryTotals[category] = currentTotal + product.differential
+            categoryTotals[category] = currentTotal + product.extendedDifferential
         }
 
         return categoryTotals
@@ -139,7 +151,7 @@ final class ReportViewModel {
         var categoryTotals: [String: Decimal] = [:]
 
         for product in products {
-            guard let nd = product.normalizedDifferential else { continue }
+            guard let nd = product.extendedNormalizedDifferential else { continue }
             let category = product.category ?? "Uncategorized"
             categoryTotals[category, default: Decimal.zero] += nd
         }
@@ -176,7 +188,7 @@ final class ReportViewModel {
             guard let monthStart = calendar.date(from: components) else { continue }
 
             let currentTotal = monthlyTotals[monthStart] ?? Decimal.zero
-            monthlyTotals[monthStart] = currentTotal + product.differential
+            monthlyTotals[monthStart] = currentTotal + product.extendedDifferential
         }
 
         return monthlyTotals
@@ -190,7 +202,7 @@ final class ReportViewModel {
         let calendar = Calendar.current
 
         for product in products {
-            guard let nd = product.normalizedDifferential else { continue }
+            guard let nd = product.extendedNormalizedDifferential else { continue }
             let components = calendar.dateComponents([.year, .month], from: product.reportingDate)
             guard let monthStart = calendar.date(from: components) else { continue }
 

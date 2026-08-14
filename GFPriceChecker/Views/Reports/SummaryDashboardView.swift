@@ -198,7 +198,7 @@ struct SummaryDashboardView: View {
                     color: .green
                 )
                 .accessibilityLabel("Average unit price differential: \((avgNormalized ?? Decimal.zero).formatted(.currency(code: "CAD")))")
-                .accessibilityHint("Average unit price differential per product")
+                .accessibilityHint("Average unit price differential per unit purchased")
 
                 // Average Price Differential Card
                 StatisticCardDecimal(
@@ -208,6 +208,7 @@ struct SummaryDashboardView: View {
                     color: .orange
                 )
                 .accessibilityLabel("Average price differential: \(viewModel.calculateAverageDifferential(for: yearProducts).formatted(.currency(code: "CAD")))")
+                .accessibilityHint("Average price differential per unit purchased")
 
                 // Verified Products Card
                 let stats = viewModel.verificationStats(products: yearProducts)

@@ -96,6 +96,17 @@ final class ProductPair {
     /// Shared unit of measurement for both size values (raw value of SizeUnit)
     var sizeUnit: String?
 
+    // MARK: - Purchase Properties
+
+    /// Number of units of this pair purchased in the transaction
+    ///
+    /// This is the purchase count, not the package size — `gfSize`/`nonGFSize` cover that.
+    /// A user who buys three loaves of the same GF bread records one pair with quantity 3.
+    /// - Important: The inline default is what lets SwiftData's implicit lightweight
+    ///   migration backfill this column for stores created before the property existed.
+    ///   The app has no explicit `SchemaMigrationPlan`, so do not remove it.
+    var quantity: Int = 1
+
     // MARK: - Metadata Properties
 
     /// Unique identifier for this product pair
@@ -123,9 +134,11 @@ final class ProductPair {
 
     // MARK: - Computed Properties
 
-    /// The price differential between gluten-free and non-gluten-free products
+    /// The price differential between gluten-free and non-gluten-free products, for one unit
     ///
-    /// This is the amount that can potentially be claimed as a medical expense deduction.
+    /// - Important: This is a **per-unit** value and ignores `quantity`. Anything that totals
+    ///   a purchase — report aggregates, export line items, grand totals — must use
+    ///   `extendedDifferential` instead, or it will under-report multi-unit purchases.
     /// - Returns: The difference (gfPrice - nonGFPrice)
     var differential: Decimal {
         gfPrice - nonGFPrice
@@ -149,11 +162,13 @@ final class ProductPair {
         return nonGFPrice / s
     }
 
-    /// Size-adjusted differential: the GF premium per purchase normalized for package size
+    /// Size-adjusted differential for one unit, normalized for package size
     ///
     /// Formula: (gfUnitPrice - regularUnitPrice) × gfSize
     /// Example: GF $7.99/400g vs Regular $3.99/675g → ($0.01997 - $0.00591) × 400 = $5.63
     /// Returns nil when size data is incomplete for either product.
+    /// - Important: **Per-unit**, like `differential`. Totals must use
+    ///   `extendedNormalizedDifferential`.
     var normalizedDifferential: Decimal? {
         guard let gfU = gfUnitPrice,
               let regU = regularUnitPrice,
@@ -162,9 +177,26 @@ final class ProductPair {
     }
 
     /// Price difference per unit between GF and regular products (nil if size data incomplete)
+    ///
+    /// - Note: This is a rate ($/g, $/oz, …), so it deliberately does **not** scale with
+    ///   `quantity`. Buying three loaves does not change the price per gram.
     var unitPriceDifferential: Decimal? {
         guard let gfU = gfUnitPrice, let regU = regularUnitPrice else { return nil }
         return gfU - regU
+    }
+
+    /// The package price differential for the whole purchase: `differential` × `quantity`
+    ///
+    /// This is the figure that belongs in report totals and export line items.
+    var extendedDifferential: Decimal {
+        differential * Decimal(quantity)
+    }
+
+    /// The size-adjusted differential for the whole purchase: `normalizedDifferential` × `quantity`
+    ///
+    /// Returns nil for the same reason `normalizedDifferential` does — incomplete size data.
+    var extendedNormalizedDifferential: Decimal? {
+        normalizedDifferential.map { $0 * Decimal(quantity) }
     }
 
     /// True when both size values and a unit are available to compute unit pricing
@@ -190,6 +222,7 @@ final class ProductPair {
     ///   - nonGFImageUUID: Image reference for the non-gluten-free product (optional)
     ///   - nonGFOCRConfidence: OCR confidence score for non-GF product (default: 0.0)
     ///   - sizeUnit: Shared unit of measurement for both size values (optional)
+    ///   - quantity: Number of units purchased in this transaction (default: 1)
     ///   - id: Unique identifier (default: auto-generated UUID)
     ///   - createdDate: Creation timestamp (default: current date/time)
     ///   - category: Product category (optional)
@@ -210,6 +243,7 @@ final class ProductPair {
         nonGFImageUUID: String? = nil,
         nonGFOCRConfidence: Float = 0.0,
         sizeUnit: String? = nil,
+        quantity: Int = 1,
         id: UUID = UUID(),
         createdDate: Date = Date(),
         category: String? = nil,
@@ -232,6 +266,7 @@ final class ProductPair {
         self.nonGFOCRConfidence = nonGFOCRConfidence
 
         self.sizeUnit = sizeUnit
+        self.quantity = quantity
         self.id = id
         self.createdDate = createdDate
         self.category = category
@@ -259,6 +294,7 @@ extension ProductPair {
             nonGFSizeValue: 675,
             nonGFOCRConfidence: 0.95,
             sizeUnit: SizeUnit.grams.rawValue,
+            quantity: 2,
             category: "Bread",
             notes: "Regular weekly purchase at Loblaws",
             verified: true
