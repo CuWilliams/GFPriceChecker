@@ -351,7 +351,10 @@ Ranks price candidates by:
 ## Development Guidelines
 
 ### User Preferences
-- **Build and test in Xcode** - Do not run `xcodebuild` commands; user will build and test in Xcode directly
+- **Claude runs the automated tests** - see [Testing Strategy](#testing-strategy) below. This
+  project overrides the global default of "the user runs tests."
+- **The user still does the device/UI testing** - anything needing the camera, real receipts,
+  or a look at the actual screens stays with the user.
 
 ### SwiftData Best Practices
 - Use `@Model` macro for persistence
@@ -382,6 +385,44 @@ Ranks price candidates by:
 - Avoid `appendInterpolation` for localized strings
 
 ### Testing Strategy
+
+**Claude is authorized to build and run the automated tests in this project.** This is a
+deliberate project-level override of the global "user runs tests" default.
+
+Working invocation (scheme resolves from local `xcuserdata`; no shared scheme is committed):
+
+```bash
+xcodebuild test -scheme GFPriceChecker \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:GFPriceCheckerTests
+```
+
+Drop `-only-testing:` to include the UI test target. A full run takes roughly two minutes;
+raise the Bash timeout accordingly. `xcodebuild`'s output is long — filter it, e.g.
+`| grep -E "Test case|TEST (SUCCEEDED|FAILED)|error:"`.
+
+Failures worth digging into are easiest to read from the result bundle:
+
+```bash
+xcrun xcresulttool get test-results tests --path <path>.xcresult
+```
+
+Expectations when writing tests:
+
+- **Swift Testing**, not XCTest (`import Testing`, `@Test`, `@Suite`, `#expect`, `#require`).
+- Mark suites `@MainActor` when touching `@MainActor` services, and `.serialized` when they
+  share a singleton such as `DataBackupService.shared` or `AppSettings.shared` — Swift
+  Testing runs tests in parallel by default.
+- Use in-memory containers: `ModelConfiguration(isStoredInMemoryOnly: true)`. **Hold the
+  `ModelContainer` alive for as long as you use its context** — letting it deallocate tears
+  down the store and traps inside SwiftData on the next fetch.
+- `GFPriceCheckerTests` is a `PBXFileSystemSynchronizedRootGroup`, so new test files are
+  picked up automatically with no `project.pbxproj` edit.
+- **Prove a new test can fail.** Break the thing it guards, watch it go red, revert, confirm
+  green. A test that passes for the wrong reason is worse than no test.
+
+Still the user's to do, since they need a device or a human eye:
+
 - Preview code for Xcode canvas testing
 - Sample data demonstrates all field types
 - Test with VoiceOver enabled
