@@ -38,6 +38,14 @@ enum SizeUnit: String, CaseIterable, Sendable {
 ///
 /// This model is the core data structure for tracking price differentials between
 /// gluten-free and regular products for celiac disease cost documentation.
+///
+/// - Important: Every stored property here is hand-duplicated in
+///   `DataBackupService.ProductPairBackup`, and in the mapping code on both sides of it.
+///   Adding a property without doing the same there compiles fine and ships fine — the
+///   field is simply gone when the user restores a backup. This happened once already
+///   with the unit-pricing fields (fixed in `b7216c9`). `DataBackupRoundTripTests` now
+///   fails when the two drift apart; follow what that failure tells you rather than
+///   updating the test's expected list to match.
 @Model
 final class ProductPair {
 
