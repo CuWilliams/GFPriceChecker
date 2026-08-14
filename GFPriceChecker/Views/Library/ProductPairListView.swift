@@ -259,10 +259,18 @@ struct ProductPairRow: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
-                // Category Badge
-                if let category = productPair.category {
-                    categoryBadge(category)
-                        .padding(.top, 4)
+                // Category and quantity badges
+                if productPair.category != nil || productPair.quantity > 1 {
+                    HStack(spacing: 6) {
+                        if let category = productPair.category {
+                            categoryBadge(category)
+                        }
+
+                        if productPair.quantity > 1 {
+                            quantityBadge(productPair.quantity)
+                        }
+                    }
+                    .padding(.top, 4)
                 }
             }
 
@@ -316,17 +324,22 @@ struct ProductPairRow: View {
     /// VoiceOver label for the product row
     private var accessibilityLabel: String {
         let categoryText = productPair.category != nil ? ", \(productPair.category!)" : ""
-        return "\(productPair.gfProductName) compared to \(productPair.nonGFProductName)\(categoryText)"
+        let quantityText = productPair.quantity > 1 ? ", \(productPair.quantity) units purchased" : ""
+        return "\(productPair.gfProductName) compared to \(productPair.nonGFProductName)\(categoryText)\(quantityText)"
     }
 
     /// VoiceOver value for the product row (dynamic info)
     private var accessibilityValue: String {
         let verifiedStatus = productPair.verified ? "Verified" : "Not verified"
         let receiptStatus = productPair.receipt != nil ? ", has receipt" : ""
+        // The displayed figures are per unit; name the purchase total so a multi-unit row
+        // does not read as if it contributes only one unit to the report.
+        let extended = productPair.extendedNormalizedDifferential ?? productPair.extendedDifferential
+        let totalText = productPair.quantity > 1 ? ", total for purchase \(formatCurrency(extended))" : ""
         if let unitDiff = productPair.normalizedDifferential {
-            return "Unit price differential \(formatCurrency(unitDiff)), package difference \(formatCurrency(productPair.differential)), \(verifiedStatus)\(receiptStatus)"
+            return "Unit price differential \(formatCurrency(unitDiff)), package difference \(formatCurrency(productPair.differential))\(totalText), \(verifiedStatus)\(receiptStatus)"
         } else {
-            return "Price difference \(formatCurrency(productPair.differential)), \(verifiedStatus)\(receiptStatus)"
+            return "Price difference \(formatCurrency(productPair.differential))\(totalText), \(verifiedStatus)\(receiptStatus)"
         }
     }
 
@@ -340,6 +353,18 @@ struct ProductPairRow: View {
             .padding(.vertical, 4)
             .background(Color.blue.opacity(0.15))
             .foregroundStyle(.blue)
+            .clipShape(Capsule())
+    }
+
+    /// Quantity badge shown only for multi-unit purchases
+    private func quantityBadge(_ quantity: Int) -> some View {
+        Text("×\(quantity)")
+            .font(.caption)
+            .fontWeight(.semibold)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.orange.opacity(0.15))
+            .foregroundStyle(.orange)
             .clipShape(Capsule())
     }
 

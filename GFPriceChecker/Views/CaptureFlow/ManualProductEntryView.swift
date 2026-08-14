@@ -44,6 +44,10 @@ struct ManualProductEntryView: View {
 
     @State private var selectedUnit: SizeUnit? = nil
 
+    // MARK: - State - Purchase
+
+    @State private var quantityText: String = "1"
+
     // MARK: - State - Optional Fields
 
     @State private var category: String = "None"
@@ -160,7 +164,32 @@ struct ManualProductEntryView: View {
                     Text("Entering sizes enables unit price comparison and a more accurate price differential calculation.")
                 }
 
-                // Section 4: Category
+                // Section 4: Quantity Purchased
+                Section {
+                    HStack {
+                        TextField("1", text: $quantityText)
+                            .keyboardType(.numberPad)
+                            .frame(maxWidth: 80)
+                            .accessibilityLabel("Quantity purchased")
+                            .accessibilityHint("How many units of this pair you bought in this transaction")
+
+                        Stepper("Quantity", value: quantityBinding, in: ValidationRules.minQuantity...ValidationRules.maxQuantity)
+                            .labelsHidden()
+                            .accessibilityLabel("Adjust quantity purchased")
+                    }
+
+                    if showingValidationErrors, let quantityError = quantityValidationMessage {
+                        Text(quantityError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Quantity Purchased")
+                } footer: {
+                    Text("Units bought in this transaction. The reported differential is multiplied by this amount.")
+                }
+
+                // Section 5: Category
                 Section {
                     Picker("Category", selection: $category) {
                         ForEach(commonCategories, id: \.self) { category in
@@ -173,7 +202,7 @@ struct ManualProductEntryView: View {
                     Text("Category")
                 }
 
-                // Section 4: Optional Notes
+                // Section 6: Optional Notes
                 Section {
                     TextEditor(text: $notes)
                         .frame(minHeight: 80)
@@ -220,6 +249,32 @@ struct ManualProductEntryView: View {
         self.productPair = productPair
     }
 
+    // MARK: - Quantity
+
+    /// Integer view of `quantityText` so the stepper and text field stay in sync
+    ///
+    /// Unparseable text reads back as the minimum, which is what the stepper should nudge
+    /// from; the text field remains the source of truth and is validated on save.
+    private var quantityBinding: Binding<Int> {
+        Binding(
+            get: {
+                let parsed = Int(quantityText.trimmingCharacters(in: .whitespaces)) ?? ValidationRules.minQuantity
+                return min(max(parsed, ValidationRules.minQuantity), ValidationRules.maxQuantity)
+            },
+            set: { quantityText = String($0) }
+        )
+    }
+
+    /// Inline error message for the quantity field, or nil when valid
+    private var quantityValidationMessage: String? {
+        switch ValidationRules.validateQuantityString(quantityText) {
+        case .success:
+            return nil
+        case .failure(let error):
+            return error.localizedDescription
+        }
+    }
+
     /// Populates form fields if editing an existing product
     private func populateFieldsIfEditing() {
         guard let productPair = productPair else { return }
@@ -246,6 +301,9 @@ struct ManualProductEntryView: View {
         }
 
         selectedUnit = productPair.resolvedSizeUnit
+
+        // Purchase
+        quantityText = String(productPair.quantity)
 
         // Optional fields
         category = productPair.category ?? "None"
@@ -329,6 +387,11 @@ struct ManualProductEntryView: View {
         }
 
         guard validatePrice(nonGFPriceText) == nil else {
+            return false
+        }
+
+        // Purchase quantity
+        guard quantityValidationMessage == nil else {
             return false
         }
 
@@ -429,6 +492,18 @@ struct ManualProductEntryView: View {
         let validatedNonGFSize: String? = validatedNonGFSizeValue.map { "\($0)\(unitSuffix)" }
         let validatedSizeUnit: String? = eitherSizeEntered ? selectedUnit?.rawValue : nil
 
+        // Validate purchase quantity
+        let validatedQuantity: Int
+        switch ValidationRules.validateQuantityString(quantityText) {
+        case .success(let quantity):
+            validatedQuantity = quantity
+        case .failure(let error):
+            errorMessage = ErrorHandler.shared.userMessage(for: error)
+            showingError = true
+            showingValidationErrors = true
+            return
+        }
+
         let validatedNotes: String?
         switch ValidationRules.validateNotes(notes) {
         case .success(let validNotes):
@@ -465,6 +540,7 @@ struct ManualProductEntryView: View {
                 existingProductPair.nonGFSizeValue = validatedNonGFSizeValue
 
                 existingProductPair.sizeUnit = validatedSizeUnit
+                existingProductPair.quantity = validatedQuantity
                 existingProductPair.category = validatedCategory
                 existingProductPair.notes = validatedNotes
 
@@ -481,6 +557,7 @@ struct ManualProductEntryView: View {
                     nonGFSize: validatedNonGFSize,
                     nonGFSizeValue: validatedNonGFSizeValue,
                     sizeUnit: validatedSizeUnit,
+                    quantity: validatedQuantity,
                     category: validatedCategory,
                     notes: validatedNotes
                 )

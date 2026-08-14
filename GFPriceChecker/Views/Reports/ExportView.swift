@@ -113,8 +113,8 @@ struct ExportView: View {
             }
         }
 
-        let packageTotal = productsToExport.reduce(Decimal.zero) { $0 + $1.differential }
-        let normalizedValues = productsToExport.compactMap(\.normalizedDifferential)
+        let packageTotal = productsToExport.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
+        let normalizedValues = productsToExport.compactMap(\.extendedNormalizedDifferential)
         let unitTotal: Decimal? = normalizedValues.isEmpty ? nil : normalizedValues.reduce(Decimal.zero, +)
         return (count: productsToExport.count, unitPriceDifferential: unitTotal, packagePriceDifferential: packageTotal)
     }
@@ -411,7 +411,7 @@ struct ExportView: View {
         ScrollView(.horizontal) {
             VStack(alignment: .leading, spacing: 4) {
                 // Header
-                Text("Date,GF Product,GF Price,Non-GF Product,Non-GF Price,Differential,Category,Store,Verified")
+                Text("Date,Qty,GF Product,GF Price,Non-GF Product,Non-GF Price,Differential,Ext. Differential,Category,Store,Verified")
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
 
@@ -443,11 +443,13 @@ struct ExportView: View {
 
         let row = [
             dateFormatter.string(from: product.reportingDate),
+            String(product.quantity),
             product.gfProductName,
             String(describing: product.gfPrice),
             product.nonGFProductName,
             String(describing: product.nonGFPrice),
             String(describing: product.differential),
+            String(describing: product.extendedDifferential),
             product.category ?? "Uncategorized",
             product.receipt?.storeName ?? "",
             product.verified ? "Yes" : "No"

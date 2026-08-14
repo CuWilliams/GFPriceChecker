@@ -84,6 +84,7 @@ final class CSVExportService {
     private func buildCSVHeader() -> String {
         let headers = [
             "Purchase Date",
+            "Quantity",
             "GF Product",
             "GF Price",
             "GF Size",
@@ -97,6 +98,8 @@ final class CSVExportService {
             "Regular Unit Price",
             "Package Price Differential",
             "Unit Price Differential",
+            "Extended Package Differential",
+            "Extended Unit Price Differential",
             "Category",
             "Store",
             "Receipt Verified",
@@ -117,6 +120,7 @@ final class CSVExportService {
     private func buildCSVRow(for product: ProductPair) -> String {
         let fields = [
             formatDate(product.reportingDate),
+            String(product.quantity),
             escapeField(product.gfProductName),
             formatPrice(product.gfPrice),
             escapeField(product.gfSize ?? ""),
@@ -130,6 +134,8 @@ final class CSVExportService {
             formatOptionalDecimal(product.regularUnitPrice),
             formatPrice(product.differential),
             formatOptionalDecimal(product.normalizedDifferential),
+            formatPrice(product.extendedDifferential),
+            formatOptionalDecimal(product.extendedNormalizedDifferential),
             escapeField(product.category ?? "Uncategorized"),
             escapeField(product.receipt?.storeName ?? ""),
             formatBoolean(product.verified),
@@ -210,7 +216,7 @@ final class CSVExportService {
     ) -> (count: Int, totalDifferential: Decimal) {
         let filtered = filterProducts(products, dateRange: dateRange)
         let total = filtered.reduce(Decimal.zero) { sum, product in
-            sum + product.differential
+            sum + product.extendedDifferential
         }
 
         return (count: filtered.count, totalDifferential: total)

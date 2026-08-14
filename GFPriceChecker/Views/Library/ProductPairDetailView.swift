@@ -174,6 +174,22 @@ struct ProductPairDetailView: View {
                             .fontWeight(.bold)
                             .foregroundStyle(differentialColor(productPair.differential))
                     }
+
+                    // Multi-unit purchases: the figures above are per unit, so spell out
+                    // the amount that actually reaches the reports and exports.
+                    if productPair.quantity > 1 {
+                        let extended = productPair.extendedNormalizedDifferential ?? productPair.extendedDifferential
+
+                        Text("Total for \(productPair.quantity) units")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 8)
+
+                        Text(formatCurrency(extended))
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundStyle(differentialColor(extended))
+                    }
                 }
 
                 Spacer()
@@ -290,6 +306,8 @@ struct ProductPairDetailView: View {
     /// Metadata section showing creation date
     private var metadataSection: some View {
         Section {
+            LabeledContent("Quantity Purchased", value: "\(productPair.quantity)")
+
             LabeledContent("Created", value: productPair.createdDate.formatted(date: .abbreviated, time: .shortened))
         } header: {
             Text("Metadata")

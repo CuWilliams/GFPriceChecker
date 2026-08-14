@@ -427,9 +427,9 @@ final class PDFGeneratorService {
 
         for product in products {
             let category = product.category ?? "Uncategorized"
-            categoryTotals[category, default: 0] += product.differential
+            categoryTotals[category, default: 0] += product.extendedDifferential
             categoryCounts[category, default: 0] += 1
-            if let nd = product.normalizedDifferential {
+            if let nd = product.extendedNormalizedDifferential {
                 categoryNormalized[category, default: 0] += nd
             }
         }
@@ -485,9 +485,9 @@ final class PDFGeneratorService {
             let components = calendar.dateComponents([.year, .month], from: product.reportingDate)
             guard let monthStart = calendar.date(from: components) else { continue }
 
-            monthlyTotals[monthStart, default: 0] += product.differential
+            monthlyTotals[monthStart, default: 0] += product.extendedDifferential
             monthlyCounts[monthStart, default: 0] += 1
-            if let nd = product.normalizedDifferential {
+            if let nd = product.extendedNormalizedDifferential {
                 monthlyNormalized[monthStart, default: 0] += nd
             }
         }
@@ -645,9 +645,9 @@ final class PDFGeneratorService {
                 yPosition += 10
 
                 // Receipt subtotals — both adjusted and simple
-                let adjSubtotal = sortedProducts.compactMap(\.normalizedDifferential).reduce(Decimal.zero, +)
+                let adjSubtotal = sortedProducts.compactMap(\.extendedNormalizedDifferential).reduce(Decimal.zero, +)
                 let adjExcluded = sortedProducts.filter { $0.normalizedDifferential == nil }.count
-                let priceSubtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.differential }
+                let priceSubtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
 
                 let adjSubtotalText = "Unit Price Subtotal: \(adjSubtotal.formatted(.currency(code: "CAD")))"
                 let adjSubtotalAttrs: [NSAttributedString.Key: Any] = [
@@ -755,9 +755,9 @@ final class PDFGeneratorService {
             yPosition += 10
 
             // Unverified subtotals — both adjusted and simple
-            let unvAdjSubtotal = unverifiedProducts.compactMap(\.normalizedDifferential).reduce(Decimal.zero, +)
+            let unvAdjSubtotal = unverifiedProducts.compactMap(\.extendedNormalizedDifferential).reduce(Decimal.zero, +)
             let unvAdjExcluded = unverifiedProducts.filter { $0.normalizedDifferential == nil }.count
-            let unverifiedSubtotal = unverifiedProducts.reduce(Decimal.zero) { $0 + $1.differential }
+            let unverifiedSubtotal = unverifiedProducts.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
 
             let unvAdjSubtotalText = "Unit Price Subtotal: \(unvAdjSubtotal.formatted(.currency(code: "CAD")))"
             let unvAdjSubtotalAttrs: [NSAttributedString.Key: Any] = [
@@ -1006,7 +1006,7 @@ final class PDFGeneratorService {
             }
 
             currentCategory = category
-            categorySubtotal += product.differential
+            categorySubtotal += product.extendedDifferential
 
             // Draw transaction row
             yPosition = drawTransactionRow(
@@ -1051,13 +1051,30 @@ final class PDFGeneratorService {
         )
     }
 
+    // MARK: - Transaction Table Layout
+
+    /// Column titles for the transaction table
+    ///
+    /// The two differential columns carry **extended** amounts (per-unit × Qty) so the line
+    /// items reconcile against the grand total, and the Qty column lets a reviewer check each
+    /// line back against the unit price.
+    private static let transactionHeaders = [
+        "Date", "GF Product", "GF $", "Regular", "Reg $", "Qty", "Pkg. Price Diff", "Unit Price Diff"
+    ]
+
+    /// Column widths matching `transactionHeaders`, summing to the 451pt content width
+    private static let transactionColumnWidths: [CGFloat] = [58, 88, 40, 88, 40, 24, 57, 56]
+
+    /// Index of the Unit Price Diff column, which is rendered in the accent colour
+    private static let unitPriceDiffColumnIndex = 7
+
     private func drawTransactionHeader(
         context: CGContext,
         contentRect: CGRect,
         yPosition: CGFloat
     ) -> CGFloat {
-        let headers = ["Date", "GF Product", "GF $", "Regular", "Reg $", "Pkg. Price Diff", "Unit Price Diff"]
-        let columnWidths: [CGFloat] = [60, 100, 42, 100, 42, 54, 53]
+        let headers = Self.transactionHeaders
+        let columnWidths = Self.transactionColumnWidths
 
         var x = contentRect.minX
         let y = yPosition
@@ -1093,7 +1110,7 @@ final class PDFGeneratorService {
         dateFormatter: DateFormatter,
         isAlternate: Bool
     ) -> CGFloat {
-        let columnWidths: [CGFloat] = [60, 100, 42, 100, 42, 54, 53]
+        let columnWidths = Self.transactionColumnWidths
         let rowHeight: CGFloat = 18
 
         var x = contentRect.minX
@@ -1107,20 +1124,22 @@ final class PDFGeneratorService {
 
         // Adjusted differential: show value if available, dash if not
         let adjDiffStr: String
-        if let nd = product.normalizedDifferential {
+        if let nd = product.extendedNormalizedDifferential {
             adjDiffStr = String(format: "%.2f", NSDecimalNumber(decimal: nd).doubleValue)
         } else {
             adjDiffStr = "—"
         }
 
-        // Row data (7 columns — Store removed, Unit Price Diff promoted to full column)
+        // Row data — must stay aligned with `transactionHeaders` / `transactionColumnWidths`.
+        // The differential columns are extended amounts so the rows sum to the grand total.
         let rowData = [
             dateFormatter.string(from: product.reportingDate),
-            product.gfProductName.truncated(to: 14),
+            product.gfProductName.truncated(to: 12),
             String(format: "%.2f", NSDecimalNumber(decimal: product.gfPrice).doubleValue),
-            product.nonGFProductName.truncated(to: 14),
+            product.nonGFProductName.truncated(to: 12),
             String(format: "%.2f", NSDecimalNumber(decimal: product.nonGFPrice).doubleValue),
-            String(format: "%.2f", NSDecimalNumber(decimal: product.differential).doubleValue),
+            String(product.quantity),
+            String(format: "%.2f", NSDecimalNumber(decimal: product.extendedDifferential).doubleValue),
             adjDiffStr
         ]
 
@@ -1136,7 +1155,7 @@ final class PDFGeneratorService {
         ]
 
         for (index, data) in rowData.enumerated() {
-            let attrs = (index == 6) ? adjCellAttrs : cellAttrs
+            let attrs = (index == Self.unitPriceDiffColumnIndex) ? adjCellAttrs : cellAttrs
             data.draw(at: CGPoint(x: x + 4, y: y + 4), withAttributes: attrs)
             x += columnWidths[index]
         }
@@ -1313,15 +1332,22 @@ final class PDFGeneratorService {
 
     // MARK: - Helpers
 
+    /// Sums the package differentials for a report section
+    ///
+    /// Extended, so a pair bought in multiples contributes its whole purchase amount and the
+    /// section subtotals reconcile against the transaction rows.
     private func calculateTotalDifferential(products: [ProductPair]) -> Decimal {
-        products.reduce(Decimal.zero) { $0 + $1.differential }
+        products.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
     }
 
+    /// Sums the size-adjusted differentials, counting the products that have no size data
+    ///
+    /// Extended for the same reason as `calculateTotalDifferential`.
     private func calculateNormalizedDifferential(products: [ProductPair]) -> (total: Decimal, excludedCount: Int) {
         var total = Decimal.zero
         var excluded = 0
         for product in products {
-            if let nd = product.normalizedDifferential {
+            if let nd = product.extendedNormalizedDifferential {
                 total += nd
             } else {
                 excluded += 1

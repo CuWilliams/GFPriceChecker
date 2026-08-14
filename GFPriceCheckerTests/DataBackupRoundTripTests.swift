@@ -85,7 +85,8 @@ struct DataBackupRoundTripTests {
     ///
     /// Non-default matters: a field the DTO silently drops must differ from what a freshly
     /// initialised object would hold anyway, or the assertion passes on a coincidence.
-    /// That is why `verified` is `true` and the OCR confidences are non-zero.
+    /// That is why `verified` is `true`, the OCR confidences are non-zero, and `quantity`
+    /// is 3 rather than the default 1.
     ///
     /// The image UUIDs are deliberately populated with sentinel strings that no file on
     /// disk will ever match. `loadImageAsBase64` returns nil rather than throwing for a
@@ -109,6 +110,7 @@ struct DataBackupRoundTripTests {
             nonGFImageUUID: "fixture-nongf-image-uuid",
             nonGFOCRConfidence: 0.87,
             sizeUnit: SizeUnit.grams.rawValue,
+            quantity: 3,
             id: id,
             createdDate: Self.createdDate,
             category: "Bread",
@@ -136,9 +138,9 @@ struct DataBackupRoundTripTests {
 
     // MARK: - Assertions
 
-    /// Asserts all 18 scalar stored properties of `ProductPair` survived the round trip.
+    /// Asserts all 19 scalar stored properties of `ProductPair` survived the round trip.
     ///
-    /// The 19th stored property, the `receipt` relationship, is covered separately by
+    /// The 20th stored property, the `receipt` relationship, is covered separately by
     /// `receiptProductLinkIsRebuilt` because it is reconstructed by hand on import.
     private func expectFieldsPreserved(_ restored: ProductPair, matches original: ProductPair) {
         #expect(restored.gfProductName == original.gfProductName)
@@ -156,6 +158,7 @@ struct DataBackupRoundTripTests {
         #expect(restored.nonGFOCRConfidence == original.nonGFOCRConfidence)
 
         #expect(restored.sizeUnit == original.sizeUnit)
+        #expect(restored.quantity == original.quantity)
 
         #expect(restored.id == original.id)
         #expect(restored.createdDate == original.createdDate)
@@ -215,7 +218,7 @@ struct DataBackupRoundTripTests {
             "gfProductName", "gfPrice", "gfSize", "gfSizeValue", "gfImageUUID", "gfOCRConfidence",
             "nonGFProductName", "nonGFPrice", "nonGFSize", "nonGFSizeValue", "nonGFImageUUID",
             "nonGFOCRConfidence",
-            "sizeUnit",
+            "sizeUnit", "quantity",
             "id", "createdDate", "category", "notes", "verified", "receipt"
         ]
 
@@ -277,6 +280,11 @@ struct DataBackupRoundTripTests {
         #expect(restored.normalizedDifferential == original.normalizedDifferential)
         #expect(restored.normalizedDifferential != nil)
         #expect(restored.hasUnitPricingData)
+
+        // The reported figure is the extended one, so prove it survives too — a dropped
+        // `quantity` would leave `normalizedDifferential` intact and only show up here.
+        #expect(restored.extendedNormalizedDifferential == original.extendedNormalizedDifferential)
+        #expect(restored.extendedDifferential == original.extendedDifferential)
     }
 
     @Test("Every Receipt field survives export then import")
@@ -334,11 +342,11 @@ struct DataBackupRoundTripTests {
         #expect(Set(restoredReceipt.productPairs.map(\.id)) == [firstPairID, secondPairID])
     }
 
-    @Test("A backup written before unit pricing existed still imports")
+    @Test("A backup written before unit pricing and quantity existed still imports")
     func legacyBackupWithoutUnitPricingStillImports() async throws {
-        // Shaped like a build-7 backup: no gfSizeValue / nonGFSizeValue / sizeUnit keys.
-        // Those DTO fields are optional precisely so older files stay decodable, and that
-        // compatibility path had no test until now.
+        // Shaped like a build-7 backup: no gfSizeValue / nonGFSizeValue / sizeUnit keys,
+        // and no quantity key either. Those DTO fields are optional precisely so older
+        // files stay decodable, and that compatibility path had no test until now.
         //
         // Settings are left empty on purpose. `importBackup` skips empty strings and
         // unparseable enum raw values, so this fixture cannot disturb the real
@@ -396,6 +404,11 @@ struct DataBackupRoundTripTests {
         #expect(restored.gfSizeValue == nil)
         #expect(restored.nonGFSizeValue == nil)
         #expect(restored.sizeUnit == nil)
+
+        // A legacy record predates quantity, so it must import as a single-unit purchase —
+        // anything else would silently inflate the amounts in a restored tax report.
+        #expect(restored.quantity == 1)
+        #expect(restored.extendedDifferential == restored.differential)
 
         // With no size data there is no unit price to report, which is the correct
         // degraded state for a legacy record — not the silent data loss of b7216c9.

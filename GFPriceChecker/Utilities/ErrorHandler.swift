@@ -45,6 +45,7 @@ final class ErrorHandler {
         case emptyRequiredField(String)
         case priceTooHigh(Decimal)
         case priceNegative
+        case invalidQuantity(String)
 
         // MARK: Export Errors
         case exportNoData
@@ -106,6 +107,8 @@ final class ErrorHandler {
                 return "Price $\(price) seems unusually high. Please verify."
             case .priceNegative:
                 return "Price cannot be negative"
+            case .invalidQuantity(let field):
+                return "\(field) must be a whole number between \(ValidationRules.minQuantity) and \(ValidationRules.maxQuantity)"
 
             // Export Errors
             case .exportNoData:
@@ -184,6 +187,8 @@ final class ErrorHandler {
                 return "Double-check the price. If correct, you can proceed."
             case .priceNegative:
                 return "Enter a positive price amount."
+            case .invalidQuantity:
+                return "Enter how many units you bought (e.g., 2). Leave it at 1 for a single item."
 
             // Export Errors
             case .exportNoData:
