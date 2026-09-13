@@ -457,6 +457,12 @@ Still the user's to do, since they need a device or a human eye:
    - Tax ID stored in @AppStorage (not encrypted)
    - Backup files contain unencrypted data
 
+7. **Simulator:**
+   - `DocumentScannerView` wraps `VNDocumentCameraViewController`, which is unavailable in the
+     Simulator, and there is no `isSupported` guard. Both capture flows therefore dead-end at
+     the scanner sheet on Simulator — they can only be exercised on a physical device.
+     Addressed by Stage 1 of `docs/SCRIPTED_DEMO_PIPELINE.md`.
+
 ---
 
 ## Git Workflow
@@ -481,6 +487,8 @@ Still the user's to do, since they need a device or a human eye:
 ## Reference Documentation
 
 **Detailed Implementation History:** See `docs/DEVELOPMENT_HISTORY.md`
+
+**Scripted Demo Pipeline:** See `docs/SCRIPTED_DEMO_PIPELINE.md` — the plan and feasibility audit for generating the website's instructional videos from scripts the app plays against itself, so a new build regenerates the media set instead of needing a re-shoot. Read it before touching the capture flows, `DocumentScannerView`, or navigation structure: several of its stages are refactors of those, and it records why.
 
 **Sessions 1-27:**
 - Sessions 1-6: Foundation and Library Views
