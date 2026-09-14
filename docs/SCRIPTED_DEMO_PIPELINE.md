@@ -190,7 +190,8 @@ the videos to flows that do not display a receipt image full-screen.
 **Resolved, and neither of those.** `scrub_backup.py` *draws* each substitute from the data
 that survives the scrub — the GF products that receipt verifies, their prices, the purchase
 date, the normalized chain name — reusing the layout `SampleScanImages` measured its way to
-in Stage 1. `extractedOCRText` is regenerated from the same lines, and `totalAmount` is
+in Stage 1 (single-space rows; see Stage 1's note — that layout is no longer forced, just not
+yet changed). `extractedOCRText` is regenerated from the same lines, and `totalAmount` is
 recomputed from the items, so the receipt on screen adds up to the total beside it. No staging
 session, and the videos can show a receipt full-screen. Also note `extractedOCRText`, which
 §3.3 originally missed: it is the text read off the real photograph, so it carries the same
@@ -277,13 +278,34 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
 
 - **Vision splits a text line at any gap wider than a single space.** A receipt drawn the way
   receipts actually print — label left, amount right-aligned at the margin — comes back with
-  every amount as its own observation. `extractTotal` requires "TOTAL" and a `$` amount on
-  the *same* line, so it returns nil. Dot leaders make it worse (the dot run becomes a third
-  token); a two-space gap splits unpredictably. Only a single space holds.
-- **That is probably a real parser bug, not an artifact of drawn images.** Real receipts
-  right-align their totals too, so `extractTotal` likely misses them on real scans for the
-  same reason. Not fixed here — it changes shipping behaviour against real receipts and
-  belongs in its own change with real scans to test against.
+  every amount as its own observation, so the label's line carries no amount at all. Dot
+  leaders make it worse (the dot run becomes a third token); a two-space gap splits
+  unpredictably. Only a single space holds. This is a fact about Vision and still true.
+- ~~**That is probably a real parser bug.** Not fixed here.~~ **It was, and it is now fixed**
+  — issue #51. `extractTotal` required "TOTAL" and a `$`-prefixed amount on the *same* line;
+  real receipts print the amount bare and right-aligned into a second column, so it missed
+  them on real scans for exactly the reason it missed the drawn one. The `$` is now optional,
+  and a total line carrying no amount falls through to the next line when that line is
+  nothing but an amount.
+
+**What that means for Stage 6:** the constraint is lifted. `SampleScanImages.receipt` now
+takes a `RowStyle` and defaults to `.twoColumn`, so **the receipt the storyboards record is
+drawn the way a receipt actually prints**, rather than in the accommodating layout the parser
+used to need. The demo videos no longer feature a receipt that is subtly not one. `.inline`
+survives as a named style, and both receipt tests run over both layouts.
+
+One thing Stage 6 inherits rather than escapes: the fix reads the amount from the line *after*
+the label, which holds only because `extractReceiptText` sorts observations by
+`boundingBox.origin.y` and the label's box sorts above its amount's — measured at 19% of a
+line height on the fixture. `SubstituteScannerTests.twoColumnLabelSortsAboveItsAmount` pins
+it. If a storyboard ever records a receipt at an angle and the total stops prefilling, that
+test names the repair: band observations into rows in `extractReceiptText`, **not** a
+look-behind, which would read the tax amount on a `SUBTOTAL / HST / TOTAL` receipt.
+
+`Tools/Demo/scrub_backup.py` still draws its substitute receipts single-space. That is now a
+free choice rather than a constraint; it is left alone because nothing OCRs those images
+(`extractedOCRText` is regenerated from the same lines), so switching them is a purely visual
+change that wants an eye on the rendered result.
 
 ### Stage 2 — seed data — **done**
 - ~~Build a scrubbing step (§3.3).~~ `Tools/Demo/scrub_backup.py`, with
