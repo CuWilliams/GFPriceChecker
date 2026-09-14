@@ -24,6 +24,9 @@ DerivedData/
 .build/
 Packages/
 
+# Derived data from Tools/Demo/seed.sh, which builds into the repo.
+build/
+
 # CocoaPods (if used)
 Pods/
 
@@ -33,3 +36,18 @@ Pods/
 # Claude Code
 # Shared project permissions are tracked; per-machine overrides are not.
 .claude/settings.local.json
+
+# Python
+__pycache__/
+
+# Demo pipeline working files. The raw backup belongs in ~/GFPCDemoData/,
+# outside the repo; these rules are in case a copy lands inside. A raw backup
+# exported from a device carries a SIN and photographs of real receipts — see
+# Tools/Demo/README.md — and must never be committed.
+#
+# The scrubbed dataset is the exception and is committed, at
+# Tools/Demo/demo-dataset.json. It is the only copy of the demo library that
+# is not on one Mac, and the pipeline cannot regenerate a video without it.
+# scrub_backup.py --verify is what says it is safe to be there.
+GFPCDemoData/
+backup-raw.json

@@ -184,6 +184,15 @@ Treat receipt images as the hardest part: they cannot be scrubbed by editing JSO
 because the PII is *in the photograph*. Either substitute staged receipt photos, or restrict
 the videos to flows that do not display a receipt image full-screen.
 
+**Resolved, and neither of those.** `scrub_backup.py` *draws* each substitute from the data
+that survives the scrub — the GF products that receipt verifies, their prices, the purchase
+date, the normalized chain name — reusing the layout `SampleScanImages` measured its way to
+in Stage 1. `extractedOCRText` is regenerated from the same lines, and `totalAmount` is
+recomputed from the items, so the receipt on screen adds up to the total beside it. No staging
+session, and the videos can show a receipt full-screen. Also note `extractedOCRText`, which
+§3.3 originally missed: it is the text read off the real photograph, so it carries the same
+information in plain sight and needs the same treatment.
+
 ---
 
 ## 4. What ports from TrendFit, in three tiers
@@ -273,10 +282,36 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
   same reason. Not fixed here — it changes shipping behaviour against real receipts and
   belongs in its own change with real scans to test against.
 
-### Stage 2 — seed data
-- Export a real backup from the device; build a scrubbing step (§3.3).
-- A DEBUG seeding entry point that does `clearAllData` then `importBackup(.replace)`.
-- **Acceptance:** one command puts the Simulator in a known, populated, PII-free state.
+### Stage 2 — seed data — **done**
+- ~~Build a scrubbing step (§3.3).~~ `Tools/Demo/scrub_backup.py`, with
+  `Tools/Demo/README.md`. It also verifies its own output, both for PII and for whether
+  `importBackup` will read it — the Codable structs are mirrored there as a schema, so it
+  catches a date without a timezone, a `version` other than `"1.0"`, an unparseable price
+  (which imports silently as free) and a `receiptID` pointing at nothing (which imports the
+  product silently unverified).
+- ~~A DEBUG seeding entry point that does `clearAllData` then `importBackup(.replace)`.~~
+  `GFPriceChecker/Dev/DemoSeed.swift`, driven by `GFPC_DEMO_DATASET`, plus `Tools/Demo/seed.sh`
+  as the one command. `.replace` calls `clearAllData` itself, so it is one call, not two.
+  `DemoSeedTests` seeds from JSON the scrubber actually produced, which is what keeps the
+  Python schema mirror honest.
+- ~~Export a real backup from the device.~~ Done. 78 products and 47 of the 48 receipts
+  over 2025-12-30 to 2026-09-11, seeded into the Simulator and counted in the store.
+- **Acceptance:** `Tools/Demo/seed.sh` puts the Simulator in a known, populated, PII-free
+  state — **met**, against the real library.
+
+Three things the first real run turned up that the fixture could not:
+
+- **Size.** The raw library scrubbed to 170 MB, 168 of it shelf-tag photographs — past the
+  100 MB a Git host takes for one file, and this dataset is meant to be committed. The
+  photographs are now re-encoded at 1600px/q75 on the way through, which brings it to 28 MB.
+  That also drops their metadata, which matters more than the bytes: these ones carried
+  nothing but dimensions, because `ImageStorageService` had already re-encoded them, but a
+  photograph that reached the library another way would still have EXIF, and that carries GPS.
+- **A receipt nothing verified** redrew as a blank slip totalling $0.00, because the scrub had
+  no items to draw from. Those are now dropped rather than drawn.
+- **`seed.sh` computed the built product path** from `-derivedDataPath`, which Xcode's
+  Build Location preference overrides when it is set to Custom or to a shared folder. The
+  build succeeds and the install then cannot find the app. It asks `-showBuildSettings` now.
 
 ### Stage 3 — `CaptureFlowViewModel`
 - Lift `CaptureStep`, the field state and the handler methods out of
@@ -313,9 +348,21 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
    to captions only; or generate narration.
 3. **Do the stills matter here?** TrendFit's `stills.sh` exists because its site has tiles cut
    from the same scripts. Does gfpricechecker.github.io want the same guarantee?
-4. **Where do demo assets live?** TrendFit uses `~/TrendFitDemoData/` outside the repo. Same
-   here, presumably `~/GFPCDemoData/`.
-5. **Receipt imagery** — staged photos, or avoid full-screen receipt display in video? (§3.3)
+4. ~~**Where do demo assets live?**~~ **Answered, and revised once the real export existed:**
+   the raw backup lives in `~/GFPCDemoData/`, outside the repo, with `.gitignore` covering
+   `backup-raw.json` and `GFPCDemoData/` in case a copy lands inside. The **scrubbed dataset
+   is committed**, at `Tools/Demo/demo-dataset.json`. Keeping it out was the original answer
+   and it was wrong: the raw backup must never be committed, so a dataset that exists only in
+   `~/GFPCDemoData/` exists on one Mac, and losing that Mac means re-shooting the library —
+   which is the exact problem this pipeline is for. 28 MB is the price of the guarantee.
+5. ~~**Receipt imagery** — staged photos, or avoid full-screen receipt display in video?~~
+   **Answered:** neither. The scrub draws a substitute receipt from the surviving data (§3.3).
+6. ~~**Shelf-tag photographs.** The scrub keeps them, because they are the app's subject and
+   a shelf tag is not private. But they were photographed in a shop, and what else is in a
+   frame is a question only a person looking at them can answer.~~ **Reviewed and cleared.**
+   All 132 from the real export were dumped with `--dump-product-images` and looked at; the
+   frames are shelves and packaging. `--strip-product-images` stays for a future export whose
+   review goes the other way.
 
 ---
 
