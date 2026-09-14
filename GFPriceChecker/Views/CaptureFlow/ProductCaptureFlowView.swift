@@ -17,20 +17,10 @@ import SwiftData
 /// 4. Capture non-GF product
 /// 5. Review non-GF product (OCR data editable)
 /// 6. Finalize and save
+///
+/// All of the flow's state and logic lives in `CaptureFlowViewModel`; this view
+/// only draws it and routes taps back.
 struct ProductCaptureFlowView: View {
-
-    // MARK: - Developer Configuration
-
-    /// Developer toggle to enable/disable rectangle selection step in capture flow.
-    /// When `false`: Scan → directly to Review (bypasses "Select Region" screen)
-    /// When `true`: Scan → Select Region → Review (if rectangles detected)
-    /// Set to `true` to re-enable rectangle-based OCR filtering during beta testing.
-    private let rectangleSelectionEnabled = false
-
-    private let commonCategories = [
-        "None", "Bread", "Cereal", "Crackers", "Flour",
-        "Pasta", "Sauce", "Snacks & Chips", "Soup & Broth"
-    ]
 
     // MARK: - Environment
 
@@ -39,68 +29,7 @@ struct ProductCaptureFlowView: View {
 
     // MARK: - State
 
-    /// Current step in the capture flow
-    @State private var currentStep: CaptureStep = .introduction
-
-    /// Whether to show the document scanner
-    @State private var showingScanner = false
-
-    /// Loading state during OCR processing
-    @State private var isProcessingOCR = false
-
-    /// Loading state during save operation
-    @State private var isSaving = false
-
-    // GF Product Data
-    @State private var gfImage: UIImage?
-    @State private var gfImageUUID: String?
-    @State private var gfProductName: String = ""
-    @State private var gfPriceText: String = ""
-    @State private var gfSizeText: String = ""
-
-    // Non-GF Product Data
-    @State private var nonGFImage: UIImage?
-    @State private var nonGFImageUUID: String?
-    @State private var nonGFProductName: String = ""
-    @State private var nonGFPriceText: String = ""
-    @State private var nonGFSizeText: String = ""
-
-    // Size Unit (shared for both products)
-    @State private var selectedUnit: SizeUnit? = nil
-
-    // Size input mode per product
-    @State private var gfSizeMode: SizeInputMode = .packageSize
-    @State private var nonGFSizeMode: SizeInputMode = .packageSize
-
-    // Unit price text for .unitPrice and .manual modes
-    @State private var gfUnitPriceText: String = ""
-    @State private var nonGFUnitPriceText: String = ""
-
-    // Currency basis for unit price entry (cents vs dollars per unit)
-    @State private var gfUnitPriceBasis: UnitPriceBasis = .cents
-    @State private var nonGFUnitPriceBasis: UnitPriceBasis = .cents
-
-    // Selected OCR row for size (used for highlight tracking)
-    @State private var gfSelectedSizeObservationID: UUID?
-    @State private var nonGFSelectedSizeObservationID: UUID?
-
-    /// Identity for the review selector — regenerated on every fresh OCR run so
-    /// the selector restarts at phase one instead of reusing the previous product's state
-    @State private var reviewToken = UUID()
-
-    // Additional Product Pair Data
-    @State private var category: String = "None"
-    @State private var notes: String = ""
-
-    // OCR observations for tap-to-select
-    @State private var gfOCRObservations: [SelectableTextObservation] = []
-    @State private var nonGFOCRObservations: [SelectableTextObservation] = []
-
-    // Rectangle detection for region selection
-    @State private var gfDetectedRectangles: [DetectedRectangle] = []
-    @State private var nonGFDetectedRectangles: [DetectedRectangle] = []
-    @State private var gfSelectedRectangle: DetectedRectangle?
-    @State private var nonGFSelectedRectangle: DetectedRectangle?
+    @State private var viewModel = CaptureFlowViewModel()
 
     // MARK: - Body
 
@@ -111,11 +40,11 @@ struct ProductCaptureFlowView: View {
                 stepView
 
                 // Loading overlay
-                if isProcessingOCR {
+                if viewModel.isProcessingOCR {
                     ocrLoadingOverlay
                 }
             }
-            .navigationTitle(currentStep.title)
+            .navigationTitle(viewModel.currentStep.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -124,10 +53,13 @@ struct ProductCaptureFlowView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingScanner) {
+            .sheet(isPresented: $viewModel.showingScanner) {
                 DocumentScannerView { image in
-                    handleScannedImage(image)
+                    Task { await viewModel.handleScannedImage(image) }
                 }
+            }
+            .onChange(of: viewModel.didSave) { _, saved in
+                if saved { dismiss() }
             }
         }
     }
@@ -136,21 +68,21 @@ struct ProductCaptureFlowView: View {
 
     @ViewBuilder
     private var stepView: some View {
-        switch currentStep {
+        switch viewModel.currentStep {
         case .introduction:
             introductionView
         case .captureGF:
             capturePlaceholderView(productType: "Gluten-Free")
         case .selectGFRectangle:
-            if let image = gfImage {
+            if let image = viewModel.gfImage {
                 RectangleSelectorView(
                     image: image,
-                    rectangles: gfDetectedRectangles,
+                    rectangles: viewModel.gfDetectedRectangles,
                     onRectangleSelected: { rectangle in
-                        handleRectangleSelection(rectangle, isGF: true)
+                        Task { await viewModel.handleRectangleSelection(rectangle, isGF: true) }
                     },
                     onSkip: {
-                        handleSkipRectangleSelection(isGF: true)
+                        Task { await viewModel.handleSkipRectangleSelection(isGF: true) }
                     }
                 )
             }
@@ -159,15 +91,15 @@ struct ProductCaptureFlowView: View {
         case .captureNonGF:
             capturePlaceholderView(productType: "Regular")
         case .selectNonGFRectangle:
-            if let image = nonGFImage {
+            if let image = viewModel.nonGFImage {
                 RectangleSelectorView(
                     image: image,
-                    rectangles: nonGFDetectedRectangles,
+                    rectangles: viewModel.nonGFDetectedRectangles,
                     onRectangleSelected: { rectangle in
-                        handleRectangleSelection(rectangle, isGF: false)
+                        Task { await viewModel.handleRectangleSelection(rectangle, isGF: false) }
                     },
                     onSkip: {
-                        handleSkipRectangleSelection(isGF: false)
+                        Task { await viewModel.handleSkipRectangleSelection(isGF: false) }
                     }
                 )
             }
@@ -219,8 +151,7 @@ struct ProductCaptureFlowView: View {
             .padding(.horizontal)
 
             Button {
-                currentStep = .captureGF
-                showingScanner = true
+                viewModel.startCapture()
             } label: {
                 Text("Start Capture")
                     .font(.headline)
@@ -294,9 +225,6 @@ struct ProductCaptureFlowView: View {
             Spacer()
         }
         .padding()
-        .onAppear {
-            // Scanner is shown via sheet, this is just a placeholder
-        }
     }
 
     // MARK: - Review View
@@ -309,70 +237,36 @@ struct ProductCaptureFlowView: View {
     /// on to the regular product.
     @ViewBuilder
     private func reviewView(isGF: Bool) -> some View {
-        let observations = isGF ? gfOCRObservations : nonGFOCRObservations
-        let image = isGF ? gfImage : nonGFImage
+        let observations = isGF ? viewModel.gfOCRObservations : viewModel.nonGFOCRObservations
+        let image = isGF ? viewModel.gfImage : viewModel.nonGFImage
 
         if let image = image, !observations.isEmpty {
             OCRTextSelectorView(
                 image: image,
                 observations: observations,
-                productName: isGF ? $gfProductName : $nonGFProductName,
-                priceText: isGF ? $gfPriceText : $nonGFPriceText,
-                sizeMode: isGF ? $gfSizeMode : $nonGFSizeMode,
-                sizeText: isGF ? $gfSizeText : $nonGFSizeText,
-                unitPriceText: isGF ? $gfUnitPriceText : $nonGFUnitPriceText,
-                unitPriceBasis: isGF ? $gfUnitPriceBasis : $nonGFUnitPriceBasis,
-                selectedUnit: $selectedUnit,
-                selectedSizeObservationID: isGF ? gfSelectedSizeObservationID : nonGFSelectedSizeObservationID,
+                productName: isGF ? $viewModel.gfProductName : $viewModel.nonGFProductName,
+                priceText: isGF ? $viewModel.gfPriceText : $viewModel.nonGFPriceText,
+                sizeMode: isGF ? $viewModel.gfSizeMode : $viewModel.nonGFSizeMode,
+                sizeText: isGF ? $viewModel.gfSizeText : $viewModel.nonGFSizeText,
+                unitPriceText: isGF ? $viewModel.gfUnitPriceText : $viewModel.nonGFUnitPriceText,
+                unitPriceBasis: isGF ? $viewModel.gfUnitPriceBasis : $viewModel.nonGFUnitPriceBasis,
+                selectedUnit: $viewModel.selectedUnit,
+                selectedSizeObservationID: isGF ? viewModel.gfSelectedSizeObservationID : viewModel.nonGFSelectedSizeObservationID,
                 onSizeRowTapped: { observation in
-                    handleSizeRowTap(observation, isGF: isGF)
+                    viewModel.handleSizeRowTap(observation, isGF: isGF)
                 },
                 continueTitle: isGF ? "Continue to Regular Product" : "Continue to Finalize",
                 onContinue: {
-                    if isGF {
-                        currentStep = .captureNonGF
-                        showingScanner = true
-                    } else {
-                        currentStep = .finalize
-                    }
+                    viewModel.continueFromReview(isGF: isGF)
                 },
                 onRetake: {
-                    resetProductFields(isGF: isGF)
-                    if isGF {
-                        gfOCRObservations = []
-                        currentStep = .captureGF
-                    } else {
-                        nonGFOCRObservations = []
-                        currentStep = .captureNonGF
-                    }
-                    showingScanner = true
+                    viewModel.retake(isGF: isGF)
                 }
             )
-            .id(reviewToken)
+            .id(viewModel.reviewToken)
         } else {
             // Fallback: No OCR data, show manual entry prompt
             noOCRDataView(isGF: isGF)
-        }
-    }
-
-    /// Clears every captured field for one product of the pair
-    private func resetProductFields(isGF: Bool) {
-        if isGF {
-            gfProductName = ""
-            gfPriceText = ""
-            gfSizeText = ""
-            gfUnitPriceText = ""
-            gfSizeMode = .packageSize
-            gfUnitPriceBasis = .cents
-            gfSelectedSizeObservationID = nil
-        } else {
-            nonGFProductName = ""
-            nonGFPriceText = ""
-            nonGFSizeText = ""
-            nonGFUnitPriceText = ""
-            nonGFSizeMode = .packageSize
-            nonGFUnitPriceBasis = .cents
-            nonGFSelectedSizeObservationID = nil
         }
     }
 
@@ -395,12 +289,7 @@ struct ProductCaptureFlowView: View {
 
             VStack(spacing: 12) {
                 Button {
-                    if isGF {
-                        currentStep = .captureGF
-                    } else {
-                        currentStep = .captureNonGF
-                    }
-                    showingScanner = true
+                    viewModel.retakeAfterNoText(isGF: isGF)
                 } label: {
                     Label("Retake Photo", systemImage: "camera")
                         .frame(maxWidth: .infinity)
@@ -410,12 +299,7 @@ struct ProductCaptureFlowView: View {
                 Button {
                     // Allow manual entry by navigating forward
                     // User can use the Library tab for full manual entry
-                    if isGF {
-                        currentStep = .captureNonGF
-                        showingScanner = true
-                    } else {
-                        currentStep = .finalize
-                    }
+                    viewModel.skipProduct(isGF: isGF)
                 } label: {
                     Text("Skip for Now")
                         .frame(maxWidth: .infinity)
@@ -437,90 +321,34 @@ struct ProductCaptureFlowView: View {
 
                 // Side-by-side comparison
                 HStack(spacing: 16) {
-                    // GF Product
-                    VStack(spacing: 8) {
-                        Text("Gluten-Free")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    productSummary(
+                        title: "Gluten-Free",
+                        image: viewModel.gfImage,
+                        name: viewModel.gfProductName,
+                        price: viewModel.gfPrice,
+                        priceColor: .green,
+                        sizeMode: viewModel.gfSizeMode,
+                        sizeText: viewModel.gfSizeText,
+                        unitPriceText: viewModel.gfUnitPriceText
+                    )
 
-                        if let image = gfImage {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 120)
-                                .cornerRadius(8)
-                        }
-
-                        Text(gfProductName)
-                            .font(.caption)
-                            .lineLimit(2)
-
-                        if let price = Decimal(string: gfPriceText) {
-                            Text(price.formatted(.currency(code: "CAD")))
-                                .font(.headline)
-                                .foregroundStyle(.green)
-                        }
-
-                        if let unit = selectedUnit {
-                            Group {
-                                if gfSizeMode == .packageSize, !gfSizeText.isEmpty {
-                                    Text("\(gfSizeText) \(unit.displayName)")
-                                } else if gfSizeMode != .packageSize, !gfUnitPriceText.isEmpty {
-                                    Text("$\(gfUnitPriceText)/\(unit.displayName)")
-                                }
-                            }
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    // Non-GF Product
-                    VStack(spacing: 8) {
-                        Text("Regular")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        if let image = nonGFImage {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: 120)
-                                .cornerRadius(8)
-                        }
-
-                        Text(nonGFProductName)
-                            .font(.caption)
-                            .lineLimit(2)
-
-                        if let price = Decimal(string: nonGFPriceText) {
-                            Text(price.formatted(.currency(code: "CAD")))
-                                .font(.headline)
-                                .foregroundStyle(.blue)
-                        }
-
-                        if let unit = selectedUnit {
-                            Group {
-                                if nonGFSizeMode == .packageSize, !nonGFSizeText.isEmpty {
-                                    Text("\(nonGFSizeText) \(unit.displayName)")
-                                } else if nonGFSizeMode != .packageSize, !nonGFUnitPriceText.isEmpty {
-                                    Text("$\(nonGFUnitPriceText)/\(unit.displayName)")
-                                }
-                            }
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
+                    productSummary(
+                        title: "Regular",
+                        image: viewModel.nonGFImage,
+                        name: viewModel.nonGFProductName,
+                        price: viewModel.nonGFPrice,
+                        priceColor: .blue,
+                        sizeMode: viewModel.nonGFSizeMode,
+                        sizeText: viewModel.nonGFSizeText,
+                        unitPriceText: viewModel.nonGFUnitPriceText
+                    )
                 }
                 .padding()
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(12)
 
                 // Differential
-                if let gfPrice = Decimal(string: gfPriceText),
-                   let nonGFPrice = Decimal(string: nonGFPriceText) {
-                    let differential = gfPrice - nonGFPrice
+                if let differential = viewModel.packagePriceDifferential {
                     VStack(spacing: 4) {
                         Text("Package Price Differential")
                             .font(.caption)
@@ -536,33 +364,8 @@ struct ProductCaptureFlowView: View {
                     .cornerRadius(12)
                 }
 
-                // Unit price differential preview (uses same back-calc logic as saveProductPair)
-                let previewGFSize: Decimal? = {
-                    if gfSizeMode == .packageSize {
-                        return Decimal(string: gfSizeText)
-                    } else if let p = Decimal(string: gfPriceText),
-                              let u = Decimal(string: gfUnitPriceText), u > 0 {
-                        let uDollars = gfUnitPriceBasis == .cents ? u / 100 : u
-                        return p / uDollars
-                    }
-                    return nil
-                }()
-                let previewNonGFSize: Decimal? = {
-                    if nonGFSizeMode == .packageSize {
-                        return Decimal(string: nonGFSizeText)
-                    } else if let p = Decimal(string: nonGFPriceText),
-                              let u = Decimal(string: nonGFUnitPriceText), u > 0 {
-                        let uDollars = nonGFUnitPriceBasis == .cents ? u / 100 : u
-                        return p / uDollars
-                    }
-                    return nil
-                }()
-
-                if let gfP = Decimal(string: gfPriceText),
-                   let regP = Decimal(string: nonGFPriceText),
-                   let gfV = previewGFSize, gfV > 0,
-                   let regV = previewNonGFSize, regV > 0 {
-                    let normDiff = ((gfP / gfV) - (regP / regV)) * gfV
+                // Unit price differential preview — same back-calculation the save uses
+                if let normDiff = viewModel.unitPriceDifferential {
                     VStack(spacing: 4) {
                         Text("Unit Price Differential")
                             .font(.caption)
@@ -588,8 +391,8 @@ struct ProductCaptureFlowView: View {
                     Text("Category (Optional)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Picker("Category", selection: $category) {
-                        ForEach(commonCategories, id: \.self) { Text($0).tag($0) }
+                    Picker("Category", selection: $viewModel.category) {
+                        ForEach(CaptureFlowViewModel.categoryOptions, id: \.self) { Text($0).tag($0) }
                     }
                     .pickerStyle(.menu)
                     .accessibilityLabel("Product category")
@@ -601,7 +404,7 @@ struct ProductCaptureFlowView: View {
                     Text("Notes (Optional)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    TextEditor(text: $notes)
+                    TextEditor(text: $viewModel.notes)
                         .frame(height: 80)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -611,26 +414,75 @@ struct ProductCaptureFlowView: View {
 
                 // Save Button
                 Button {
-                    saveProductPair()
+                    viewModel.save(into: modelContext)
                 } label: {
                     HStack {
-                        if isSaving {
+                        if viewModel.isSaving {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                         }
-                        Text(isSaving ? "Saving..." : "Save Product Pair")
+                        Text(viewModel.isSaving ? "Saving..." : "Save Product Pair")
                             .font(.headline)
                     }
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(isSaving ? Color.gray : Color.green)
+                    .background(viewModel.isSaving ? Color.gray : Color.green)
                     .cornerRadius(12)
                 }
-                .disabled(isSaving)
+                .disabled(viewModel.isSaving)
             }
             .padding()
         }
+    }
+
+    /// One half of the side-by-side comparison on the finalize screen
+    private func productSummary(
+        title: String,
+        image: UIImage?,
+        name: String,
+        price: Decimal?,
+        priceColor: Color,
+        sizeMode: SizeInputMode,
+        sizeText: String,
+        unitPriceText: String
+    ) -> some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 120)
+                    .cornerRadius(8)
+            }
+
+            Text(name)
+                .font(.caption)
+                .lineLimit(2)
+
+            if let price = price {
+                Text(price.formatted(.currency(code: "CAD")))
+                    .font(.headline)
+                    .foregroundStyle(priceColor)
+            }
+
+            if let unit = viewModel.selectedUnit {
+                Group {
+                    if sizeMode == .packageSize, !sizeText.isEmpty {
+                        Text("\(sizeText) \(unit.displayName)")
+                    } else if sizeMode != .packageSize, !unitPriceText.isEmpty {
+                        Text("$\(unitPriceText)/\(unit.displayName)")
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - OCR Loading Overlay
@@ -650,328 +502,6 @@ struct ProductCaptureFlowView: View {
             .padding(32)
             .background(Color.gray.opacity(0.9))
             .cornerRadius(16)
-        }
-    }
-
-    // MARK: - Actions
-
-    /// Handles image from document scanner
-    private func handleScannedImage(_ image: UIImage?) {
-        guard let image = image else { return }
-
-        Task {
-            isProcessingOCR = true
-            reviewToken = UUID()
-
-            // Save image to storage
-            let uuid = await ImageStorageService.shared.saveImage(image, type: .product)
-
-            // Detect rectangles only if feature is enabled
-            let rectangles: [DetectedRectangle]
-            if rectangleSelectionEnabled {
-                rectangles = (try? await OCRService.shared.detectRectangles(in: image)) ?? []
-            } else {
-                rectangles = []
-            }
-
-            switch currentStep {
-            case .captureGF:
-                gfImage = image
-                gfImageUUID = uuid
-
-                if rectangleSelectionEnabled && !rectangles.isEmpty {
-                    // Rectangle selection enabled and rectangles detected - let user select region
-                    gfDetectedRectangles = rectangles
-                    currentStep = .selectGFRectangle
-                } else {
-                    // Feature disabled or no rectangles - proceed with full-image OCR
-                    let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
-                    gfOCRObservations = observations
-                    currentStep = .reviewGF
-                }
-
-            case .captureNonGF:
-                nonGFImage = image
-                nonGFImageUUID = uuid
-
-                if rectangleSelectionEnabled && !rectangles.isEmpty {
-                    // Rectangle selection enabled and rectangles detected - let user select region
-                    nonGFDetectedRectangles = rectangles
-                    currentStep = .selectNonGFRectangle
-                } else {
-                    // Feature disabled or no rectangles - proceed with full-image OCR
-                    let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
-                    nonGFOCRObservations = observations
-                    currentStep = .reviewNonGF
-                }
-
-            default:
-                break
-            }
-
-            isProcessingOCR = false
-        }
-    }
-
-    /// Handles selection of a rectangle region for OCR
-    private func handleRectangleSelection(_ rectangle: DetectedRectangle, isGF: Bool) {
-        guard let image = isGF ? gfImage : nonGFImage else { return }
-
-        Task {
-            isProcessingOCR = true
-            reviewToken = UUID()
-
-            // Extract text from selected region only
-            let observations = (try? await OCRService.shared.extractSelectableText(from: image, region: rectangle.boundingBox)) ?? []
-
-            if isGF {
-                gfSelectedRectangle = rectangle
-                gfOCRObservations = observations
-                currentStep = .reviewGF
-            } else {
-                nonGFSelectedRectangle = rectangle
-                nonGFOCRObservations = observations
-                currentStep = .reviewNonGF
-            }
-
-            isProcessingOCR = false
-        }
-    }
-
-    /// Handles skipping rectangle selection and using full-image OCR
-    private func handleSkipRectangleSelection(isGF: Bool) {
-        guard let image = isGF ? gfImage : nonGFImage else { return }
-
-        Task {
-            isProcessingOCR = true
-            reviewToken = UUID()
-
-            // Extract text from full image
-            let observations = (try? await OCRService.shared.extractSelectableText(from: image)) ?? []
-
-            if isGF {
-                gfSelectedRectangle = nil
-                gfOCRObservations = observations
-                currentStep = .reviewGF
-            } else {
-                nonGFSelectedRectangle = nil
-                nonGFOCRObservations = observations
-                currentStep = .reviewNonGF
-            }
-
-            isProcessingOCR = false
-        }
-    }
-
-    // MARK: - Size OCR Parsing
-
-    /// Extracts a numeric size and suggests a SizeUnit from text like "400g", "1.5 L", "12oz"
-    private func parseSizeFromOCR(_ text: String) -> (value: String, unit: SizeUnit?) {
-        let unitPatterns: [(pattern: String, unit: SizeUnit)] = [
-            (#"(\d+\.?\d*)\s*fl\.?\s*oz"#, .flOunces),
-            (#"(\d+\.?\d*)\s*kg"#, .kilograms),
-            (#"(\d+\.?\d*)\s*mL"#, .milliliters),
-            (#"(\d+\.?\d*)\s*L\b"#, .liters),
-            (#"(\d+\.?\d*)\s*oz"#, .ounces),
-            (#"(\d+\.?\d*)\s*lb"#, .pounds),
-            (#"(\d+\.?\d*)\s*g\b"#, .grams),
-            (#"(\d+\.?\d*)\s*count"#, .count),
-        ]
-
-        for (pattern, unit) in unitPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                let range = NSRange(text.startIndex..., in: text)
-                if let match = regex.firstMatch(in: text, options: [], range: range),
-                   match.numberOfRanges > 1,
-                   let valRange = Range(match.range(at: 1), in: text) {
-                    return (String(text[valRange]), unit)
-                }
-            }
-        }
-        // No pattern matched — return raw text for manual editing
-        return (text, nil)
-    }
-
-    /// Extracts a unit price and suggests a SizeUnit from text like "$1.49/100g", "0.99/oz"
-    private func parseUnitPriceFromOCR(_ text: String) -> (value: String, unit: SizeUnit?) {
-        let unitPatterns: [(pattern: String, unit: SizeUnit)] = [
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*fl\.?\s*oz"#, .flOunces),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*kg"#, .kilograms),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*mL"#, .milliliters),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*L\b"#, .liters),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*oz"#, .ounces),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*lb"#, .pounds),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*g\b"#, .grams),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*count"#, .count),
-        ]
-
-        for (pattern, unit) in unitPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                let range = NSRange(text.startIndex..., in: text)
-                if let match = regex.firstMatch(in: text, options: [], range: range),
-                   match.numberOfRanges > 1,
-                   let valRange = Range(match.range(at: 1), in: text) {
-                    return (String(text[valRange]), unit)
-                }
-            }
-        }
-        return (text, nil)
-    }
-
-    /// Routes an OCR row tap to the correct size field based on the current mode
-    private func handleSizeRowTap(_ obs: SelectableTextObservation, isGF: Bool) {
-        let mode = isGF ? gfSizeMode : nonGFSizeMode
-        if mode == .packageSize {
-            let parsed = parseSizeFromOCR(obs.text)
-            if isGF {
-                gfSizeText = parsed.value
-                gfSelectedSizeObservationID = obs.id
-            } else {
-                nonGFSizeText = parsed.value
-                nonGFSelectedSizeObservationID = obs.id
-            }
-            if let u = parsed.unit, selectedUnit == nil { selectedUnit = u }
-        } else {
-            let parsed = parseUnitPriceFromOCR(obs.text)
-            if isGF {
-                gfUnitPriceText = parsed.value
-                gfSelectedSizeObservationID = obs.id
-            } else {
-                nonGFUnitPriceText = parsed.value
-                nonGFSelectedSizeObservationID = obs.id
-            }
-            if let u = parsed.unit, selectedUnit == nil { selectedUnit = u }
-        }
-    }
-
-    /// Saves the product pair to SwiftData
-    private func saveProductPair() {
-        guard let gfPrice = Decimal(string: gfPriceText),
-              let nonGFPrice = Decimal(string: nonGFPriceText) else {
-            print("❌ Invalid price format")
-            return
-        }
-
-        isSaving = true
-
-        // Compute size values based on the input mode chosen during review
-        let finalGFSizeValue: Decimal?
-        if gfSizeMode == .packageSize {
-            finalGFSizeValue = Decimal(string: gfSizeText)
-        } else {
-            // Unit Price / Manual: back-calculate size = productPrice / unitPrice (in dollars)
-            // If basis is cents, divide by 100 to convert to dollars before dividing
-            if let price = Decimal(string: gfPriceText),
-               let unitPrice = Decimal(string: gfUnitPriceText), unitPrice > 0 {
-                let unitPriceInDollars = gfUnitPriceBasis == .cents ? unitPrice / 100 : unitPrice
-                finalGFSizeValue = price / unitPriceInDollars
-            } else {
-                finalGFSizeValue = nil
-            }
-        }
-
-        let finalNonGFSizeValue: Decimal?
-        if nonGFSizeMode == .packageSize {
-            finalNonGFSizeValue = Decimal(string: nonGFSizeText)
-        } else {
-            if let price = Decimal(string: nonGFPriceText),
-               let unitPrice = Decimal(string: nonGFUnitPriceText), unitPrice > 0 {
-                let unitPriceInDollars = nonGFUnitPriceBasis == .cents ? unitPrice / 100 : unitPrice
-                finalNonGFSizeValue = price / unitPriceInDollars
-            } else {
-                finalNonGFSizeValue = nil
-            }
-        }
-
-        let sizeUnitRaw: String? = (finalGFSizeValue != nil && finalNonGFSizeValue != nil) ? selectedUnit?.rawValue : nil
-
-        // Build display strings for legacy size fields
-        let unitSuffix = selectedUnit?.displayName ?? ""
-        let gfDisplayNum = gfSizeMode == .packageSize ? gfSizeText : gfUnitPriceText
-        let nonGFDisplayNum = nonGFSizeMode == .packageSize ? nonGFSizeText : nonGFUnitPriceText
-        let gfSizeDisplay: String? = gfDisplayNum.isEmpty ? nil : "\(gfDisplayNum)\(unitSuffix)"
-        let nonGFSizeDisplay: String? = nonGFDisplayNum.isEmpty ? nil : "\(nonGFDisplayNum)\(unitSuffix)"
-
-        let productPair = ProductPair(
-            gfProductName: gfProductName.trimmingCharacters(in: .whitespacesAndNewlines),
-            gfPrice: gfPrice,
-            gfSize: gfSizeDisplay,
-            gfSizeValue: finalGFSizeValue,
-            gfImageUUID: gfImageUUID,
-            gfOCRConfidence: 0.0,
-            nonGFProductName: nonGFProductName.trimmingCharacters(in: .whitespacesAndNewlines),
-            nonGFPrice: nonGFPrice,
-            nonGFSize: nonGFSizeDisplay,
-            nonGFSizeValue: finalNonGFSizeValue,
-            nonGFImageUUID: nonGFImageUUID,
-            nonGFOCRConfidence: 0.0,
-            sizeUnit: sizeUnitRaw,
-            category: (category.isEmpty || category == "None") ? nil : category,
-            notes: notes.isEmpty ? nil : notes,
-            verified: false
-        )
-
-        modelContext.insert(productPair)
-
-        do {
-            try modelContext.save()
-            print("✅ Saved ProductPair: \(productPair.gfProductName) vs \(productPair.nonGFProductName)")
-            print("   Differential: $\(productPair.differential)")
-
-            isSaving = false
-            dismiss()
-        } catch {
-            print("❌ Save failed: \(error.localizedDescription)")
-            isSaving = false
-        }
-    }
-}
-
-// MARK: - Size Input Mode
-
-enum SizeInputMode: String, CaseIterable {
-    case packageSize = "Package Size"
-    case unitPrice = "Unit Price"
-    case manual = "Manual"
-}
-
-// MARK: - Unit Price Basis
-
-enum UnitPriceBasis: String, CaseIterable {
-    case cents = "Cents (¢)"
-    case dollars = "Dollars ($)"
-}
-
-// MARK: - Capture Step Enum
-
-private enum CaptureStep {
-    case introduction
-    case captureGF
-    case selectGFRectangle
-    case reviewGF
-    case captureNonGF
-    case selectNonGFRectangle
-    case reviewNonGF
-    case finalize
-
-    var title: String {
-        switch self {
-        case .introduction:
-            return "Capture Product Pair"
-        case .captureGF:
-            return "Scan GF Product"
-        case .selectGFRectangle:
-            return "Select GF Region"
-        case .reviewGF:
-            return "Review GF Product"
-        case .captureNonGF:
-            return "Scan Regular Product"
-        case .selectNonGFRectangle:
-            return "Select Regular Region"
-        case .reviewNonGF:
-            return "Review Regular Product"
-        case .finalize:
-            return "Finalize"
         }
     }
 }
