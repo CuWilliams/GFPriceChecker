@@ -205,13 +205,22 @@ def _receipt_lines(receipt, rows, total):
 def _row_text(name, amount, width_chars):
     """One item row: label and amount separated by a single space.
 
-    The single space is load-bearing and is not a style choice. From
+    The single space was load-bearing rather than a style choice. From
     `SampleScanImages.drawRow`, which measured it: Vision returns a wide
     horizontal gap as a separate text observation, so a two-column receipt OCRs
-    as labels and amounts on different lines and `ReceiptParserService` cannot
-    pair them. A single space is ordinary word spacing with no gap to split on.
-    See issue #51 — when `extractTotal` learns to read a real two-column
-    receipt, this can become an honest two-column layout.
+    as labels and amounts on different lines and `ReceiptParserService` could
+    not pair them. A single space is ordinary word spacing with no gap to split
+    on.
+
+    **Issue #51 is fixed, so that constraint is lifted** — `extractTotal` now
+    reads a bare amount right-aligned into its own column, and
+    `SampleScanImages` draws two columns by default. This can follow.
+
+    It has not, only because these receipts are *drawn for the camera*: unlike
+    the Swift samples, nothing OCRs them (`extractedOCRText` is regenerated
+    from the same lines, not read back off the image), so the change is purely
+    visual and wants someone to look at the rendered result rather than a green
+    test. Left for whoever renders the Stage 6 media.
     """
     amount_text = f"${amount:.2f}"
     budget = width_chars - len(amount_text) - 1

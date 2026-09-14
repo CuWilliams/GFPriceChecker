@@ -461,37 +461,81 @@ final class ReceiptParserService {
 
     // MARK: - Total Extraction
 
+    /// Labels that contain "total" without being the receipt's total.
+    ///
+    /// The amount no longer has to carry a `$` to be recognised, which widens
+    /// what a "total" line can be confused with — a `TOTAL SAVINGS 3.40`
+    /// printed below the real total would otherwise win, since the scan runs
+    /// bottom-up.
+    private static let nonTotalLabels = [
+        "subtotal", "sub total", "sub-total",
+        "total savings", "total discount", "total items", "total number"
+    ]
+
     /// Extracts total amount from receipt text
     ///
-    /// Searches for lines containing "TOTAL" and a price.
+    /// Scans upward for a line labelled "total" and takes the amount from it.
+    /// Two things real receipts do that the naive version of this missed
+    /// (issue #51):
+    ///
+    /// - **The `$` is usually absent.** Canadian grocery receipts print
+    ///   `TOTAL      19.96`; the symbol appears in the header if at all. So the
+    ///   symbol is optional here.
+    /// - **The amount is right-aligned into a second column.** Vision returns a
+    ///   wide horizontal gap as a *separate* `VNRecognizedTextObservation`, so
+    ///   the label's line arrives carrying no amount and the number lands on
+    ///   the line below it. When that happens this falls through to the next
+    ///   line, the same way `extractMultiLineItems` pairs a Costco-style
+    ///   product line with the price printed beneath it.
     ///
     /// - Parameter text: Raw receipt OCR text
     /// - Returns: Total amount if found, nil otherwise
     func extractTotal(from text: String) -> Decimal? {
-        let lines = text.components(separatedBy: .newlines)
+        let lines = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-        // Look for lines with "TOTAL" and a price
-        for line in lines.reversed() { // Start from bottom
-            let lowercased = line.lowercased()
+        // The `$` is optional: see the note above.
+        let amountPattern = #"\$?\s*(\d{1,4}\.\d{2})"#
+        // A column of its own holds nothing but the amount.
+        let standalonePattern = #"^\$?\s*(\d{1,4}\.\d{2})$"#
+
+        guard let amountRegex = try? NSRegularExpression(pattern: amountPattern, options: []),
+              let standaloneRegex = try? NSRegularExpression(pattern: standalonePattern, options: []) else {
+            return nil
+        }
+
+        func amount(in line: String, using regex: NSRegularExpression) -> Decimal? {
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = regex.firstMatch(in: line, options: [], range: range),
+                  let captured = Range(match.range(at: 1), in: line) else {
+                return nil
+            }
+            return Decimal(string: String(line[captured]))
+        }
+
+        for index in lines.indices.reversed() { // Start from bottom
+            let lowercased = lines[index].lowercased()
             guard lowercased.contains("total") else {
                 continue
             }
 
-            // Skip subtotal
-            if lowercased.contains("subtotal") {
+            // Skip subtotals and the other labels that merely contain the word.
+            if Self.nonTotalLabels.contains(where: { lowercased.contains($0) }) {
                 continue
             }
 
-            // Extract price from this line
-            let pricePattern = #"\$(\d{1,4}\.\d{2})"#
-            guard let regex = try? NSRegularExpression(pattern: pricePattern, options: []),
-                  let match = regex.firstMatch(in: line, options: [], range: NSRange(line.startIndex..., in: line)),
-                  let range = Range(match.range(at: 1), in: line) else {
-                continue
+            // The amount is on the label's own line.
+            if let total = amount(in: lines[index], using: amountRegex) {
+                return total
             }
 
-            let priceString = String(line[range])
-            if let total = Decimal(string: priceString) {
+            // Otherwise it was right-aligned into its own observation. Take the
+            // next line if it is nothing but an amount; stop at the line after
+            // that, so a "TOTAL" with no number under it cannot reach down and
+            // claim an unrelated figure further along the receipt.
+            let next = index + 1
+            if next < lines.count, let total = amount(in: lines[next], using: standaloneRegex) {
                 return total
             }
         }
