@@ -458,10 +458,14 @@ Still the user's to do, since they need a device or a human eye:
    - Backup files contain unencrypted data
 
 7. **Simulator:**
-   - `DocumentScannerView` wraps `VNDocumentCameraViewController`, which is unavailable in the
-     Simulator, and there is no `isSupported` guard. Both capture flows therefore dead-end at
-     the scanner sheet on Simulator — they can only be exercised on a physical device.
-     Addressed by Stage 1 of `docs/SCRIPTED_DEMO_PIPELINE.md`.
+   - `VNDocumentCameraViewController` is unavailable in the Simulator. `DocumentScannerView`
+     now checks `isSupported` and falls back to `SubstituteScannerView`, which supplies an
+     image from the photo library or — in DEBUG — from `SampleScanImages`, so both capture
+     flows run end to end without a camera. The choice is made inside `DocumentScannerView`,
+     so all three call sites get it and device behaviour is unchanged.
+   - Scanned *image quality* still differs: the real scanner does edge detection and
+     perspective correction, the substitute hands the image through untouched. Anything about
+     how well OCR copes with a skewed or badly lit photograph still needs a device.
 
 ---
 
