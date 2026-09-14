@@ -33,3 +33,11 @@ Pods/
 # Claude Code
 # Shared project permissions are tracked; per-machine overrides are not.
 .claude/settings.local.json
+
+# Demo pipeline working files. These belong in ~/GFPCDemoData/, outside the
+# repo; these rules are in case a copy lands inside. A raw backup exported from
+# a device carries a SIN and photographs of real receipts — see
+# Tools/Demo/README.md — and must never be committed.
+GFPCDemoData/
+backup-raw.json
+demo-dataset.json

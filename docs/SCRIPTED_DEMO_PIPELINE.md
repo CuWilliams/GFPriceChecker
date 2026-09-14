@@ -184,6 +184,15 @@ Treat receipt images as the hardest part: they cannot be scrubbed by editing JSO
 because the PII is *in the photograph*. Either substitute staged receipt photos, or restrict
 the videos to flows that do not display a receipt image full-screen.
 
+**Resolved, and neither of those.** `scrub_backup.py` *draws* each substitute from the data
+that survives the scrub — the GF products that receipt verifies, their prices, the purchase
+date, the normalized chain name — reusing the layout `SampleScanImages` measured its way to
+in Stage 1. `extractedOCRText` is regenerated from the same lines, and `totalAmount` is
+recomputed from the items, so the receipt on screen adds up to the total beside it. No staging
+session, and the videos can show a receipt full-screen. Also note `extractedOCRText`, which
+§3.3 originally missed: it is the text read off the real photograph, so it carries the same
+information in plain sight and needs the same treatment.
+
 ---
 
 ## 4. What ports from TrendFit, in three tiers
@@ -273,8 +282,14 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
   same reason. Not fixed here — it changes shipping behaviour against real receipts and
   belongs in its own change with real scans to test against.
 
-### Stage 2 — seed data
-- Export a real backup from the device; build a scrubbing step (§3.3).
+### Stage 2 — seed data — **scrub done, seeding entry point outstanding**
+- ~~Build a scrubbing step (§3.3).~~ `Tools/Demo/scrub_backup.py`, with
+  `Tools/Demo/README.md`. It also verifies its own output, both for PII and for whether
+  `importBackup` will read it — the Codable structs are mirrored there as a schema, so it
+  catches a date without a timezone, a `version` other than `"1.0"`, an unparseable price
+  (which imports silently as free) and a `receiptID` pointing at nothing (which imports the
+  product silently unverified).
+- Export a real backup from the device — the one step nobody but the user can do.
 - A DEBUG seeding entry point that does `clearAllData` then `importBackup(.replace)`.
 - **Acceptance:** one command puts the Simulator in a known, populated, PII-free state.
 
@@ -313,9 +328,15 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
    to captions only; or generate narration.
 3. **Do the stills matter here?** TrendFit's `stills.sh` exists because its site has tiles cut
    from the same scripts. Does gfpricechecker.github.io want the same guarantee?
-4. **Where do demo assets live?** TrendFit uses `~/TrendFitDemoData/` outside the repo. Same
-   here, presumably `~/GFPCDemoData/`.
-5. **Receipt imagery** — staged photos, or avoid full-screen receipt display in video? (§3.3)
+4. ~~**Where do demo assets live?**~~ **Answered:** `~/GFPCDemoData/`, outside the repo,
+   with `.gitignore` covering `backup-raw.json`, `demo-dataset.json` and `GFPCDemoData/`
+   anyway in case a copy lands inside.
+5. ~~**Receipt imagery** — staged photos, or avoid full-screen receipt display in video?~~
+   **Answered:** neither. The scrub draws a substitute receipt from the surviving data (§3.3).
+6. **Shelf-tag photographs.** The scrub keeps them, because they are the app's subject and a
+   shelf tag is not private. But they were photographed in a shop, and what else is in a frame
+   is a question only a person looking at them can answer. `--dump-product-images` writes them
+   out for exactly that review; it has not been run on the real export yet.
 
 ---
 
