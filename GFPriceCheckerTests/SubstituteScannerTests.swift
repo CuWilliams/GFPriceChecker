@@ -103,9 +103,21 @@ struct SubstituteScannerTests {
     /// `ReceiptCaptureView` prefills store, date and total from the parser. All
     /// three come from OCR text, so this asserts the drawn receipt survives the
     /// round trip rather than that the parser works on a hand-written string.
-    @Test("The sample receipt parses to store, date and total")
-    func receiptParses() async throws {
-        let image = SampleScanImages.receipt(SampleScanImages.groceryReceipt)
+    ///
+    /// Run over both row styles. `.inline` is the layout the sample was
+    /// originally drawn in — one the parser could already read. `.twoColumn` is
+    /// how receipts actually print, and it is the case issue #51 is about: the
+    /// amount lands in its own observation, so "TOTAL" arrives on a line with
+    /// no number on it and no `$` anywhere.
+    ///
+    /// Parameterized over the style's name rather than the `RowStyle` value:
+    /// arguments are evaluated outside the suite's actor, and a reference to a
+    /// type nested in a `@MainActor` enum picks up an isolation error there.
+    @Test("The sample receipt parses to store, date and total",
+          arguments: ["inline", "twoColumn"])
+    func receiptParses(style: String) async throws {
+        let image = SampleScanImages.receipt(SampleScanImages.groceryReceipt,
+                                             style: try #require(Self.rowStyle(style)))
         let text = try await OCRService.shared.extractReceiptText(from: image)
         let parser = ReceiptParserService.shared
 
@@ -117,17 +129,69 @@ struct SubstituteScannerTests {
         #expect(components.month == 3)
         #expect(components.day == 14)
 
-        // $19.96, not the $17.66 subtotal sitting two lines above it.
-        #expect(parser.extractTotal(from: text) == Decimal(string: "19.96"), "total wrong in:\n\(text)")
+        // 19.96, not the 17.66 subtotal sitting two lines above it.
+        #expect(parser.extractTotal(from: text) == Decimal(string: "19.96"),
+                "total wrong in \(style):\n\(text)")
     }
 
-    @Test("The receipt lists every product it is meant to verify")
-    func receiptListsProducts() async throws {
-        let image = SampleScanImages.receipt(SampleScanImages.groceryReceipt)
+    @Test("The receipt lists every product it is meant to verify",
+          arguments: ["inline", "twoColumn"])
+    func receiptListsProducts(style: String) async throws {
+        let image = SampleScanImages.receipt(SampleScanImages.groceryReceipt,
+                                             style: try #require(Self.rowStyle(style)))
         let text = try await OCRService.shared.extractReceiptText(from: image).uppercased()
 
         for line in SampleScanImages.groceryReceipt.lines {
-            #expect(text.contains(line.name), "\(line.name) missing from receipt OCR:\n\(text)")
+            #expect(text.contains(line.name), "\(line.name) missing from \(style) receipt OCR:\n\(text)")
+        }
+    }
+
+    /// The fall-through in `extractTotal` takes the amount from the line *after*
+    /// the label. That is only correct because `extractReceiptText` sorts
+    /// observations by `boundingBox.origin.y` descending, and on a two-column
+    /// row the label's box sorts above the amount's.
+    ///
+    /// Those two boxes sit on one printed baseline, so the margin between their
+    /// origins is only however far one run of glyphs extends below the other —
+    /// thin, and not something the parser can check for itself. If Vision ever
+    /// orders them the other way the total silently goes nil again, and a
+    /// look-*behind* would be the wrong repair: on `SUBTOTAL / 17.66 / HST /
+    /// 2.30 / TOTAL / 19.96` the line before the label is the tax amount. The
+    /// repair would be to band observations into rows in `extractReceiptText`.
+    ///
+    /// So this pins the assumption, and names the fix if it ever breaks.
+    @Test("On a two-column receipt a label sorts above its own amount")
+    func twoColumnLabelSortsAboveItsAmount() async throws {
+        let image = SampleScanImages.receipt(SampleScanImages.groceryReceipt, style: .twoColumn)
+        let observations = try await OCRService.shared.extractSelectableText(from: image)
+
+        func observation(matching predicate: (String) -> Bool) throws -> SelectableTextObservation {
+            try #require(observations.first {
+                predicate($0.text.trimmingCharacters(in: .whitespacesAndNewlines))
+            })
+        }
+
+        let label = try observation { $0.caseInsensitiveCompare("TOTAL") == .orderedSame }
+        let amount = try observation { $0.contains("19.96") }
+
+        let margin = label.boundingBox.origin.y - amount.boundingBox.origin.y
+        print("📐 TOTAL origin.y \(label.boundingBox.origin.y), 19.96 origin.y \(amount.boundingBox.origin.y), margin \(margin), label height \(label.boundingBox.height)")
+
+        #expect(
+            margin > 0,
+            """
+            The amount now sorts above its label, so extractTotal's fall-through \
+            reads the wrong line. Band observations into rows in \
+            extractReceiptText rather than adding a look-behind. Margin: \(margin)
+            """
+        )
+    }
+
+    private static func rowStyle(_ name: String) -> SampleScanImages.RowStyle? {
+        switch name {
+        case "inline": return .inline
+        case "twoColumn": return .twoColumn
+        default: return nil
         }
     }
 

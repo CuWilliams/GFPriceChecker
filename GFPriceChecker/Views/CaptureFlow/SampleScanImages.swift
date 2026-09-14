@@ -28,6 +28,8 @@ import UIKit
 ///   `parseSizeFromOCR` and `parseUnitPriceFromOCR` match against.
 /// - The receipt carries a store in `ReceiptParserService.commonStores`, an ISO
 ///   date, and a `TOTAL` line below a `SUBTOTAL` line it must not pick instead.
+///   It prints in two columns with bare amounts, as receipts do, which is the
+///   layout `extractTotal` could not read until issue #51.
 ///
 /// Brands are invented. These images end up on screen in demo recordings, so no
 /// real brand is put in a frame the project does not own.
@@ -66,6 +68,24 @@ enum SampleScanImages {
         let subtotal: String
         let tax: String
         let total: String
+    }
+
+    /// How a receipt prints its label/amount rows.
+    ///
+    /// Both are shapes real receipts take, and they stress the parser
+    /// differently, so the catalog can render either.
+    enum RowStyle: Sendable {
+        /// Label and amount one space apart, the row as a whole pushed to the
+        /// right margin, amounts carrying whatever symbol the data holds.
+        /// Vision reads the pair as one observation, so label and amount
+        /// arrive on the same line of reassembled text.
+        case inline
+
+        /// Label at the left margin, bare amount right-aligned at the right
+        /// one — the two-column layout receipts actually print. Vision returns
+        /// each column as its own observation, so the label's line carries no
+        /// amount at all. See issue #51.
+        case twoColumn
     }
 
     // MARK: - Catalog
@@ -221,9 +241,15 @@ enum SampleScanImages {
         static let lineHeight: CGFloat = 52
     }
 
-    /// Draws a receipt.
+    /// Draws a receipt in the given row style.
+    ///
+    /// Defaults to `.twoColumn`, the way a receipt actually prints. It could
+    /// not before issue #51 was fixed — `extractTotal` needed the label and a
+    /// `$` amount on one line, which only `.inline` gave it — so the sample in
+    /// the catalog, and with it every demo recording made from it, was drawn to
+    /// suit the parser.
     @MainActor
-    static func receipt(_ receipt: Receipt) -> UIImage {
+    static func receipt(_ receipt: Receipt, style: RowStyle = .twoColumn) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: ReceiptLayout.size)
         return renderer.image { context in
             let bounds = CGRect(origin: .zero, size: ReceiptLayout.size)
@@ -261,7 +287,7 @@ enum SampleScanImages {
             y += 30
 
             for line in receipt.lines {
-                drawRow(line.name, line.amount, y: y, in: content, weight: .regular)
+                drawRow(line.name, line.amount, y: y, in: content, weight: .regular, style: style)
                 y += ReceiptLayout.lineHeight
             }
 
@@ -269,14 +295,15 @@ enum SampleScanImages {
             rule(in: context.cgContext, y: y, from: content.minX, to: content.maxX)
             y += 30
 
-            drawRow("SUBTOTAL", receipt.subtotal, y: y, in: content, weight: .regular)
+            drawRow("SUBTOTAL", receipt.subtotal, y: y, in: content, weight: .regular, style: style)
             y += ReceiptLayout.lineHeight
-            drawRow("HST 13%", receipt.tax, y: y, in: content, weight: .regular)
+            drawRow("HST 13%", receipt.tax, y: y, in: content, weight: .regular, style: style)
             y += ReceiptLayout.lineHeight + 10
 
-            // extractTotal scans upward for a line containing "total" that is not
-            // "subtotal", and needs a $-prefixed amount on it.
-            drawRow("TOTAL", receipt.total, y: y, in: content, weight: .bold)
+            // extractTotal scans upward for a line containing "total" that is
+            // not "subtotal", so TOTAL has to sit below SUBTOTAL and be found
+            // in spite of it.
+            drawRow("TOTAL", receipt.total, y: y, in: content, weight: .bold, style: style)
             y += ReceiptLayout.lineHeight + 40
 
             _ = draw("THANK YOU FOR SHOPPING",
@@ -287,17 +314,15 @@ enum SampleScanImages {
         }
     }
 
-    /// Draws a receipt row: label and amount separated by a single space, the
-    /// row as a whole pushed to the right margin.
+    /// Draws a receipt row.
     ///
-    /// Not the two-column layout a receipt actually prints, and that is
-    /// deliberate. `extractTotal` needs "TOTAL" and a `$` amount on the *same*
-    /// line, and Vision will not reliably give it one across a gap. Measured,
-    /// in descending order of what was tried:
+    /// `.twoColumn` is how a receipt actually prints — label at the left
+    /// margin, bare amount right-aligned at the right one — and Vision returns
+    /// each column as its own observation across that gap. What was measured
+    /// while building this, in descending order of what was tried:
     ///
     /// - Two columns, amount right-aligned at the margin: every amount comes
-    ///   back as its own observation. `extractTotal` returns nil on a receipt
-    ///   that plainly has a total printed on it.
+    ///   back as its own observation, so the label's line carries no amount.
     /// - Dot leaders across the gap: worse. Vision reads the run of dots as a
     ///   separate bullet token and splits into three.
     /// - A two-space gap: splits unpredictably — `PANTRY LANE WHITE BREAD 3.29`
@@ -305,26 +330,39 @@ enum SampleScanImages {
     /// - A single space: holds. It is ordinary word spacing, so there is no gap
     ///   for the recognizer to treat as a column break.
     ///
-    /// Right-aligning the whole row keeps the amounts within a character or two
-    /// of a column while the separator stays a single space; only the labels go
-    /// ragged.
+    /// `.inline` is that last case: the row pushed to the right margin as a
+    /// unit so the amounts stay within a character or two of a column while
+    /// the separator stays a single space, leaving only the labels ragged.
     ///
-    /// Worth recording that the first case is not just a quirk of drawn images:
-    /// real receipts right-align their totals too, so `extractTotal` likely
-    /// misses them on real scans for exactly this reason.
+    /// Both layouts are kept because both are real. `.inline` is the one the
+    /// parser could read before issue #51; `.twoColumn` is the one it could
+    /// not, and `SubstituteScannerTests` runs the receipt tests over both so a
+    /// fix cannot regress either.
     @MainActor
     private static func drawRow(
         _ label: String,
         _ amount: String,
         y: CGFloat,
         in content: CGRect,
-        weight: UIFont.Weight
+        weight: UIFont.Weight,
+        style: RowStyle
     ) {
         let font = UIFont.monospacedSystemFont(ofSize: ReceiptLayout.body, weight: weight)
-        _ = draw("\(label) \(amount)", font: font, color: .black,
-                 in: CGRect(x: content.minX, y: y,
-                            width: content.width, height: ReceiptLayout.lineHeight),
-                 alignment: .right)
+        let row = CGRect(x: content.minX, y: y,
+                         width: content.width, height: ReceiptLayout.lineHeight)
+
+        switch style {
+        case .inline:
+            _ = draw("\(label) \(amount)", font: font, color: .black,
+                     in: row, alignment: .right)
+
+        case .twoColumn:
+            // Real receipts print the amount bare; the symbol, if it appears at
+            // all, is in the header.
+            let bare = amount.replacingOccurrences(of: "$", with: "")
+            _ = draw(label, font: font, color: .black, in: row, alignment: .left)
+            _ = draw(bare, font: font, color: .black, in: row, alignment: .right)
+        }
     }
 
     // MARK: - Drawing Primitives
