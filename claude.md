@@ -458,11 +458,15 @@ Still the user's to do, since they need a device or a human eye:
    - Backup files contain unencrypted data
 
 7. **Simulator:**
-   - `VNDocumentCameraViewController` is unavailable in the Simulator. `DocumentScannerView`
-     now checks `isSupported` and falls back to `SubstituteScannerView`, which supplies an
-     image from the photo library or — in DEBUG — from `SampleScanImages`, so both capture
-     flows run end to end without a camera. The choice is made inside `DocumentScannerView`,
-     so all three call sites get it and device behaviour is unchanged.
+   - `VNDocumentCameraViewController` presents a sheet that never returns an image in the
+     Simulator. `DocumentScannerView` now falls back to `SubstituteScannerView` there, which
+     supplies an image from the photo library or — in DEBUG — from `SampleScanImages`, so
+     both capture flows run end to end without a camera. The choice is made inside
+     `DocumentScannerView`, so all three call sites get it and device behaviour is unchanged.
+   - **`VNDocumentCameraViewController.isSupported` is not the signal for this.** Measured on
+     iOS 26 / Xcode 26.1.1, it returns `true` in the Simulator. The fallback keys off
+     `targetEnvironment(simulator)` instead, and `isSupported` is consulted only on a device.
+     `DocumentScannerSourceTests` pins both facts.
    - Scanned *image quality* still differs: the real scanner does edge detection and
      perspective correction, the substitute hands the image through untouched. Anything about
      how well OCR copes with a skewed or badly lit photograph still needs a device.

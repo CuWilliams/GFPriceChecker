@@ -61,8 +61,14 @@ Audited 2026-09-13 against `main` at 691065a. Four blockers, in the order they b
 ### Blocker 1 — the capture flows cannot run in the Simulator at all — **fixed, Stage 1**
 
 `Views/CaptureFlow/DocumentScannerView.swift` wraps `VNDocumentCameraViewController`
-(VisionKit). The document camera is **unavailable in the Simulator**, and there is no
-`isSupported` guard anywhere in the codebase — `grep -rn isSupported` returns nothing.
+(VisionKit). In the Simulator that controller presents a sheet that **never returns an
+image**, and there was no guard of any kind — `grep -rn isSupported` returned nothing.
+
+Note what the guard cannot be. `VNDocumentCameraViewController.isSupported` reports **`true`**
+in the Simulator (measured, iOS 26 / Xcode 26.1.1). The first attempt at this fix keyed off
+`isSupported`, shipped 32 green tests, and changed nothing the user could see, because the
+guard never fired. The signal is `targetEnvironment(simulator)`; `isSupported` is consulted
+only on a device.
 
 Three call sites depend on it:
 
@@ -224,20 +230,31 @@ The three call sites are unchanged, and on a device nothing about the behaviour 
 
 - `SubstituteScannerView` — the non-camera path, same `(UIImage?) -> Void` contract. Offers
   the photo library in any build, plus the sample images below in DEBUG. It is *not*
-  DEBUG-only: a release build on a device where `isSupported` is false now degrades to a
+  DEBUG-only: a release build on a device whose camera is unsupported now degrades to a
   picker rather than presenting a blank sheet.
 - `SampleScanImages` (DEBUG) — four shelf tags and a receipt, drawn with Core Graphics at
   runtime. Nothing binary in the repo, and a new sample is a struct literal.
 - `ScannerImageProvider` (DEBUG) — a queue of images handed to the next scanner presentation
   with no UI drawn. **This is the hook Stage 5's director plugs into.** Nothing in the app
   enqueues yet; only the tests do.
+- `DocumentScannerView.source(cameraIsSupported:isSimulator:hasQueuedImages:)` — the choice
+  itself, pulled out as a pure function so it can be tested. It is the piece that was wrong
+  the first time and failed silently, so it is exhaustively covered by
+  `GFPriceCheckerTests/DocumentScannerSourceTests.swift`, which also asserts that the test
+  bundle's own environment resolves to the substitute.
 - `GFPriceCheckerTests/SubstituteScannerTests.swift` — runs the real `OCRService` and
   `ReceiptParserService` over the drawn images. This is load-bearing, not decoration: a
   sample the flow cannot read a price off fails *silently*, because the flow still advances
   to the review step, just with every field empty.
 
-**Acceptance:** met for the automated half — 32 tests green, clean Debug and Release builds,
-no warnings. The end-to-end walkthrough in the Simulator is still the user's to do.
+**Acceptance:** met for the automated half — full suite green, clean Debug and Release
+builds, no warnings. The end-to-end walkthrough in the Simulator is still the user's to do.
+
+**A third thing learned, the expensive way:** green tests around a seam say nothing about
+whether the seam is *reached*. Everything about the substitute scanner was covered and
+passing while the app still dead-ended, because no test touched the dispatch. Any stage here
+that adds a branch on the environment should test the branch, not just what is on the far
+side of it.
 
 Two things learned that Stages 6-7 will want (see also the comment on `drawRow`):
 
