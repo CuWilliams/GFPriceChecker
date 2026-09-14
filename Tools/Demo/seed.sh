@@ -45,14 +45,29 @@ fi
 
 echo "==> Building and installing a DEBUG build"
 DERIVED="$ROOT/build/demo"
-xcodebuild build \
-    -project "$ROOT/GFPriceChecker.xcodeproj" \
-    -scheme "$SCHEME" \
-    -configuration Debug \
-    -destination "id=$UDID" \
-    -derivedDataPath "$DERIVED" \
-    -quiet
-xcrun simctl install "$UDID" "$DERIVED/Build/Products/Debug-iphonesimulator/$SCHEME.app"
+BUILD_FLAGS=(
+    -project "$ROOT/GFPriceChecker.xcodeproj"
+    -scheme "$SCHEME"
+    -configuration Debug
+    -destination "id=$UDID"
+    -derivedDataPath "$DERIVED"
+)
+xcodebuild build "${BUILD_FLAGS[@]}" -quiet
+
+# Ask xcodebuild where it put the app rather than assuming -derivedDataPath
+# decided it. Xcode's Build Location preference, if it is set to Custom or to a
+# shared folder, overrides that flag for the products directory and the build
+# still succeeds — so computing the path here produces a build that worked and
+# an install that cannot find it. Same flags as the build, so the answer is the
+# one that build used.
+PRODUCTS=$(xcodebuild "${BUILD_FLAGS[@]}" -showBuildSettings 2>/dev/null \
+    | awk -F' = ' '/ BUILT_PRODUCTS_DIR = /{print $2; exit}')
+APP="$PRODUCTS/$SCHEME.app"
+if [[ ! -d "$APP" ]]; then
+    echo "Built, but no app at $APP" >&2
+    exit 1
+fi
+xcrun simctl install "$UDID" "$APP"
 
 # Terminate first. A running instance keeps the environment it launched with,
 # so relaunching over it silently does nothing new.

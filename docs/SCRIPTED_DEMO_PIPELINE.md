@@ -282,7 +282,7 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
   same reason. Not fixed here — it changes shipping behaviour against real receipts and
   belongs in its own change with real scans to test against.
 
-### Stage 2 — seed data — **done, less the export itself**
+### Stage 2 — seed data — **done**
 - ~~Build a scrubbing step (§3.3).~~ `Tools/Demo/scrub_backup.py`, with
   `Tools/Demo/README.md`. It also verifies its own output, both for PII and for whether
   `importBackup` will read it — the Codable structs are mirrored there as a schema, so it
@@ -294,10 +294,24 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
   as the one command. `.replace` calls `clearAllData` itself, so it is one call, not two.
   `DemoSeedTests` seeds from JSON the scrubber actually produced, which is what keeps the
   Python schema mirror honest.
-- Export a real backup from the device — the one step nobody but the user can do, and all
-  that stands between here and a populated Simulator.
+- ~~Export a real backup from the device.~~ Done. 78 products and 47 of the 48 receipts
+  over 2025-12-30 to 2026-09-11, seeded into the Simulator and counted in the store.
 - **Acceptance:** `Tools/Demo/seed.sh` puts the Simulator in a known, populated, PII-free
-  state — met, pending a real export to point it at.
+  state — **met**, against the real library.
+
+Three things the first real run turned up that the fixture could not:
+
+- **Size.** The raw library scrubbed to 170 MB, 168 of it shelf-tag photographs — past the
+  100 MB a Git host takes for one file, and this dataset is meant to be committed. The
+  photographs are now re-encoded at 1600px/q75 on the way through, which brings it to 28 MB.
+  That also drops their metadata, which matters more than the bytes: these ones carried
+  nothing but dimensions, because `ImageStorageService` had already re-encoded them, but a
+  photograph that reached the library another way would still have EXIF, and that carries GPS.
+- **A receipt nothing verified** redrew as a blank slip totalling $0.00, because the scrub had
+  no items to draw from. Those are now dropped rather than drawn.
+- **`seed.sh` computed the built product path** from `-derivedDataPath`, which Xcode's
+  Build Location preference overrides when it is set to Custom or to a shared folder. The
+  build succeeds and the install then cannot find the app. It asks `-showBuildSettings` now.
 
 ### Stage 3 — `CaptureFlowViewModel`
 - Lift `CaptureStep`, the field state and the handler methods out of

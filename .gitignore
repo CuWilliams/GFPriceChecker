@@ -24,6 +24,9 @@ DerivedData/
 .build/
 Packages/
 
+# Derived data from Tools/Demo/seed.sh, which builds into the repo.
+build/
+
 # CocoaPods (if used)
 Pods/
 

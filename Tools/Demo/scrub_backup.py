@@ -39,6 +39,20 @@ and the shelf-tag photographs. That is the part worth having. `--strip-notes`
 and `--strip-product-images` are there for when a review says otherwise, and
 `--dump-product-images` writes them out so that review can actually happen.
 
+The shelf-tag photographs are re-encoded on the way through, downscaled to
+`--max-image-dimension` at `--image-quality`. Two reasons, and the second is
+the one that matters. A phone camera writes several megapixels per tag and a
+backup carries them Base64'd, so a real library runs to well over the 100 MB
+a Git host will accept for a single file — the dataset is meant to be
+committed. And re-encoding drops every scrap of metadata with it. The
+photographs in the library this was built against carried nothing but
+dimensions and colour space, because the app's own re-encode had already
+stripped the capture metadata; an image that arrived by some other route
+would not have been, and EXIF from a phone camera carries GPS.
+
+Orientation is applied to the pixels before the metadata goes, so a tag
+photographed sideways stays the way up it was shot.
+
 Nothing here is part of the app target. Working files belong in
 `~/GFPCDemoData/`, outside the repo; `.gitignore` covers them anyway in case a
 copy lands inside.
@@ -55,7 +69,7 @@ from collections import Counter
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 # MARK: - Placeholders
 #
@@ -105,6 +119,12 @@ KNOWN_CHAINS = [
 # never seen is a name it cannot vouch for, so it does not survive. The run
 # reports every substitution so the map can be extended with --store-map.
 UNKNOWN_STORE = "Grocery Store"
+
+# Shelf-tag photographs are re-encoded to this. 1600px on the long edge is
+# more than a shelf tag needs to stay readable full-screen at 1080p, and it is
+# roughly a twentieth of what the camera wrote.
+MAX_IMAGE_DIMENSION = 1600
+IMAGE_QUALITY = 75
 
 
 # MARK: - Receipt rendering
@@ -379,6 +399,20 @@ def scrub(backup, options, report):
     settings["accountantEmail"] = options.email
     settings["taxID"] = options.tax_id
 
+    # A receipt no product points at has nothing to draw. Its items were all
+    # untracked, or the products that cited it were deleted; either way the
+    # scrub would redraw it as a blank slip totalling $0.00 and leave it in the
+    # library for a take to wander into. Dropped rather than drawn, and nothing
+    # can be orphaned by the removal because nothing referenced it.
+    if not options.keep_empty_receipts:
+        kept = []
+        for receipt in backup.get("receipts", []):
+            if _receipt_rows(receipt, products_by_id):
+                kept.append(receipt)
+            else:
+                report["receipts_dropped"].append(receipt.get("id", "?"))
+        backup["receipts"] = kept
+
     for receipt in backup.get("receipts", []):
         original = receipt.get("storeName")
         canonical = canonical_store(original, options.store_map)
@@ -414,10 +448,34 @@ def scrub(backup, options, report):
                 product[field] = None
                 product[field.replace("Data", "UUID")] = None
                 report["product_images_stripped"] += 1
-            else:
-                report["product_images_kept"] += 1
+                continue
+
+            product[field], before, after = recompress(
+                product[field], options.max_image_dimension, options.image_quality
+            )
+            report["product_images_kept"] += 1
+            report["image_bytes_before"] += before
+            report["image_bytes_after"] += after
 
     return backup
+
+
+def recompress(blob, max_dimension, quality):
+    """Re-encodes one Base64 JPEG smaller, returning (base64, before, after).
+
+    Applies EXIF orientation to the pixels first and then writes without any
+    metadata at all, so the image keeps the way up it was shot and keeps
+    nothing else — no camera, no timestamp, no GPS.
+    """
+    raw = base64.b64decode(blob)
+    image = ImageOps.exif_transpose(Image.open(io.BytesIO(raw)))
+    if image.mode not in ("RGB", "L"):
+        image = image.convert("RGB")
+    image.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=quality, optimize=True)
+    return base64.b64encode(buffer.getvalue()).decode("ascii"), len(raw), buffer.tell()
 
 
 def dump_product_images(backup, directory):
@@ -664,6 +722,13 @@ def main(argv=None):
                         help="write retained shelf-tag photos out for review")
     parser.add_argument("--strip-product-images", action="store_true")
     parser.add_argument("--strip-notes", action="store_true")
+    parser.add_argument("--max-image-dimension", type=int, default=MAX_IMAGE_DIMENSION,
+                        metavar="PX", help="long edge of a re-encoded shelf-tag photo "
+                                           f"(default {MAX_IMAGE_DIMENSION})")
+    parser.add_argument("--image-quality", type=int, default=IMAGE_QUALITY,
+                        metavar="Q", help=f"JPEG quality for those (default {IMAGE_QUALITY})")
+    parser.add_argument("--keep-empty-receipts", action="store_true",
+                        help="keep receipts no product verifies, as blank $0.00 slips")
     options = parser.parse_args(argv)
 
     if options.verify_path:
@@ -678,8 +743,11 @@ def main(argv=None):
         "receipts_redrawn": 0,
         "unrecognized_stores": Counter(),
         "receipts_without_items": [],
+        "receipts_dropped": [],
         "product_images_kept": 0,
         "product_images_stripped": 0,
+        "image_bytes_before": 0,
+        "image_bytes_after": 0,
         "notes_kept": [],
         "notes_stripped": 0,
     }
@@ -695,7 +763,10 @@ def main(argv=None):
     print(f"  {report['receipts_redrawn']} receipt image(s) and OCR text replaced")
     print(f"  settings.taxID, userName and accountantEmail replaced")
     if report["product_images_kept"]:
+        before, after = report["image_bytes_before"], report["image_bytes_after"]
         print(f"  {report['product_images_kept']} shelf-tag photo(s) KEPT — review them")
+        print(f"    re-encoded to {options.max_image_dimension}px at q{options.image_quality}, "
+              f"metadata dropped: {before / 1e6:.1f} MB -> {after / 1e6:.1f} MB")
     if report["product_images_stripped"]:
         print(f"  {report['product_images_stripped']} product photo(s) stripped")
     if report["notes_stripped"]:
@@ -710,6 +781,13 @@ def main(argv=None):
               f"{UNKNOWN_STORE!r}. Extend the list with --store-map to keep them:")
         for name, count in report["unrecognized_stores"].most_common():
             print(f"    {count:3d}  {name!r}")
+
+    if report["receipts_dropped"]:
+        print(f"\n{len(report['receipts_dropped'])} receipt(s) dropped — no product verifies "
+              "them, so there was nothing to draw. --keep-empty-receipts keeps them as "
+              "blank $0.00 slips:")
+        for rid in report["receipts_dropped"]:
+            print(f"    {rid}")
 
     if report["receipts_without_items"]:
         print(f"\n{len(report['receipts_without_items'])} receipt(s) verify no products, so "

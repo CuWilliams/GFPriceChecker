@@ -54,6 +54,22 @@ so they can actually be looked at before publication — a shelf tag is photogra
 and what else is in the frame is a question only a person can answer. `--strip-product-images`
 and `--strip-notes` are there for when that review says no.
 
+The shelf-tag photographs are re-encoded on the way through — downscaled to
+`--max-image-dimension` (1600px on the long edge) at `--image-quality` (75), with EXIF
+orientation applied to the pixels and all other metadata dropped. This is not cosmetic. A
+phone writes several megapixels per tag and a backup carries them Base64'd, so the library
+this was built against came to **170 MB, 168 of it photographs** — past the 100 MB a Git host
+will take for one file, and the dataset is meant to be committed. Re-encoded it is 28 MB.
+Dropping the metadata is the other half: these particular photographs carried only dimensions
+and colour space, because `ImageStorageService` had already re-encoded them, but a picture
+that reached the library by some other route would still have its EXIF, and a phone camera
+writes GPS into that.
+
+A receipt no product verifies is **dropped**, because there is nothing to draw it from — it
+would otherwise land in the demo library as a blank slip totalling $0.00. Nothing can be
+orphaned by the removal, since by definition nothing referenced it. `--keep-empty-receipts`
+keeps them.
+
 Every run finishes by verifying its own output and exits non-zero if anything failed. Things
 it will stop on, in practice:
 
@@ -62,6 +78,7 @@ it will stop on, in practice:
 | *Store names not recognized* | Add them with `--store-map stores.json` (`{"raw name": "Chain"}`) or accept `Grocery Store`. |
 | *N note(s) kept verbatim* | Read them. Notes are free text somebody typed. `--strip-notes` if any of it is personal. |
 | *N shelf-tag photo(s) KEPT* | Look at the dumped files. `--strip-product-images` if a frame has something in it. |
+| *N receipt(s) dropped* | Normal. Nothing verified them, so there was nothing to draw. `--keep-empty-receipts` to keep them. |
 | *FAIL phone number at $.productPairs[…].notes* | The leak scan found PII the field scrub does not cover. Fix the source or strip the field. |
 
 ### 3. Check a dataset on its own
@@ -101,6 +118,11 @@ Tools/Demo/seed.sh ~/GFPCDemoData/demo-dataset.json "iPhone 17 Pro"
 It verifies the dataset first — the same check as §3, because a seed that silently loads an
 unscrubbed export is how one ends up in a published video — then builds and installs a DEBUG
 build, terminates anything running, and relaunches with `GFPC_DEMO_DATASET` naming the file.
+
+It asks `xcodebuild -showBuildSettings` where the app landed rather than computing the path
+from `-derivedDataPath`. Xcode's **Build Location** preference, when set to Custom or to a
+shared folder, overrides that flag for the products directory — and the build still succeeds,
+so a computed path gives a green build and an install that cannot find the app.
 
 The in-app half is [`GFPriceChecker/Dev/DemoSeed.swift`](../../GFPriceChecker/Dev/DemoSeed.swift),
 `#if DEBUG` only: in a release build there is no path that reads a JSON file off disk and
