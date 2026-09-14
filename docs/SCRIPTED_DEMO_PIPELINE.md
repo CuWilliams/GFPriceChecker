@@ -247,8 +247,13 @@ The three call sites are unchanged, and on a device nothing about the behaviour 
   sample the flow cannot read a price off fails *silently*, because the flow still advances
   to the review step, just with every field empty.
 
-**Acceptance:** met for the automated half — full suite green, clean Debug and Release
-builds, no warnings. The end-to-end walkthrough in the Simulator is still the user's to do.
+**Acceptance:** met. Full suite green, clean Debug and Release builds, no warnings, and the
+end-to-end walkthrough verified in the iPhone 17 Pro Simulator — both capture flows run start
+to finish with no camera.
+
+Note for anyone repeating that walkthrough: **set Xcode's run destination to a Simulator.** On
+a physical device the substitute never appears, by design — the real scanner works there and
+is the better path — so a device run looks exactly like the unfixed build and proves nothing.
 
 **A third thing learned, the expensive way:** green tests around a seam say nothing about
 whether the seam is *reached*. Everything about the substitute scanner was covered and

@@ -467,6 +467,9 @@ Still the user's to do, since they need a device or a human eye:
      iOS 26 / Xcode 26.1.1, it returns `true` in the Simulator. The fallback keys off
      `targetEnvironment(simulator)` instead, and `isSupported` is consulted only on a device.
      `DocumentScannerSourceTests` pins both facts.
+   - **Set Xcode's run destination to a Simulator to see this.** On a physical device the
+     substitute never appears — the real scanner works and is the better path — so a device
+     run looks identical to a build without the fallback.
    - Scanned *image quality* still differs: the real scanner does edge detection and
      perspective correction, the substitute hands the image through untouched. Anything about
      how well OCR copes with a skewed or badly lit photograph still needs a device.
