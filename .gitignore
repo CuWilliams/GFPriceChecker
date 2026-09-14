@@ -34,6 +34,9 @@ Pods/
 # Shared project permissions are tracked; per-machine overrides are not.
 .claude/settings.local.json
 
+# Python
+__pycache__/
+
 # Demo pipeline working files. These belong in ~/GFPCDemoData/, outside the
 # repo; these rules are in case a copy lands inside. A raw backup exported from
 # a device carries a SIN and photographs of real receipts — see

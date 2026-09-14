@@ -282,16 +282,22 @@ Two things learned that Stages 6-7 will want (see also the comment on `drawRow`)
   same reason. Not fixed here — it changes shipping behaviour against real receipts and
   belongs in its own change with real scans to test against.
 
-### Stage 2 — seed data — **scrub done, seeding entry point outstanding**
+### Stage 2 — seed data — **done, less the export itself**
 - ~~Build a scrubbing step (§3.3).~~ `Tools/Demo/scrub_backup.py`, with
   `Tools/Demo/README.md`. It also verifies its own output, both for PII and for whether
   `importBackup` will read it — the Codable structs are mirrored there as a schema, so it
   catches a date without a timezone, a `version` other than `"1.0"`, an unparseable price
   (which imports silently as free) and a `receiptID` pointing at nothing (which imports the
   product silently unverified).
-- Export a real backup from the device — the one step nobody but the user can do.
-- A DEBUG seeding entry point that does `clearAllData` then `importBackup(.replace)`.
-- **Acceptance:** one command puts the Simulator in a known, populated, PII-free state.
+- ~~A DEBUG seeding entry point that does `clearAllData` then `importBackup(.replace)`.~~
+  `GFPriceChecker/Dev/DemoSeed.swift`, driven by `GFPC_DEMO_DATASET`, plus `Tools/Demo/seed.sh`
+  as the one command. `.replace` calls `clearAllData` itself, so it is one call, not two.
+  `DemoSeedTests` seeds from JSON the scrubber actually produced, which is what keeps the
+  Python schema mirror honest.
+- Export a real backup from the device — the one step nobody but the user can do, and all
+  that stands between here and a populated Simulator.
+- **Acceptance:** `Tools/Demo/seed.sh` puts the Simulator in a known, populated, PII-free
+  state — met, pending a real export to point it at.
 
 ### Stage 3 — `CaptureFlowViewModel`
 - Lift `CaptureStep`, the field state and the handler methods out of

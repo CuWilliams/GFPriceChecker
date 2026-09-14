@@ -95,6 +95,12 @@ struct GFPriceCheckerApp: App {
                         .zIndex(1)
                 }
             }
+            #if DEBUG
+            // Stage 2 of the scripted demo pipeline: seeds the store from a
+            // scrubbed dataset when the environment names one, and is inert
+            // on every other launch. See Dev/DemoSeed.swift.
+            .task { await DemoSeed.seedIfRequested(container: sharedModelContainer) }
+            #endif
         }
         .modelContainer(sharedModelContainer)
     }

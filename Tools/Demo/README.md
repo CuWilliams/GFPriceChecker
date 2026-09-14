@@ -91,6 +91,37 @@ printed for a human to read rather than judged. And it recognizes a substituted 
 size and text, which a real photograph will not match but a *different* drawn image of the
 right size would.
 
+### 4. Seed a Simulator
+
+```bash
+Tools/Demo/seed.sh                                    # ~/GFPCDemoData/demo-dataset.json, booted Simulator
+Tools/Demo/seed.sh ~/GFPCDemoData/demo-dataset.json "iPhone 17 Pro"
+```
+
+It verifies the dataset first — the same check as §3, because a seed that silently loads an
+unscrubbed export is how one ends up in a published video — then builds and installs a DEBUG
+build, terminates anything running, and relaunches with `GFPC_DEMO_DATASET` naming the file.
+
+The in-app half is [`GFPriceChecker/Dev/DemoSeed.swift`](../../GFPriceChecker/Dev/DemoSeed.swift),
+`#if DEBUG` only: in a release build there is no path that reads a JSON file off disk and
+overwrites the user's library. It calls `importBackup(strategy: .replace)`, which wipes the
+store and its images before loading, so a take always starts from the dataset rather than
+from the dataset plus whatever the last one left behind. It also sets `hasCompletedOnboarding`,
+which no backup carries and which would otherwise put an onboarding sheet over the first shot.
+
+Two things worth knowing:
+
+- **Terminate before relaunching.** A running instance keeps the environment it launched
+  with, so `simctl launch` over the top silently does nothing new. `seed.sh` does this.
+- **Pass an absolute host path.** Simulator processes read host paths directly, so the
+  dataset never needs copying into the container — but `~` inside a Simulator process is the
+  *app's own container*, not the Mac's home. `seed.sh` expands it on the host; the app takes
+  what it is given unchanged.
+
+A bad path, a malformed dataset or a version the importer rejects is a `fatalError`, not a
+log line. A take recorded against a store that half-seeded still looks like a take, and the
+wrong numbers do not become obvious until somebody watches the finished video.
+
 ## Stages 3-7
 
 Not built yet. `record.sh`, `launch_frame.py` and `stills.sh` port from
