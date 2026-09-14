@@ -39,7 +39,8 @@ GFPriceChecker/
 │   ├── ProductPair.swift       # Core data model (GF vs Regular product)
 │   └── Receipt.swift           # Receipt verification model
 ├── ViewModels/
-│   └── ReportViewModel.swift   # Tax report calculations
+│   ├── CaptureFlowViewModel.swift  # Product capture flow state and logic
+│   └── ReportViewModel.swift       # Tax report calculations
 ├── Views/
 │   ├── Library/                # Product browsing and management
 │   │   ├── ProductPairListView.swift
@@ -263,6 +264,32 @@ Ranks price candidates by:
 - `ProductPairListView.swift`
 - `ManualProductEntryView.swift`
 - `OnboardingView.swift`
+
+---
+
+### 7. Flow State Belongs in a ViewModel
+
+`ProductCaptureFlowView` was 986 lines with ~35 `@State` properties and its handlers as
+private view methods — untestable and undriveable. `ViewModels/CaptureFlowViewModel.swift`
+is the result of lifting that out. Follow the same shape for the flows still holding their
+own state: `ReceiptCaptureView` (17 `@State`) and `ExportView` (18).
+
+**Inject services, don't call singletons.** A `Dependencies` struct of closures standing in
+for `OCRService` and `ImageStorageService` is what lets a test run a whole capture with
+canned OCR results and no Vision framework. Note the init signature:
+
+```swift
+// ✅ Optional, resolved inside
+init(dependencies: Dependencies? = nil) { self.dependencies = dependencies ?? .live }
+
+// ❌ Won't compile: a default argument is evaluated in the CALLER's isolation,
+//    and `.live` is @MainActor
+init(dependencies: Dependencies = .live) { ... }
+```
+
+**Derive once.** The finalize preview and `saveProductPair` each had their own copy of the
+unit-price back-calculation, so the two could disagree. Computed properties on the view
+model (`gfSizeValue`, `unitPriceDifferential`) are now the single source.
 
 ---
 

@@ -321,8 +321,15 @@ Three things the first real run turned up that the fixture could not:
   `ProductCaptureFlowView` into an observable ViewModel.~~
   `GFPriceChecker/ViewModels/CaptureFlowViewModel.swift`. `CaptureStep`, `SizeInputMode` and
   `UnitPriceBasis` moved with it; the view is 986 lines down to 516 and now only draws.
+- ~~Confirm no behaviour change in the flow on device.~~ Verified on device — the flow runs
+  as it did before the extraction.
 - **Acceptance:** the flow is driveable by method calls, and its logic is unit-testable —
   **met**. `CaptureFlowViewModelTests` is 32 tests that walk a whole capture without a camera.
+
+The device check was the one that mattered here, and it is worth saying why: the suite covers
+a capture driven through `Dependencies`, which is precisely the path a real camera does *not*
+take. Nothing green in it would have caught a regression in what VisionKit hands back or in
+what the real `OCRService` reads off a shelf tag under store lighting.
 
 Two things worth carrying into Stage 5:
 
