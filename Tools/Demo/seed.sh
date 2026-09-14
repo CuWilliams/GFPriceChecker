@@ -21,9 +21,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Defaults to the dataset committed alongside this script, so a fresh clone
 # seeds with nothing to set up first. Pass a path to use a local one — a newer
 # scrub sitting in ~/GFPCDemoData/, say.
-DATASET="${1:-$ROOT/Tools/Demo/demo-dataset.json}"
+DEFAULT_DATASET="$ROOT/Tools/Demo/demo-dataset.json"
+DATASET="${1:-$DEFAULT_DATASET}"
 
 DATASET="${DATASET/#\~/$HOME}"
+
+# Re-scrubbing writes to ~/GFPCDemoData/ by default while this reads the
+# committed copy, so a fresh scrub can sit there unnoticed while the Simulator
+# keeps getting the old library. Say so rather than seed the stale one quietly.
+WORKING="$HOME/GFPCDemoData/demo-dataset.json"
+if [[ "$DATASET" == "$DEFAULT_DATASET" && "$WORKING" -nt "$DATASET" ]]; then
+    echo "Note: $WORKING is newer than the committed dataset." >&2
+    echo "      Seeding the committed one. Pass \"$WORKING\" to use that instead," >&2
+    echo "      or copy it over $DATASET and commit it." >&2
+fi
 if [[ ! -f "$DATASET" ]]; then
     echo "No dataset at $DATASET" >&2
     echo "Build one: python3 Tools/Demo/scrub_backup.py --in ~/GFPCDemoData/backup-raw.json --out $DATASET" >&2

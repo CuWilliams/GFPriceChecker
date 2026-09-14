@@ -420,6 +420,11 @@ def scrub(backup, options, report):
             canonical = UNKNOWN_STORE
             if original:
                 report["unrecognized_stores"][original] += 1
+            else:
+                # No name to recognize: OCR read nothing off the top of the
+                # receipt. Worth its own line, so that a report with nothing in
+                # it means nothing happened rather than nothing was reportable.
+                report["receipts_without_a_store"] += 1
         receipt["storeName"] = canonical
 
         rows = _receipt_rows(receipt, products_by_id)
@@ -743,6 +748,7 @@ def main(argv=None):
         "receipts_redrawn": 0,
         "unrecognized_stores": Counter(),
         "receipts_without_items": [],
+        "receipts_without_a_store": 0,
         "receipts_dropped": [],
         "product_images_kept": 0,
         "product_images_stripped": 0,
@@ -781,6 +787,10 @@ def main(argv=None):
               f"{UNKNOWN_STORE!r}. Extend the list with --store-map to keep them:")
         for name, count in report["unrecognized_stores"].most_common():
             print(f"    {count:3d}  {name!r}")
+
+    if report["receipts_without_a_store"]:
+        print(f"\n{report['receipts_without_a_store']} receipt(s) carried no store name at "
+              f"all — OCR read none — and show as {UNKNOWN_STORE!r}. Nothing to map.")
 
     if report["receipts_dropped"]:
         print(f"\n{len(report['receipts_dropped'])} receipt(s) dropped — no product verifies "

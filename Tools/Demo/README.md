@@ -39,8 +39,17 @@ same basket. Keep it out of the repo and off anything shared.
 python3 Tools/Demo/scrub_backup.py \
     --in  ~/GFPCDemoData/backup-raw.json \
     --out ~/GFPCDemoData/demo-dataset.json \
+    --store-map Tools/Demo/stores.json \
     --dump-product-images ~/GFPCDemoData/review/
 ```
+
+`Tools/Demo/stores.json` is committed, and holds the chain names this library needed that the
+built-in list does not carry. Pass it every time: without it those receipts fall back to
+`Grocery Store`, so a re-scrub silently loses names an earlier one had.
+
+**Then copy the result over `Tools/Demo/demo-dataset.json` and commit it** — that committed
+copy is what `seed.sh` reads. A scrub left in `~/GFPCDemoData/` changes nothing that anyone
+else, or any later take, will see. `seed.sh` prints a notice when it spots a newer one there.
 
 Needs Pillow (`pip3 install pillow`); nothing else.
 
@@ -84,6 +93,7 @@ it will stop on, in practice:
 | *Store names not recognized* | Add them with `--store-map stores.json` (`{"raw name": "Chain"}`) or accept `Grocery Store`. |
 | *N note(s) kept verbatim* | Read them. Notes are free text somebody typed. `--strip-notes` if any of it is personal. |
 | *N shelf-tag photo(s) KEPT* | Look at the dumped files. `--strip-product-images` if a frame has something in it. |
+| *N receipt(s) carried no store name* | Nothing to do. OCR read no store off them; they show as `Grocery Store`. |
 | *N receipt(s) dropped* | Normal. Nothing verified them, so there was nothing to draw. `--keep-empty-receipts` to keep them. |
 | *FAIL phone number at $.productPairs[…].notes* | The leak scan found PII the field scrub does not cover. Fix the source or strip the field. |
 
