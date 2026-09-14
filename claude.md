@@ -39,7 +39,8 @@ GFPriceChecker/
 │   ├── ProductPair.swift       # Core data model (GF vs Regular product)
 │   └── Receipt.swift           # Receipt verification model
 ├── ViewModels/
-│   └── ReportViewModel.swift   # Tax report calculations
+│   ├── CaptureFlowViewModel.swift  # Product capture flow state and logic
+│   └── ReportViewModel.swift       # Tax report calculations
 ├── Views/
 │   ├── Library/                # Product browsing and management
 │   │   ├── ProductPairListView.swift
@@ -114,11 +115,12 @@ One-to-many relationship: one receipt can verify multiple ProductPairs.
 
 ## Established Patterns & Best Practices
 
-### 1. SwiftUI Presentation Timing Issues
+### 1. SwiftUI & Swift Concurrency Gotchas
 
-**Problem:** SwiftUI batches state updates, causing sheets/alerts to present before state commits.
+**Sheets present before their state commits.** SwiftUI batches state updates, so a sheet whose
+content reads `selectedData` can open before the assignment lands. Drive presentation off a
+separate trigger:
 
-**Solution: State Trigger Pattern**
 ```swift
 @State private var selectedData: Data?
 @State private var trigger = 0
@@ -128,21 +130,22 @@ Button {
     trigger += 1         // Increment trigger
 }
 
-.onChange(of: trigger) { old, new in
-    if new > 0 {
-        showingSheet = true  // Present after state commits
-    }
+.onChange(of: trigger) { _, new in
+    if new > 0 { showingSheet = true }  // Present after state commits
 }
 ```
 
-**When to Use:**
-- Sheet content depends on state variables
-- Alert buttons need to trigger async operations
-- Image viewers showing dynamic content
+Use it when sheet content depends on state, when an alert button starts async work, or for
+image viewers showing dynamic content. See `ProductPairDetailView.swift`, `ExportView.swift`.
 
-**Examples in Codebase:**
-- `ProductPairDetailView.swift` (image viewer)
-- `ExportView.swift` (PDF export warning flow)
+**`&&` and `||` take autoclosures, so neither side can `await`.**
+
+```swift
+if condition && await asyncFunction() { }     // ❌ compiler error
+if condition { if await asyncFunction() { } } // ✅ nest instead
+```
+
+See `ExportView.swift` (unverified products check).
 
 ---
 
@@ -173,25 +176,7 @@ Task { @MainActor in
 
 ---
 
-### 3. Async/Await with Swift Operators
-
-**Problem:** Swift's `&&` and `||` use autoclosures which don't support async/await.
-
-```swift
-// ❌ Wrong - compiler error
-if condition && await asyncFunction() { }
-
-// ✅ Correct - nested if statements
-if condition {
-    if await asyncFunction() { }
-}
-```
-
-**Example:** `ExportView.swift` (unverified products check)
-
----
-
-### 4. Error Handling & Validation
+### 3. Error Handling & Validation
 
 **Centralized Error Types:**
 - `Utilities/ErrorHandler.swift` - AppError enum with user-friendly messages
@@ -214,7 +199,7 @@ case .failure(let error):
 
 ---
 
-### 5. OCR Enhancements
+### 4. OCR Enhancements
 
 #### Spatial Analysis for Price Detection
 **File:** `Services/OCRService.swift`
@@ -247,7 +232,7 @@ Ranks price candidates by:
 
 ---
 
-### 6. Accessibility Standards
+### 5. Accessibility Standards
 
 **VoiceOver Support:**
 - All interactive elements have `.accessibilityLabel()` and `.accessibilityHint()`
@@ -266,85 +251,54 @@ Ranks price candidates by:
 
 ---
 
+### 6. Flow State Belongs in a ViewModel
+
+`ProductCaptureFlowView` was 986 lines with ~35 `@State` properties and its handlers as
+private view methods — untestable and undriveable. `ViewModels/CaptureFlowViewModel.swift`
+is the result of lifting that out. Follow the same shape for the flows still holding their
+own state: `ReceiptCaptureView` (17 `@State`) and `ExportView` (18).
+
+**Inject services, don't call singletons.** A `Dependencies` struct of closures standing in
+for `OCRService` and `ImageStorageService` is what lets a test run a whole capture with
+canned OCR results and no Vision framework. Note the init signature:
+
+```swift
+// ✅ Optional, resolved inside
+init(dependencies: Dependencies? = nil) { self.dependencies = dependencies ?? .live }
+
+// ❌ Won't compile: a default argument is evaluated in the CALLER's isolation,
+//    and `.live` is @MainActor
+init(dependencies: Dependencies = .live) { ... }
+```
+
+**Derive once.** The finalize preview and `saveProductPair` each had their own copy of the
+unit-price back-calculation, so the two could disagree. Computed properties on the view
+model (`gfSizeValue`, `unitPriceDifferential`) are now the single source.
+
+---
+
 ## Key Features
 
 ### ✅ Implemented
 
-**Phase 1: Foundation**
-- ProductPair and Receipt SwiftData models
-- Decimal precision for currency
-- Model container with error handling
+Product pairs with `Decimal` currency and full CRUD; VisionKit document scanning with Vision
+OCR (spatial price ranking, rectangle-based shelf-tag filtering, decimal inference); receipt
+verification with fuzzy matching (Levenshtein, Jaccard) and Costco-style multi-line parsing;
+tax summary dashboard, CRA-compliant CSV, and multi-page PDF with receipt images; JSON
+backup/restore; onboarding, VoiceOver and Dynamic Type; Swift 6 with zero warnings.
 
-**Phase 2: Library Views**
-- ProductPairListView with filters (All/Verified/Unverified)
-- ProductPairDetailView with image display
-- ReceiptDetailView with zoomable images
-- Full CRUD operations (Create, Read, Update, Delete)
-
-**Phase 3: Camera & OCR**
-- Document scanning (VisionKit)
-- OCR text extraction (Vision framework)
-- Price detection with spatial analysis
-- Product name extraction
-- Rectangle detection for shelf tags
-- Decimal inference for prices
-- Confidence-based visual feedback
-- Guided product capture workflow
-- Manual entry fallback
-
-**Phase 4: Receipt Verification**
-- Receipt scanning with OCR
-- Fuzzy product matching (Levenshtein distance, Jaccard similarity)
-- Multi-line receipt format support (Costco-style)
-- Bulk selection controls
-- Smart date filtering
-- Auto-match acceptance
-- Receipt image display in PDF reports
-
-**Phase 5: Export & Reporting**
-- Tax summary dashboard with Swift Charts
-- Year-based filtering
-- CSV export (CRA-compliant formatting)
-- PDF export with receipt images
-- Multi-page PDF with cover page, summary statistics, transaction details
-- Unverified products section in PDF
-- Three export methods: Save to Files, Share, Email
-
-**Phase 6: Polish & Testing**
-- Data backup/restore (JSON with Base64 images)
-- Clear all data functionality
-- Error handling infrastructure
-- Accessibility (VoiceOver, Dynamic Type)
-- Onboarding flow with camera permissions
-- App logo/branding
-- Swift 6 compliance (zero warnings)
+How each of those arrived is in `docs/DEVELOPMENT_HISTORY.md`, Phases 1-6.
 
 ---
 
 ### ⏸️ Deferred (Post-MVP)
 
-**Category Management** (originally Session 7)
-- Custom category creation
-- Category color coding
-- Predefined category list expansion
-
-**Performance Optimization** (originally Session 22)
-- Lazy image loading for large datasets
-- PDF generation background threading
-- SwiftData query optimization
-- Memory profiling for 200+ products
-- Deferred until field trials generate real-world usage data
-
-**Additional Error Handling**
-- Service layer error handling (remaining services)
-- View layer error states (remaining views)
-- Comprehensive error scenario testing
-
-**Additional Accessibility**
-- Chart accessibility with audio graphs
-- Color contrast audit (WCAG 2.1 AA)
-- Touch target size audit (44x44 minimum)
-- High Contrast mode support
+- **Category management:** custom categories, colour coding, a longer predefined list
+- **Performance:** lazy image loading, background PDF generation, SwiftData query tuning, and
+  memory profiling for 200+ products — held until field trials produce real usage data
+- **Error handling:** the remaining services and view-layer error states
+- **Accessibility:** chart audio graphs, WCAG 2.1 AA contrast audit, 44x44 touch-target audit,
+  High Contrast mode
 
 ---
 
@@ -459,20 +413,17 @@ Still the user's to do, since they need a device or a human eye:
 
 7. **Simulator:**
    - `VNDocumentCameraViewController` presents a sheet that never returns an image in the
-     Simulator. `DocumentScannerView` now falls back to `SubstituteScannerView` there, which
-     supplies an image from the photo library or — in DEBUG — from `SampleScanImages`, so
-     both capture flows run end to end without a camera. The choice is made inside
-     `DocumentScannerView`, so all three call sites get it and device behaviour is unchanged.
-   - **`VNDocumentCameraViewController.isSupported` is not the signal for this.** Measured on
-     iOS 26 / Xcode 26.1.1, it returns `true` in the Simulator. The fallback keys off
-     `targetEnvironment(simulator)` instead, and `isSupported` is consulted only on a device.
+     Simulator, so `DocumentScannerView` falls back to `SubstituteScannerView` there — an
+     image from the photo library, or from `SampleScanImages` in DEBUG. The choice is made
+     inside `DocumentScannerView`, so all three call sites get it and device behaviour is
+     unchanged. Set Xcode's run destination to a Simulator to see it at all.
+   - **`VNDocumentCameraViewController.isSupported` is not the signal for this.** On iOS 26 /
+     Xcode 26.1.1 it returns `true` in the Simulator. The fallback keys off
+     `targetEnvironment(simulator)`, and `isSupported` is consulted only on a device.
      `DocumentScannerSourceTests` pins both facts.
-   - **Set Xcode's run destination to a Simulator to see this.** On a physical device the
-     substitute never appears — the real scanner works and is the better path — so a device
-     run looks identical to a build without the fallback.
-   - Scanned *image quality* still differs: the real scanner does edge detection and
-     perspective correction, the substitute hands the image through untouched. Anything about
-     how well OCR copes with a skewed or badly lit photograph still needs a device.
+   - The substitute hands the image through untouched, skipping the real scanner's edge
+     detection and perspective correction. How well OCR copes with a skewed or badly lit
+     photograph still needs a device.
 
 ---
 
@@ -497,20 +448,9 @@ Still the user's to do, since they need a device or a human eye:
 
 ## Reference Documentation
 
-**Detailed Implementation History:** See `docs/DEVELOPMENT_HISTORY.md`
+**Detailed Implementation History:** See `docs/DEVELOPMENT_HISTORY.md` — Phases 1-6 and Sessions 1-27, one section each.
 
 **Scripted Demo Pipeline:** See `docs/SCRIPTED_DEMO_PIPELINE.md` — the plan and feasibility audit for generating the website's instructional videos from scripts the app plays against itself, so a new build regenerates the media set instead of needing a re-shoot. Read it before touching the capture flows, `DocumentScannerView`, or navigation structure: several of its stages are refactors of those, and it records why.
-
-**Sessions 1-27:**
-- Sessions 1-6: Foundation and Library Views
-- Sessions 8-12: Camera and OCR Integration
-- Sessions 13-16: Receipt Verification and Testing
-- Sessions 16-18: Export and Reporting
-- Sessions 19-23: Polish and Testing
-- Session 24: App Icon and Code Cleanup
-- Session 25: OCR Enhancements and Receipt Images
-- Session 26: Critical Bug Fixes
-- Session 27: Rectangle-Based OCR and Decimal Inference
 
 ---
 
