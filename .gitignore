@@ -40,10 +40,14 @@ Pods/
 # Python
 __pycache__/
 
-# Demo pipeline working files. These belong in ~/GFPCDemoData/, outside the
-# repo; these rules are in case a copy lands inside. A raw backup exported from
-# a device carries a SIN and photographs of real receipts — see
+# Demo pipeline working files. The raw backup belongs in ~/GFPCDemoData/,
+# outside the repo; these rules are in case a copy lands inside. A raw backup
+# exported from a device carries a SIN and photographs of real receipts — see
 # Tools/Demo/README.md — and must never be committed.
+#
+# The scrubbed dataset is the exception and is committed, at
+# Tools/Demo/demo-dataset.json. It is the only copy of the demo library that
+# is not on one Mac, and the pipeline cannot regenerate a video without it.
+# scrub_backup.py --verify is what says it is safe to be there.
 GFPCDemoData/
 backup-raw.json
-demo-dataset.json

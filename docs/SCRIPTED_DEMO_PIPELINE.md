@@ -348,15 +348,21 @@ Three things the first real run turned up that the fixture could not:
    to captions only; or generate narration.
 3. **Do the stills matter here?** TrendFit's `stills.sh` exists because its site has tiles cut
    from the same scripts. Does gfpricechecker.github.io want the same guarantee?
-4. ~~**Where do demo assets live?**~~ **Answered:** `~/GFPCDemoData/`, outside the repo,
-   with `.gitignore` covering `backup-raw.json`, `demo-dataset.json` and `GFPCDemoData/`
-   anyway in case a copy lands inside.
+4. ~~**Where do demo assets live?**~~ **Answered, and revised once the real export existed:**
+   the raw backup lives in `~/GFPCDemoData/`, outside the repo, with `.gitignore` covering
+   `backup-raw.json` and `GFPCDemoData/` in case a copy lands inside. The **scrubbed dataset
+   is committed**, at `Tools/Demo/demo-dataset.json`. Keeping it out was the original answer
+   and it was wrong: the raw backup must never be committed, so a dataset that exists only in
+   `~/GFPCDemoData/` exists on one Mac, and losing that Mac means re-shooting the library —
+   which is the exact problem this pipeline is for. 28 MB is the price of the guarantee.
 5. ~~**Receipt imagery** — staged photos, or avoid full-screen receipt display in video?~~
    **Answered:** neither. The scrub draws a substitute receipt from the surviving data (§3.3).
-6. **Shelf-tag photographs.** The scrub keeps them, because they are the app's subject and a
-   shelf tag is not private. But they were photographed in a shop, and what else is in a frame
-   is a question only a person looking at them can answer. `--dump-product-images` writes them
-   out for exactly that review; it has not been run on the real export yet.
+6. ~~**Shelf-tag photographs.** The scrub keeps them, because they are the app's subject and
+   a shelf tag is not private. But they were photographed in a shop, and what else is in a
+   frame is a question only a person looking at them can answer.~~ **Reviewed and cleared.**
+   All 132 from the real export were dumped with `--dump-product-images` and looked at; the
+   frames are shelves and packaging. `--strip-product-images` stays for a future export whose
+   review goes the other way.
 
 ---
 

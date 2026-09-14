@@ -4,7 +4,7 @@
 #
 #     Tools/Demo/seed.sh [dataset] [simulator name or UDID]
 #
-# Defaults to ~/GFPCDemoData/demo-dataset.json on the booted Simulator.
+# Defaults to the committed Tools/Demo/demo-dataset.json, on the booted Simulator.
 #
 # Builds and installs a DEBUG build first, because the seam this drives
 # (Dev/DemoSeed.swift) does not exist in a release build. Then it relaunches
@@ -13,11 +13,15 @@
 
 set -euo pipefail
 
-DATASET="${1:-$HOME/GFPCDemoData/demo-dataset.json}"
 DEVICE="${2:-booted}"
 BUNDLE_ID="com.cuwilliams66.GFPriceChecker"
 SCHEME="GFPriceChecker"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Defaults to the dataset committed alongside this script, so a fresh clone
+# seeds with nothing to set up first. Pass a path to use a local one — a newer
+# scrub sitting in ~/GFPCDemoData/, say.
+DATASET="${1:-$ROOT/Tools/Demo/demo-dataset.json}"
 
 DATASET="${DATASET/#\~/$HOME}"
 if [[ ! -f "$DATASET" ]]; then

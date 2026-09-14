@@ -7,9 +7,15 @@ implements and why it is staged the way it is.
 Nothing in this folder is part of the app target. `Tools/` sits outside the synced Xcode
 groups, so files here are never compiled into the app.
 
-Working files live in **`~/GFPCDemoData/`**, outside the repo. `.gitignore` covers
-`backup-raw.json`, `demo-dataset.json` and `GFPCDemoData/` anyway, in case a copy lands
-inside — the raw backup is the one file in this pipeline that must never be committed.
+The raw backup lives in **`~/GFPCDemoData/`**, outside the repo, and `.gitignore` covers
+`backup-raw.json` and `GFPCDemoData/` in case a copy lands inside — it is the one file in
+this pipeline that must never be committed.
+
+The scrubbed dataset **is** committed, at `Tools/Demo/demo-dataset.json`, and is what
+`seed.sh` uses by default. It is the only copy of the demo library not sitting on a single
+Mac, and since the raw backup can never join it in the repo, a dataset kept outside would
+make the demo library unreproducible the day that Mac died. `--verify` is what licenses it
+to be there; run it on anything before committing a replacement.
 
 ## Stage 2 — the demo dataset
 
@@ -111,9 +117,12 @@ right size would.
 ### 4. Seed a Simulator
 
 ```bash
-Tools/Demo/seed.sh                                    # ~/GFPCDemoData/demo-dataset.json, booted Simulator
+Tools/Demo/seed.sh                                    # committed dataset, booted Simulator
 Tools/Demo/seed.sh ~/GFPCDemoData/demo-dataset.json "iPhone 17 Pro"
 ```
+
+With no arguments it seeds from the committed `Tools/Demo/demo-dataset.json`, so a fresh
+clone needs no setup. Pass a path to seed from a newer scrub instead.
 
 It verifies the dataset first — the same check as §3, because a seed that silently loads an
 unscrubbed export is how one ends up in a published video — then builds and installs a DEBUG
