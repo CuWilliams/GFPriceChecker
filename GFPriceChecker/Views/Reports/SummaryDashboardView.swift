@@ -159,7 +159,10 @@ struct SummaryDashboardView: View {
                         .accessibilityLabel("\(normalizedResult.excludedCount) products without size data are excluded from the adjusted total")
                 }
 
-                Text(yearProducts.isEmpty ? "No products for \(viewModel.selectedYear)" : "\(yearProducts.count) product\(yearProducts.count == 1 ? "" : "s") tracked")
+                // `String(...)`, not the bare Int: a literal passed to `Text` is a
+                // `LocalizedStringKey`, and interpolating an `Int` into one formats it with
+                // the locale's grouping separator — so the year rendered as "2,026".
+                Text(yearProducts.isEmpty ? "No products for \(String(viewModel.selectedYear))" : "\(yearProducts.count) product\(yearProducts.count == 1 ? "" : "s") tracked")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

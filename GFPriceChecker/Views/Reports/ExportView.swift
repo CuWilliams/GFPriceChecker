@@ -407,6 +407,13 @@ struct ExportView: View {
         .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
     }
 
+    /// - Note: Deliberately unbounded in height. A `.frame(maxHeight: 200)` used to cap this,
+    ///   but the box only scrolls horizontally, so the eleven rows it holds overflowed a
+    ///   200pt window with no way to reach what spilled: the header was sliced through the
+    ///   middle at the top edge and "... and N more rows" at the bottom. `previewProducts`
+    ///   already bounds the content at ten rows, and the enclosing `ScrollView` scrolls, so
+    ///   the cap bought nothing and cost the two lines that frame what the rows mean. Height
+    ///   has to stay free for Dynamic Type as well — any fixed cap re-clips at larger sizes.
     private var csvPreview: some View {
         ScrollView(.horizontal) {
             VStack(alignment: .leading, spacing: 4) {
@@ -431,7 +438,6 @@ struct ExportView: View {
             }
             .padding()
         }
-        .frame(maxHeight: 200)
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
