@@ -20,23 +20,24 @@ The current development guide is [../claude.md](../claude.md) in the repo root.
 
 ---
 
-## Repo-agnostic meta-tooling
+## Moved out: CLAUDE.md meta-tooling
 
-These three are not about GFPriceChecker. They describe how to write and maintain a CLAUDE.md in
-*any* repo, and they are parked here only because this is where they were first written:
+`CLAUDE_MD_TEMPLATE.md`, `CLAUDE_MD_CHECKLIST.md` and `check-claude-md.sh` used to live here.
+They were never about GFPriceChecker — they describe how to write and maintain a CLAUDE.md in
+*any* repo, and eleven repos need them.
 
-- **[CLAUDE_MD_TEMPLATE.md](CLAUDE_MD_TEMPLATE.md)** — standard structure for a CLAUDE.md
-- **[CLAUDE_MD_CHECKLIST.md](CLAUDE_MD_CHECKLIST.md)** — maintenance checklist
-- **[check-claude-md.sh](check-claude-md.sh)** — health check script
+**They now live in [CuWilliams/shared-docs](https://github.com/CuWilliams/shared-docs), under
+`meta/`.** Link to them; do not copy them back.
 
 ```bash
-# Run from repo root
-./docs/check-claude-md.sh
+# Health-check this repo's claude.md, from the repo root:
+/path/to/shared-docs/meta/check-claude-md.sh
 ```
 
-**They are slated to move to a shared documentation home** so that a second, third and fourth repo
-reference one copy instead of each carrying its own drifting fork — see issue #47. Until that home
-exists, treat the copies here as the source and resist duplicating them into other repos.
+It finds the guide file whatever its casing, so it works on this repo's lowercase `claude.md`.
+
+The same repo also holds the GFPriceChecker documentation shared with the website and any future
+Android app, under `gfpricechecker/` — see **Content Conventions** in [../claude.md](../claude.md).
 
 ---
 

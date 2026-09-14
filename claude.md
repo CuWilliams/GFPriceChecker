@@ -307,13 +307,21 @@ How each of those arrived is in `docs/DEVELOPMENT_HISTORY.md`, Phases 1-6.
 
 ## Content Conventions
 
+**The source for these is
+[`gfpricechecker/CONTENT_CONVENTIONS.md`](https://github.com/CuWilliams/shared-docs/blob/main/gfpricechecker/CONTENT_CONVENTIONS.md)
+in the shared-docs repo**, which governs this app, the website, and any future Android app. It
+also carries the shared vocabulary and the platform-independent
+[`PRODUCT_DEFINITION.md`](https://github.com/CuWilliams/shared-docs/blob/main/gfpricechecker/PRODUCT_DEFINITION.md).
+Change it there, not here. What follows is the short version, because the first rule is legal
+exposure and you should not have to open another repo to find out about it.
+
 ### Don't claim tax compliance
 
 The app carries no Canada Revenue Agency branding, and agency references and specific tax line
 numbers were stripped out of the interface in April 2026. Tracking price differences is what the
 app does; what a user does with those records at tax time is between them and their accountant.
-The website follows the same rule — see `Content Conventions` in the website repo's `Claude.md`,
-and the v1.2.0 entry in its `CHANGELOG.md` that removed this class of claim.
+The website removed the same class of claim in its v1.2.0 release — and this app's docs went on
+making it for months afterwards, which is exactly why the rule now lives in one place.
 
 - Explaining the Medical Expense Tax Credit as context for why the app exists is fair and useful.
 - Never describe the app's exports as CRA-compliant, approved, accepted, or endorsed — not in the
@@ -323,7 +331,9 @@ and the v1.2.0 entry in its `CHANGELOG.md` that removed this class of claim.
 Before merging copy or documentation changes, sweep for regressions:
 
 ```bash
-grep -rn "CRA\|Tax Compliant\|tax compliance\|Line 33099" --include=*.swift --include=*.md .
+# Quote the --include patterns: zsh expands them as globs otherwise.
+grep -rn "CRA\|Tax Compliant\|tax compliance\|Line 33099" \
+  --include='*.swift' --include='*.md' .
 ```
 
 Every surviving hit should be explanatory context or a historical record that admits its date —
@@ -500,6 +510,12 @@ Still the user's to do, since they need a device or a human eye:
 ## Reference Documentation
 
 **Detailed Implementation History:** See `docs/DEVELOPMENT_HISTORY.md` — Phases 1-6 and Sessions 1-27, one section each.
+
+**Shared across repos:** [CuWilliams/shared-docs](https://github.com/CuWilliams/shared-docs) —
+`gfpricechecker/` holds the content conventions and the platform-independent product definition
+(data model, differential arithmetic, export formats) shared with the website and any future
+Android app; `meta/` holds the CLAUDE.md template, checklist and health-check script that used to
+live in this repo's `docs/`. Change shared documents there, not here.
 
 **Scripted Demo Pipeline:** See `docs/SCRIPTED_DEMO_PIPELINE.md` — the plan and feasibility audit for generating the website's instructional videos from scripts the app plays against itself, so a new build regenerates the media set instead of needing a re-shoot. Read it before touching the capture flows, `DocumentScannerView`, or navigation structure: several of its stages are refactors of those, and it records why.
 

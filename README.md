@@ -220,6 +220,9 @@ and continued OCR accuracy work.
 - **`docs/DEVELOPMENT_HISTORY.md`** — session-by-session implementation log, Sessions 1-27
 - **`docs/SCRIPTED_DEMO_PIPELINE.md`** — plan for generating the website's instructional videos
 - **`docs/archive/`** — superseded planning documents, kept as a historical record
+- **[CuWilliams/shared-docs](https://github.com/CuWilliams/shared-docs)** — documentation shared
+  with the website and any future Android app: content conventions, and the platform-independent
+  product definition. Also the CLAUDE.md tooling used across all repos.
 
 ---
 
