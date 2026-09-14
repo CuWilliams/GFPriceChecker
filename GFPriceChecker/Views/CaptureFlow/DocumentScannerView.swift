@@ -8,11 +8,20 @@
 import SwiftUI
 import VisionKit
 
-/// SwiftUI wrapper for iOS document scanner
+/// Scans a document and hands back one image.
 ///
-/// Uses VisionKit's VNDocumentCameraViewController to provide native
-/// document scanning with automatic edge detection, perspective correction,
-/// and image quality optimization.
+/// On a device it presents VisionKit's `VNDocumentCameraViewController`, which
+/// gives native edge detection, perspective correction and image-quality
+/// optimization. In the Simulator it presents `SubstituteScannerView` instead,
+/// which sources an image from the photo library or a drawn sample.
+///
+/// Note that the Simulator is detected by `targetEnvironment(simulator)`, not by
+/// `VNDocumentCameraViewController.isSupported` — that reports `true` in the
+/// Simulator while the controller still never returns an image. See
+/// `source(cameraIsSupported:isSimulator:hasQueuedImages:)`.
+///
+/// Because the choice is made here, all three call sites get the fallback
+/// without knowing about it, and behaviour on a physical device is unchanged.
 ///
 /// Usage:
 /// ```swift
@@ -27,12 +36,101 @@ import VisionKit
 ///     }
 /// }
 /// ```
-struct DocumentScannerView: UIViewControllerRepresentable {
+struct DocumentScannerView: View {
 
     // MARK: - Properties
 
     /// Completion handler called when user finishes scanning
     /// - Parameter image: The scanned UIImage, or nil if cancelled
+    let completion: (UIImage?) -> Void
+
+    // MARK: - Body
+
+    var body: some View {
+        switch Self.resolvedSource {
+        case .documentCamera:
+            DocumentCameraView(completion: completion)
+        case .substitute:
+            SubstituteScannerView(completion: completion)
+        }
+    }
+
+    // MARK: - Source Selection
+
+    /// Where the image comes from.
+    enum Source: Equatable {
+        case documentCamera
+        case substitute
+    }
+
+    /// Picks a source from the facts about the current environment.
+    ///
+    /// Pure, and separate from the view, because this decision is the one thing
+    /// here that can be wrong without anything failing loudly: pick the camera
+    /// where it does not work and the flow simply stops at a sheet that never
+    /// returns an image.
+    ///
+    /// - Parameters:
+    ///   - cameraIsSupported: `VNDocumentCameraViewController.isSupported`.
+    ///   - isSimulator: whether this build is running in the Simulator.
+    ///   - hasQueuedImages: whether `ScannerImageProvider` has an image waiting.
+    static func source(
+        cameraIsSupported: Bool,
+        isSimulator: Bool,
+        hasQueuedImages: Bool
+    ) -> Source {
+        // A queued image wins everywhere, device included: a scripted take
+        // supplies its own scans, and the camera would block it awaiting a tap.
+        if hasQueuedImages {
+            return .substitute
+        }
+
+        // `isSupported` is not a usable signal for the Simulator. Measured on
+        // iOS 26 / Xcode 26.1.1, it returns **true** there, and presenting the
+        // controller anyway gets a sheet that never produces an image. So the
+        // Simulator is excluded on its own terms, before `isSupported` is
+        // consulted at all.
+        if isSimulator {
+            return .substitute
+        }
+
+        return cameraIsSupported ? .documentCamera : .substitute
+    }
+
+    /// `source(cameraIsSupported:isSimulator:hasQueuedImages:)` applied to this
+    /// build and this moment.
+    static var resolvedSource: Source {
+        #if DEBUG
+        let queued = ScannerImageProvider.hasPendingImages
+        #else
+        let queued = false
+        #endif
+
+        return source(
+            cameraIsSupported: VNDocumentCameraViewController.isSupported,
+            isSimulator: isSimulator,
+            hasQueuedImages: queued
+        )
+    }
+
+    /// Whether this build is running in the Simulator.
+    static var isSimulator: Bool {
+        #if targetEnvironment(simulator)
+        true
+        #else
+        false
+        #endif
+    }
+}
+
+/// SwiftUI wrapper for iOS document scanner
+///
+/// Only presented on a device with a supported camera — see
+/// `DocumentScannerView`, which is what callers use.
+private struct DocumentCameraView: UIViewControllerRepresentable {
+
+    // MARK: - Properties
+
     let completion: (UIImage?) -> Void
 
     // MARK: - UIViewControllerRepresentable
@@ -56,9 +154,9 @@ struct DocumentScannerView: UIViewControllerRepresentable {
     /// Coordinator to handle VNDocumentCameraViewController delegate callbacks
     class Coordinator: NSObject, VNDocumentCameraViewControllerDelegate {
 
-        let parent: DocumentScannerView
+        let parent: DocumentCameraView
 
-        init(_ parent: DocumentScannerView) {
+        init(_ parent: DocumentCameraView) {
             self.parent = parent
         }
 
@@ -108,8 +206,6 @@ struct DocumentScannerView: UIViewControllerRepresentable {
 // MARK: - Preview
 
 #Preview {
-    Button("Scan Document") {
-        // Preview can't actually show scanner
-    }
+    DocumentScannerView { _ in }
 }
 #endif

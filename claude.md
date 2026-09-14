@@ -457,6 +457,23 @@ Still the user's to do, since they need a device or a human eye:
    - Tax ID stored in @AppStorage (not encrypted)
    - Backup files contain unencrypted data
 
+7. **Simulator:**
+   - `VNDocumentCameraViewController` presents a sheet that never returns an image in the
+     Simulator. `DocumentScannerView` now falls back to `SubstituteScannerView` there, which
+     supplies an image from the photo library or — in DEBUG — from `SampleScanImages`, so
+     both capture flows run end to end without a camera. The choice is made inside
+     `DocumentScannerView`, so all three call sites get it and device behaviour is unchanged.
+   - **`VNDocumentCameraViewController.isSupported` is not the signal for this.** Measured on
+     iOS 26 / Xcode 26.1.1, it returns `true` in the Simulator. The fallback keys off
+     `targetEnvironment(simulator)` instead, and `isSupported` is consulted only on a device.
+     `DocumentScannerSourceTests` pins both facts.
+   - **Set Xcode's run destination to a Simulator to see this.** On a physical device the
+     substitute never appears — the real scanner works and is the better path — so a device
+     run looks identical to a build without the fallback.
+   - Scanned *image quality* still differs: the real scanner does edge detection and
+     perspective correction, the substitute hands the image through untouched. Anything about
+     how well OCR copes with a skewed or badly lit photograph still needs a device.
+
 ---
 
 ## Git Workflow
@@ -481,6 +498,8 @@ Still the user's to do, since they need a device or a human eye:
 ## Reference Documentation
 
 **Detailed Implementation History:** See `docs/DEVELOPMENT_HISTORY.md`
+
+**Scripted Demo Pipeline:** See `docs/SCRIPTED_DEMO_PIPELINE.md` — the plan and feasibility audit for generating the website's instructional videos from scripts the app plays against itself, so a new build regenerates the media set instead of needing a re-shoot. Read it before touching the capture flows, `DocumentScannerView`, or navigation structure: several of its stages are refactors of those, and it records why.
 
 **Sessions 1-27:**
 - Sessions 1-6: Foundation and Library Views
