@@ -20,8 +20,8 @@ GFPriceChecker helps Canadian celiac patients track the price difference between
 ## Tech Stack
 
 - **Xcode:** 26.1.1
-- **Swift:** 6.0 (strict concurrency enabled)
-- **iOS Target:** 26.0+
+- **Swift:** 5.0 language mode (`SWIFT_VERSION = 5.0`), Xcode 26 toolchain
+- **iOS Target:** 18.0+
 - **UI Framework:** SwiftUI
 - **Persistence:** SwiftData
 - **OCR:** Vision framework (VNRecognizeTextRequest, VNDetectRectanglesRequest)
@@ -285,7 +285,7 @@ Product pairs with `Decimal` currency and full CRUD; VisionKit document scanning
 OCR (spatial price ranking, rectangle-based shelf-tag filtering, decimal inference); receipt
 verification with fuzzy matching (Levenshtein, Jaccard) and Costco-style multi-line parsing;
 tax summary dashboard, CRA-compliant CSV, and multi-page PDF with receipt images; JSON
-backup/restore; onboarding, VoiceOver and Dynamic Type; Swift 6 with zero warnings.
+backup/restore; onboarding, VoiceOver and Dynamic Type; a clean build with zero warnings.
 
 How each of those arrived is in `docs/DEVELOPMENT_HISTORY.md`, Phases 1-6.
 
@@ -331,11 +331,25 @@ How each of those arrived is in `docs/DEVELOPMENT_HISTORY.md`, Phases 1-6.
 ### Currency Formatting
 - Always use `Decimal` type for prices
 - Format display: `.formatted(.currency(code: "CAD"))`
-- Never use string interpolation for localized currency (deprecated in Swift 6)
+- Never use string interpolation for localized currency
 
-### Swift 6 Compliance
-- Use `nonisolated` for file system operations
-- Add `any` keyword to protocol types used as values
+### Concurrency
+
+The project is **not** in Swift 6 language mode. `SWIFT_VERSION = 5.0` at all six build
+configurations, so data-race safety is diagnosed as warnings, not errors. What is on is two
+Xcode 26 toolchain defaults:
+
+- `SWIFT_APPROACHABLE_CONCURRENCY = YES`
+- `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` — **types are `@MainActor` unless they say
+  otherwise**, which is why so little in this codebase carries an explicit annotation.
+
+Both are compile-time settings that back-deploy; neither constrains the deployment target.
+Moving to Swift 6 language mode is a separate piece of work nobody has costed.
+
+House rules that follow from the MainActor default:
+
+- Mark file system operations `nonisolated` so they don't hop to the main actor
+- Add `any` to protocol types used as values
 - Avoid `appendInterpolation` for localized strings
 
 ### Testing Strategy
@@ -348,12 +362,19 @@ Working invocation (scheme resolves from local `xcuserdata`; no shared scheme is
 ```bash
 xcodebuild test -scheme GFPriceChecker \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -parallel-testing-enabled NO \
   -only-testing:GFPriceCheckerTests
 ```
 
-Drop `-only-testing:` to include the UI test target. A full run takes roughly two minutes;
-raise the Bash timeout accordingly. `xcodebuild`'s output is long — filter it, e.g.
-`| grep -E "Test case|TEST (SUCCEEDED|FAILED)|error:"`.
+**`-parallel-testing-enabled NO` is not optional here.** Without it xcodebuild clones a
+second simulator and the run dies with "Unable to boot device due to insufficient system
+resources" before a single test executes.
+
+Drop `-only-testing:` to include the UI test target. Now that the deployment target is 18.0,
+any runtime from iOS 18.0 up is a valid destination — pick one that matches what you are
+verifying. A full run takes several minutes; raise the Bash timeout and run it in the
+background. `xcodebuild`'s output is long — filter it, and note that **Swift Testing emits no
+"Test case" lines**, so grep for `"✘|✔|Test run with|TEST (SUCCEEDED|FAILED)|error:"`.
 
 Failures worth digging into are easiest to read from the result bundle:
 
