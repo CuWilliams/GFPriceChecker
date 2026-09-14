@@ -6,14 +6,17 @@
 
 ## Project Overview
 
-GFPriceChecker helps Canadian celiac patients track the price difference between gluten-free and regular products for medical expense tax deductions (CRA Line 33099). The app provides:
+GFPriceChecker helps Canadian celiac patients track the price difference between gluten-free and
+regular products, so the incremental cost is documented if they claim it as a medical expense. The
+app provides:
 
 - Product pair tracking (GF vs Regular) with price differential calculation
 - Document scanning with OCR for automatic price extraction
-- Receipt verification for CRA audit compliance
-- Professional PDF and CSV tax reports
+- Receipt verification, so every tracked product has a real purchase behind it
+- PDF and CSV exports of a year's records
 
-**Current Status:** Production-ready MVP, field trials in progress
+**Current Status:** Public TestFlight beta since January 2026. 1.0 App Store submission is the
+current milestone — see issue #49 and the issues it is blocked by.
 
 ---
 
@@ -64,7 +67,7 @@ GFPriceChecker/
 │   ├── OCRService.swift        # Vision framework text + rectangle detection
 │   ├── ReceiptParserService.swift  # Receipt parsing with fuzzy matching
 │   ├── ImageStorageService.swift   # Local image storage + thumbnails
-│   ├── CSVExportService.swift  # CRA-compliant CSV generation
+│   ├── CSVExportService.swift  # Itemized CSV generation
 │   ├── PDFGeneratorService.swift   # Professional PDF tax reports
 │   └── DataBackupService.swift # JSON backup/restore with Base64 images
 ├── Utilities/
@@ -284,7 +287,7 @@ model (`gfSizeValue`, `unitPriceDifferential`) are now the single source.
 Product pairs with `Decimal` currency and full CRUD; VisionKit document scanning with Vision
 OCR (spatial price ranking, rectangle-based shelf-tag filtering, decimal inference); receipt
 verification with fuzzy matching (Levenshtein, Jaccard) and Costco-style multi-line parsing;
-tax summary dashboard, CRA-compliant CSV, and multi-page PDF with receipt images; JSON
+tax summary dashboard, itemized CSV, and multi-page PDF with receipt images; JSON
 backup/restore; onboarding, VoiceOver and Dynamic Type; a clean build with zero warnings.
 
 How each of those arrived is in `docs/DEVELOPMENT_HISTORY.md`, Phases 1-6.
@@ -295,10 +298,47 @@ How each of those arrived is in `docs/DEVELOPMENT_HISTORY.md`, Phases 1-6.
 
 - **Category management:** custom categories, colour coding, a longer predefined list
 - **Performance:** lazy image loading, background PDF generation, SwiftData query tuning, and
-  memory profiling for 200+ products — held until field trials produce real usage data
+  memory profiling for 200+ products — held until beta usage produces real numbers
 - **Error handling:** the remaining services and view-layer error states
 - **Accessibility:** chart audio graphs, WCAG 2.1 AA contrast audit, 44x44 touch-target audit,
   High Contrast mode
+
+---
+
+## Content Conventions
+
+**The source for these is
+[`gfpricechecker/CONTENT_CONVENTIONS.md`](https://github.com/CuWilliams/shared-docs/blob/main/gfpricechecker/CONTENT_CONVENTIONS.md)
+in the shared-docs repo**, which governs this app, the website, and any future Android app. It
+also carries the shared vocabulary and the platform-independent
+[`PRODUCT_DEFINITION.md`](https://github.com/CuWilliams/shared-docs/blob/main/gfpricechecker/PRODUCT_DEFINITION.md).
+Change it there, not here. What follows is the short version, because the first rule is legal
+exposure and you should not have to open another repo to find out about it.
+
+### Don't claim tax compliance
+
+The app carries no Canada Revenue Agency branding, and agency references and specific tax line
+numbers were stripped out of the interface in April 2026. Tracking price differences is what the
+app does; what a user does with those records at tax time is between them and their accountant.
+The website removed the same class of claim in its v1.2.0 release — and this app's docs went on
+making it for months afterwards, which is exactly why the rule now lives in one place.
+
+- Explaining the Medical Expense Tax Credit as context for why the app exists is fair and useful.
+- Never describe the app's exports as CRA-compliant, approved, accepted, or endorsed — not in the
+  interface, not in `README.md`, and not in this file.
+- Never promise anyone a deduction.
+
+Before merging copy or documentation changes, sweep for regressions:
+
+```bash
+# Quote the --include patterns: zsh expands them as globs otherwise.
+grep -rn "CRA\|Tax Compliant\|tax compliance\|Line 33099" \
+  --include='*.swift' --include='*.md' .
+```
+
+Every surviving hit should be explanatory context or a historical record that admits its date —
+`docs/DEVELOPMENT_HISTORY.md` and `docs/archive/` narrate what the app was at the time of writing
+and are left as written.
 
 ---
 
@@ -470,6 +510,12 @@ Still the user's to do, since they need a device or a human eye:
 ## Reference Documentation
 
 **Detailed Implementation History:** See `docs/DEVELOPMENT_HISTORY.md` — Phases 1-6 and Sessions 1-27, one section each.
+
+**Shared across repos:** [CuWilliams/shared-docs](https://github.com/CuWilliams/shared-docs) —
+`gfpricechecker/` holds the content conventions and the platform-independent product definition
+(data model, differential arithmetic, export formats) shared with the website and any future
+Android app; `meta/` holds the CLAUDE.md template, checklist and health-check script that used to
+live in this repo's `docs/`. Change shared documents there, not here.
 
 **Scripted Demo Pipeline:** See `docs/SCRIPTED_DEMO_PIPELINE.md` — the plan and feasibility audit for generating the website's instructional videos from scripts the app plays against itself, so a new build regenerates the media set instead of needing a re-shoot. Read it before touching the capture flows, `DocumentScannerView`, or navigation structure: several of its stages are refactors of those, and it records why.
 

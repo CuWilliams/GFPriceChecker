@@ -191,7 +191,7 @@ struct QuantityMigrationTests {
             quantity backfilled to \(migrated.quantity), not 1. Implicit migration is no \
             longer honouring the inline default on ProductPair.quantity, so every \
             extendedDifferential on a pre-upgrade pair is wrong — silently, and in a number \
-            the user puts on a CRA return.
+            the user relies on at tax time.
             """
         )
     }

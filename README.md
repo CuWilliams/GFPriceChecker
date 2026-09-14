@@ -2,51 +2,56 @@
 
 **Compare, Save, Claim**
 
-Track price differentials between gluten-free and regular products for Canadian tax deductions.
+Track price differentials between gluten-free and regular products.
 
 ---
 
 ## Overview
 
-GFPriceChecker is an iOS app designed to help individuals with celiac disease track the incremental costs of gluten-free products compared to regular equivalents. This data is used to claim medical expense tax deductions with the Canada Revenue Agency (CRA).
+GFPriceChecker is an iOS app that helps people with celiac disease document what gluten-free food actually costs them compared to the regular equivalent. Canada's Medical Expense Tax Credit lets that incremental cost be claimed as a medical expense, and the tedious part is the record-keeping, not the arithmetic.
+
+**Status:** Public TestFlight beta since January 2026. The 1.0 App Store submission is the current milestone.
+
+**Website:** [gfpricechecker.com](https://gfpricechecker.com) — features, FAQ, beta signup, privacy policy and terms.
 
 ### The Problem
 
-People with celiac disease can claim the price difference between gluten-free and regular products as a medical expense deduction. However, tracking this data throughout the year is tedious:
-- Saving all receipts
-- Manually calculating differentials
-- Organizing data for tax filing
-- Providing documentation for CRA audits
+Documenting a year of gluten-free purchases by hand means:
+- Keeping every receipt
+- Finding the regular equivalent and its price
+- Adjusting for package size, so a 450 g loaf and a 675 g loaf compare honestly
+- Calculating each differential
+- Organizing it all into something an accountant can read
 
 ### The Solution
 
-GFPriceChecker streamlines this process by:
-1. **Capturing product pairs** - Scan gluten-free and regular products in-store
-2. **OCR assistance** - Automatically extract prices from photos
-3. **Receipt verification** - Link purchases to receipts for documentation
-4. **Export for taxes** - Generate CRA-compliant CSV and professional PDF reports
+GFPriceChecker streamlines this by:
+1. **Capturing product pairs** — scan the gluten-free product and its regular equivalent in-store
+2. **OCR assistance** — read prices and sizes off shelf tags automatically
+3. **Unit pricing** — compare by unit ($/100 g for weights, $/unit otherwise) rather than per package, so different sizes compare fairly
+4. **Receipt verification** — link products to the receipt that proves the purchase
+5. **Export** — produce a PDF report or CSV spreadsheet of a year's records
 
 ---
 
 ## Features
 
-### Core Functionality (MVP)
-
-- ✅ **Product Pair Tracking** - Store GF and non-GF product information
-- ✅ **Camera Integration** - Professional document scanning with VisionKit
-- ✅ **OCR Text Extraction** - Automatically read prices from labels and receipts
-- ✅ **Receipt Verification** - Link products to receipts for audit trail
-- ✅ **Category Management** - Organize products by type with custom categories
-- ✅ **CSV Export** - CRA-compliant spreadsheet export
-- ✅ **PDF Reports** - Professional branded reports for accountants
-- ✅ **Summary Dashboard** - Annual statistics and insights
+- ✅ **Product Pair Tracking** — store GF and non-GF product information, with package size
+- ✅ **Camera Integration** — document scanning with VisionKit
+- ✅ **OCR Text Extraction** — read prices and sizes from shelf tags and receipts
+- ✅ **Receipt Verification** — link products to receipts, with fuzzy matching against receipt lines
+- ✅ **Categories** — organize products by type
+- ✅ **CSV Export** — itemized spreadsheet of a year's products
+- ✅ **PDF Reports** — branded multi-page report, receipt images included
+- ✅ **Summary Dashboard** — annual statistics and insights
+- ✅ **Backup & Restore** — JSON backup containing images
 
 ### Privacy & Security
 
-- 🔒 **Local-first** - All data stored on device only
-- 🔒 **No tracking** - Zero analytics or data collection
-- 🔒 **No account required** - No registration, no cloud
-- 🔒 **Full control** - Export and delete your data anytime
+- 🔒 **Local-first** — all data stored on device only
+- 🔒 **No tracking** — zero analytics or data collection
+- 🔒 **No account required** — no registration, no cloud
+- 🔒 **Full control** — export and delete your data anytime
 
 ---
 
@@ -54,8 +59,8 @@ GFPriceChecker streamlines this process by:
 
 ### Stack
 
-- **Platform:** iOS 17.0+
-- **Language:** Swift 6
+- **Platform:** iOS 18.0+
+- **Language:** Swift, 5.0 language mode (`SWIFT_VERSION = 5.0`) on the Xcode 26 toolchain
 - **UI Framework:** SwiftUI
 - **Data Persistence:** SwiftData
 - **OCR:** Vision Framework
@@ -63,50 +68,61 @@ GFPriceChecker streamlines this process by:
 - **PDF Generation:** PDFKit
 - **Architecture:** MVVM (Model-View-ViewModel)
 
+Note the project is *not* in Swift 6 language mode. It does run with the Xcode 26 defaults
+`SWIFT_APPROACHABLE_CONCURRENCY = YES` and `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which is
+why so few types carry an explicit `@MainActor`. See the Concurrency section of `claude.md`.
+
 ### Project Structure
 ```
 GFPriceChecker/
 ├── Models/              # SwiftData models
 │   ├── ProductPair.swift
-│   ├── Receipt.swift
-│   └── Category.swift
-├── ViewModels/          # Business logic
+│   └── Receipt.swift
+├── ViewModels/          # Flow state and business logic
+│   ├── CaptureFlowViewModel.swift
 │   └── ReportViewModel.swift
 ├── Views/               # SwiftUI views
 │   ├── CaptureFlow/     # Product and receipt capture
 │   ├── Library/         # Product list and details
 │   ├── Reports/         # Analytics and export
-│   └── Settings/        # App configuration
+│   ├── Settings/        # App configuration
+│   ├── Onboarding/
+│   └── Components/      # Reusable UI components
 ├── Services/            # Business services
 │   ├── OCRService.swift
+│   ├── ReceiptParserService.swift
 │   ├── ImageStorageService.swift
 │   ├── CSVExportService.swift
-│   └── PDFGeneratorService.swift
-└── Utilities/           # Helpers and extensions
+│   ├── PDFGeneratorService.swift
+│   └── DataBackupService.swift
+├── Utilities/           # Helpers and extensions
+└── Resources/           # App branding
 ```
+
+A fuller map, with the patterns worth knowing before changing any of it, is in `claude.md`.
 
 ---
 
-## CRA Compliance
+## What This App Does and Doesn't Claim
 
-This app helps users comply with CRA medical expense deduction requirements for celiac disease:
+The app helps you keep records. It does not file anything, and it makes no claim about what you
+are eligible to deduct.
 
-### Requirements Met
+### What it gives you
 
-- ✅ **Incremental cost tracking** - Calculates GF vs regular price difference
-- ✅ **Receipt documentation** - Links products to purchase receipts
-- ✅ **Detailed records** - Product names, dates, stores, amounts
-- ✅ **Exportable documentation** - CSV and PDF formats for submission
+- ✅ **Incremental cost tracking** — the GF versus regular difference, adjusted for package size
+- ✅ **Receipt documentation** — products linked to the purchase that backs them
+- ✅ **Detailed records** — product names, dates, stores, amounts
+- ✅ **Exportable records** — CSV and PDF
 
-### User Responsibilities
+### What remains yours to do
 
-Users must still:
-- Obtain medical diagnosis letter from doctor
-- Only claim products for person with celiac disease
-- Keep receipts for CRA audit requests
-- Ensure price comparisons are reasonable equivalents
+- Obtain a medical diagnosis letter from a doctor
+- Only claim products for the person with celiac disease
+- Keep your receipts
+- Ensure the price comparisons are reasonable equivalents
 
-**Note:** This app assists with tracking - it does not provide tax advice. Consult a tax professional for filing guidance.
+**Note:** This app is a record-keeping tool, not tax advice. The exports are not endorsed by, approved by, or affiliated with the Canada Revenue Agency. Consult a tax professional about your own situation — and note the Medical Expense Tax Credit only applies to medical expenses above a threshold of roughly three percent of net income, so a modest year may not reach it.
 
 ---
 
@@ -114,16 +130,15 @@ Users must still:
 
 ### Prerequisites
 
-- macOS Sonoma 14.0+
-- Xcode 15.0+
-- iOS 17.0+ device or simulator
+- Xcode 26.1.1
+- iOS 18.0+ device or simulator
 - Apple Developer account (for device testing)
 
 ### Installation
 
 1. Clone repository:
 ```bash
-git clone https://github.com/[YOUR-USERNAME]/GFPriceChecker.git
+git clone https://github.com/CuWilliams/GFPriceChecker.git
 cd GFPriceChecker
 ```
 
@@ -136,16 +151,22 @@ open GFPriceChecker.xcodeproj
 - Select target device/simulator
 - Press Cmd+R
 
+Note that no shared scheme is committed; the `GFPriceChecker` scheme resolves from your local
+`xcuserdata` the first time you open the project.
+
 ### Testing
 
-Run tests:
-```bash
-# Unit tests
-Cmd+U in Xcode
+Tests are Swift Testing (`import Testing`), not XCTest. From Xcode, Cmd+U. From the command line:
 
-# UI tests
-Xcode → Product → Test
+```bash
+xcodebuild test -scheme GFPriceChecker \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -parallel-testing-enabled NO \
+  -only-testing:GFPriceCheckerTests
 ```
+
+`-parallel-testing-enabled NO` is not optional — without it xcodebuild clones a second simulator
+and the run dies on insufficient system resources. Drop `-only-testing:` to include the UI tests.
 
 ---
 
@@ -155,8 +176,8 @@ Xcode → Product → Test
 
 1. Tap **Capture** tab
 2. Follow guided flow:
-   - Scan gluten-free product label
-   - Review and edit OCR-extracted data
+   - Scan gluten-free product shelf tag
+   - Review and edit OCR-extracted price and size
    - Scan regular equivalent product
    - Review and confirm
    - Add optional category/notes
@@ -171,105 +192,78 @@ Xcode → Product → Test
 5. Confirm product matches
 6. Products marked as verified ✓
 
-### Exporting for Taxes
+### Exporting Your Records
 
 1. Go to **Reports** tab
 2. Review summary dashboard
 3. Select date range (tax year)
 4. Choose export format:
    - CSV for spreadsheet software
-   - PDF for professional report
+   - PDF for a printed report
 5. Share via email, AirDrop, or Files
 
 ---
 
 ## Roadmap
 
-### v1.0 (MVP) - Current
-- Manual and OCR-assisted product entry
-- Receipt verification
-- CSV and PDF export
-- Local storage only
+Tracked in [GitHub Issues](https://github.com/CuWilliams/GFPriceChecker/issues) and the
+GFPriceChecker Roadmap project. The 1.0 App Store submission is milestone `1.0 - App Store`.
 
-### v1.1 (Planned)
-- iCloud sync across devices
-- Home screen widget
-- Improved OCR accuracy
-- Bulk operations
+Longer-term ideas, none of them committed: iCloud sync, a home screen widget, bulk operations,
+and continued OCR accuracy work.
 
-### v2.0 (Future)
-- Android version
-- Advanced analytics
-- Multi-user support (families)
-- Integration with tax software
+---
+
+## Documentation
+
+- **`claude.md`** — development guide: patterns, conventions, testing strategy, known limitations
+- **`docs/DEVELOPMENT_HISTORY.md`** — session-by-session implementation log, Sessions 1-27
+- **`docs/SCRIPTED_DEMO_PIPELINE.md`** — plan for generating the website's instructional videos
+- **`docs/archive/`** — superseded planning documents, kept as a historical record
+- **[CuWilliams/shared-docs](https://github.com/CuWilliams/shared-docs)** — documentation shared
+  with the website and any future Android app: content conventions, and the platform-independent
+  product definition. Also the CLAUDE.md tooling used across all repos.
 
 ---
 
 ## Contributing
 
-This is currently a personal project. Contributions welcome after initial release.
+This is a personal project and the repository is private. Contributions are not open at this time.
 
-### Development Guidelines
-
-- Follow existing code style (SwiftLint rules)
-- Write tests for new features
-- Update documentation
-- Use conventional commits
+Feedback from beta testers is very welcome — through TestFlight, or by email.
 
 ---
 
 ## Support & Feedback
 
-### For Beta Testers
-
-- Submit feedback via TestFlight
-- Report bugs with screenshots
-- Suggest features in testing channel
-
-### General Inquiries
-
-- Email: [your-email]
-- Issues: GitHub Issues (when public)
-
----
-
-## Partnership Opportunities
-
-Interested in partnering? This app is being developed with potential support from:
-
-- **Celiac Canada** - National advocacy organization
-- **Canadian Celiac Association** - Provincial chapters
-- Other gluten-free advocacy groups
-
-Contact for partnership discussions.
+- **Beta testers:** submit feedback via TestFlight, and include a screenshot with bug reports
+- **Email:** gfpricechecker@gmail.com
+- **Issues:** GitHub Issues
 
 ---
 
 ## License
 
-[To be determined - likely MIT or Apache 2.0 for open source]
+Not yet chosen. The repository is private and no license is granted for reuse.
 
-Copyright © 2024 [Your Name]
+Copyright © 2026 Curtis Williams
 
 ---
 
 ## Acknowledgments
 
-Built for the celiac community, starting with one person who needed a better way to track medical expenses.
+Built for the celiac community, starting with one person who needed a better way to track the cost.
 
-Special thanks to:
-- Canadian celiac advocacy organizations
-- CRA for providing medical expense provisions
-- Beta testers providing valuable feedback
+Special thanks to Canadian celiac advocacy organizations, and to the beta testers.
 
 ---
 
 ## Disclaimer
 
-This app is a tracking tool, not tax advice. Always consult with a qualified tax professional regarding your specific situation. CRA rules and regulations are subject to change.
+This app is a record-keeping tool, not tax advice. It is not affiliated with, endorsed by, or approved by the Canada Revenue Agency. Always consult a qualified tax professional regarding your specific situation. Tax rules and regulations are subject to change.
 
 ---
 
 **GFPriceChecker - Compare, Save, Claim**
 
-*Making tax deductions for celiac disease easier, one product at a time.*
+*Making the cost of celiac disease easier to document, one product at a time.*
