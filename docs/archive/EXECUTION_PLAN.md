@@ -1,3 +1,17 @@
+> **Archived — historical record.** This is the session-by-session plan used to build the app to
+> its TestFlight MVP between December 2025 and January 2026. All six phases were completed and the
+> app has changed considerably since; several of its claims no longer hold. It is kept as a record
+> of how the app was originally constructed, and it does **not** describe the app as it stands
+> today or what shipping 1.0 now requires.
+>
+> **Do not work from the TestFlight checklist in Session 25.** It is superseded — the iPhone 15 Pro
+> screenshot target in particular is wrong, and App Store screenshots now come out of the scripted
+> demo pipeline. The current launch checklist lives in issue #49.
+>
+> For current documentation see [README.md](../../README.md) and [claude.md](../../claude.md).
+> For what happened during these sessions, see
+> [DEVELOPMENT_HISTORY.md](../DEVELOPMENT_HISTORY.md).
+
 # GFPriceChecker - Complete Execution Plan
 
 **Version:** 1.0  

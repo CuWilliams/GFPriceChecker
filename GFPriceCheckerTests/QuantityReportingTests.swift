@@ -17,7 +17,7 @@ import Testing
 /// `extendedNormalizedDifferential` instead. That split is deliberate — rates like
 /// `unitPriceDifferential` must never scale — but it means a missed call site compiles,
 /// ships, and simply reports a smaller number. There is no crash and no warning; a user
-/// who bought three loaves claims one loaf's premium on their CRA Line 33099 return.
+/// who bought three loaves sees one loaf's premium in their records.
 ///
 /// So these tests deliberately use a quantity of 3 and assert exact totals rather than
 /// "greater than zero". Every aggregation the dashboard and the exports depend on is

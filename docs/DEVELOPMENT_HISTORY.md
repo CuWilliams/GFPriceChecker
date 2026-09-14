@@ -2,7 +2,13 @@
 
 **Complete session-by-session implementation log for GFPriceChecker iOS app**
 
-This document archives the detailed development history across 27 sessions and 6 major phases. For current development guidelines and patterns, see the main [CLAUDE.md](../CLAUDE.md).
+This document archives the detailed development history across 27 sessions and 6 major phases. For current development guidelines and patterns, see the main [claude.md](../claude.md).
+
+> **This record ends at Session 27, 15 January 2026. It is not a complete history of the app.**
+> Everything after that date — the public TestFlight beta, unit pricing, the scripted demo
+> pipeline, the iOS 18.0 deployment target, and the run up to 1.0 — is recorded in the git log,
+> in pull requests, and in GitHub Issues, not here. Sections below describe the app as it was at
+> the time each session was written; several of their claims have since been superseded.
 
 ---
 
@@ -1077,13 +1083,19 @@ Button {
 **Lines of Code:** ~10,000+ (excluding session logs)
 
 **Key Technical Achievements:**
-- Swift 6 compliance with zero warnings
+- A clean build with zero warnings
 - Comprehensive accessibility support
 - Production-ready error handling
 - Advanced OCR with spatial analysis and rectangle detection
-- CRA-compliant tax reporting (PDF + CSV)
+- Tax reporting exports (PDF + CSV)
 - Robust SwiftUI state management patterns
+
+> Two claims in the original version of this summary were wrong and have been corrected above.
+> The project has never been in Swift 6 language mode — `SWIFT_VERSION = 5.0` at every build
+> configuration — and the exports are not CRA-compliant, approved, or endorsed; see
+> **Content Conventions** in [claude.md](../claude.md).
 
 ---
 
-*This development history is maintained as an archive. For current guidelines and patterns, see [CLAUDE.md](../CLAUDE.md).*
+*This development history is maintained as an archive, and it stops at January 2026. For current
+guidelines and patterns, see [claude.md](../claude.md).*

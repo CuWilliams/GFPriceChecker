@@ -1,160 +1,69 @@
 # Documentation Guide
 
-This folder contains templates and tools for maintaining optimal CLAUDE.md files across all repositories.
+What lives in this folder, and where each thing's boundary is.
 
 ---
 
-## Files in This Directory
+## GFPriceChecker documentation
 
-### 📚 Documentation Archives
-- **[DEVELOPMENT_HISTORY.md](DEVELOPMENT_HISTORY.md)** - Complete session-by-session implementation log (Sessions 1-27) for GFPriceChecker
+- **[DEVELOPMENT_HISTORY.md](DEVELOPMENT_HISTORY.md)** — session-by-session implementation log.
+  **Covers Sessions 1-27 only, December 2025 through January 2026.** Work after January 2026 is
+  not in it; that record lives in the git log, in pull requests, and in GitHub Issues.
+- **[SCRIPTED_DEMO_PIPELINE.md](SCRIPTED_DEMO_PIPELINE.md)** — the plan and feasibility audit for
+  generating the website's instructional videos from scripts the app plays against itself. Read it
+  before touching the capture flows, `DocumentScannerView`, or navigation structure.
+- **[RELEASE_NOTES_BUILD_8.md](RELEASE_NOTES_BUILD_8.md)** — TestFlight release notes for build 8.
+- **[archive/](archive/)** — superseded planning documents, each carrying an archive banner.
+  Historical record; they do not describe the app as it stands.
 
-### 📋 Templates & Guides
-- **[CLAUDE_MD_TEMPLATE.md](CLAUDE_MD_TEMPLATE.md)** - Standard structure and best practices for CLAUDE.md files
-- **[CLAUDE_MD_CHECKLIST.md](CLAUDE_MD_CHECKLIST.md)** - Maintenance checklist for keeping CLAUDE.md healthy
-
-### 🔧 Tools
-- **[check-claude-md.sh](check-claude-md.sh)** - Automated health check script for CLAUDE.md
-
----
-
-## Quick Start
-
-### For New Projects
-
-1. Copy `CLAUDE_MD_TEMPLATE.md` to your new repo root and rename to `CLAUDE.md`
-2. Fill in project-specific sections (see template comments)
-3. Create a `docs/` folder
-4. Start `docs/DEVELOPMENT_HISTORY.md` for detailed session logs
-5. Copy `check-claude-md.sh` to `docs/` and run periodically
-
-### For Existing Projects
-
-1. Run health check:
-   ```bash
-   ./docs/check-claude-md.sh
-   ```
-
-2. If score < 80%, refactor:
-   - Review [CLAUDE_MD_TEMPLATE.md](CLAUDE_MD_TEMPLATE.md)
-   - Use [CLAUDE_MD_CHECKLIST.md](CLAUDE_MD_CHECKLIST.md)
-   - Archive session logs to `docs/DEVELOPMENT_HISTORY.md`
-
-3. After refactoring, verify:
-   ```bash
-   ./docs/check-claude-md.sh
-   ```
+The current development guide is [../claude.md](../claude.md) in the repo root.
 
 ---
 
-## Maintenance Schedule
+## Repo-agnostic meta-tooling
 
-### ✅ After Every Major Feature
-- [ ] Extract pattern if solution is reusable
-- [ ] Update "Key Features" section
-- [ ] Archive session log to DEVELOPMENT_HISTORY.md
-- [ ] Run `./docs/check-claude-md.sh`
+These three are not about GFPriceChecker. They describe how to write and maintain a CLAUDE.md in
+*any* repo, and they are parked here only because this is where they were first written:
 
-### 📅 Monthly (for Active Projects)
-- [ ] Review [CLAUDE_MD_CHECKLIST.md](CLAUDE_MD_CHECKLIST.md)
-- [ ] Archive old session logs
-- [ ] Update "Current Status" section
-- [ ] Verify code examples still compile
-
-### 🎯 Before Major Milestones
-- [ ] Complete documentation audit
-- [ ] Ensure all patterns documented
-- [ ] Create DEVELOPMENT_HISTORY.md snapshot
-- [ ] Run `./docs/check-claude-md.sh`
-
----
-
-## The Golden Rules
-
-1. **Size matters**: Keep CLAUDE.md under 500 lines
-2. **Focus on patterns**: Not step-by-step history
-3. **Archive religiously**: Move detailed logs to docs/ folder
-4. **Update after features**: Keep current, not historical
-5. **Think onboarding**: "If I joined today, what do I need?"
-6. **Code examples over paragraphs**: Show, don't tell
-7. **Review monthly**: Documentation rots fast
-
----
-
-## Health Check Script Usage
+- **[CLAUDE_MD_TEMPLATE.md](CLAUDE_MD_TEMPLATE.md)** — standard structure for a CLAUDE.md
+- **[CLAUDE_MD_CHECKLIST.md](CLAUDE_MD_CHECKLIST.md)** — maintenance checklist
+- **[check-claude-md.sh](check-claude-md.sh)** — health check script
 
 ```bash
-# Make executable (first time only)
-chmod +x docs/check-claude-md.sh
-
 # Run from repo root
 ./docs/check-claude-md.sh
 ```
 
-**Output:**
-- ✓ Green = Healthy
-- ⚠ Yellow = Needs attention
-- ✗ Red = Immediate action required
-
-**Score:**
-- 80%+ = Healthy
-- 50-79% = Needs attention
-- <50% = Refactor now
+**They are slated to move to a shared documentation home** so that a second, third and fourth repo
+reference one copy instead of each carrying its own drifting fork — see issue #47. Until that home
+exists, treat the copies here as the source and resist duplicating them into other repos.
 
 ---
 
-## What Goes Where?
+## What goes where
 
-### CLAUDE.md (Main Guide)
-- ✅ Project overview and tech stack
-- ✅ Established patterns (3-6 max)
-- ✅ Development guidelines
-- ✅ Feature summary
-- ✅ Known limitations
+### claude.md (repo root)
+- Project overview and tech stack
+- Established patterns
+- Development guidelines and content conventions
+- Feature summary
+- Known limitations
 
 ### docs/DEVELOPMENT_HISTORY.md
-- ✅ Session-by-session logs
-- ✅ Technical decisions
-- ✅ Implementation details
-- ✅ Commit hashes
-- ✅ Debugging sessions
+- Session-by-session logs, technical decisions, implementation details, commit hashes
 
-### docs/ARCHITECTURE.md (Optional)
-- ✅ Detailed system design
-- ✅ Database schema
-- ✅ API documentation
-- ✅ Data flow diagrams
-
-### docs/SETUP.md (Optional)
-- ✅ Installation instructions
-- ✅ Environment setup
-- ✅ Troubleshooting
+### docs/archive/
+- Planning documents that have been overtaken. Add the archive banner when you move one here;
+  `archive/EXECUTION_PLAN.md` is the model.
 
 ---
 
-## Copy These Files to Other Repos
+## The golden rules
 
-To replicate this setup in another project:
-
-```bash
-# From GFPriceChecker repo
-cp docs/CLAUDE_MD_TEMPLATE.md /path/to/other/repo/CLAUDE.md
-cp docs/CLAUDE_MD_CHECKLIST.md /path/to/other/repo/docs/
-cp docs/check-claude-md.sh /path/to/other/repo/docs/
-chmod +x /path/to/other/repo/docs/check-claude-md.sh
-```
-
-Then customize CLAUDE.md for the new project.
-
----
-
-## Questions?
-
-Refer to:
-- **Structure questions**: [CLAUDE_MD_TEMPLATE.md](CLAUDE_MD_TEMPLATE.md)
-- **Maintenance questions**: [CLAUDE_MD_CHECKLIST.md](CLAUDE_MD_CHECKLIST.md)
-- **Example**: [../CLAUDE.md](../CLAUDE.md) (this repo)
-
----
-
-*These templates are based on the GFPriceChecker documentation refactoring (January 2025)*
+1. **Size matters**: keep claude.md focused; archive detail to `docs/`
+2. **Focus on patterns**, not step-by-step history
+3. **Update after features**: keep it current, not historical
+4. **Think onboarding**: "if I joined today, what do I need?"
+5. **Code examples over paragraphs**: show, don't tell
+6. **Never let a document look more current than it is** — a partial record that reads as complete
+   is worse than one that states where it stops
