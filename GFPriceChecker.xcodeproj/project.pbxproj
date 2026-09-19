@@ -398,10 +398,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = PL3LWTG3XY;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "GFPriceChecker needs camera access to scan product labels and receipts for price tracking.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "GFPriceChecker saves product photos to help you track price differentials.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GFPriceChecker needs photo access to save and retrieve product and receipt images.";
@@ -434,10 +435,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = PL3LWTG3XY;
 				ENABLE_PREVIEWS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "GFPriceChecker needs camera access to scan product labels and receipts for price tracking.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "GFPriceChecker saves product photos to help you track price differentials.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "GFPriceChecker needs photo access to save and retrieve product and receipt images.";
