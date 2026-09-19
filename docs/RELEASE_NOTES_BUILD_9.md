@@ -52,6 +52,11 @@ iOS 26.
    different shops if you can; the fix was verified against generated receipts, not real paper.
    If a total comes through wrong or blank, the receipt photo and the shop name are the useful
    things to report.
+
+   Also, if any receipt shows a quantity multiplier — lines like "2 @ $3.99", "2 X 3.99", or a
+   count on its own line above the item — a photo of that receipt is especially useful to us,
+   whether or not anything goes wrong. We are building automatic quantity detection next and
+   need real examples of how different shops print it.
 5. **Open the Export screen** and look at the CSV preview. The header row should be fully visible
    and you should be able to reach the bottom of the preview.
 6. **Open Reports with an empty library** — on a fresh install, or before adding anything for a
