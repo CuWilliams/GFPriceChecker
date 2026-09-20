@@ -53,6 +53,42 @@ Nothing yet.
 
 ---
 
+## [1.0.0-build.10] - 2026-09-20
+
+Upload metadata only. No source file changed and the app behaves exactly as build 9 does. Tester
+notes are in [`docs/RELEASE_NOTES_BUILD_10.md`](docs/RELEASE_NOTES_BUILD_10.md), which says plainly
+that there is no new functionality to test, then re-carries build 9's outstanding test items —
+build 10 is what a new or external tester now lands on, and thin notes would tell them there is
+nothing to do.
+
+### Added
+- **Export compliance is declared in the project**
+  ([#59](https://github.com/CuWilliams/GFPriceChecker/issues/59)).
+  `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` in both app-target configurations, so App
+  Store Connect stops prompting interactively on every upload. `NO` is not a judgement call here:
+  a sweep for `URLSession`, `Network`, `NWConnection`, `CryptoKit`, `CommonCrypto`, `SecKey` and
+  `https://` across `GFPriceChecker/` returns nothing at all. The key is a build setting because
+  `GENERATE_INFOPLIST_FILE = YES` and the project has no `Info.plist` file to put it in.
+- **A privacy manifest** ([#59](https://github.com/CuWilliams/GFPriceChecker/issues/59)).
+  `GFPriceChecker/PrivacyInfo.xcprivacy` declares `NSPrivacyTracking` false with no tracking
+  domains and no collected data types, which is what an app with no networking collects. Exactly
+  one required-reason API category is tripped — `NSPrivacyAccessedAPICategoryUserDefaults`, reason
+  `CA92.1`, for the `@AppStorage` preferences in `Utilities/AppSettings.swift`, which are this
+  app's own and shared with nothing. Without the manifest, Apple returns ITMS-91053 "Missing API
+  declaration" warnings at upload.
+
+  The other four categories were audited and none applies. In particular the file-timestamp
+  category does not: the only `resourceValues` call in `ImageStorageService` reads `.fileSizeKey`,
+  and file *size* appears on none of Apple's five lists — a correction to an earlier guess made on
+  [#49](https://github.com/CuWilliams/GFPriceChecker/issues/49).
+
+  `GFPriceChecker/` is a `PBXFileSystemSynchronizedRootGroup`, so the file needed no target
+  membership edit. It was confirmed present inside the built `.app` rather than assumed, because a
+  privacy manifest that misses the bundle fails silently — which is the whole failure this guards
+  against.
+
+---
+
 ## [1.0.0-build.9] - 2026-09-14
 
 Nine pull requests, none of which had a build behind them. Build 8 shipped in July; the
@@ -173,6 +209,7 @@ Builds 1-7 predate this changelog. Their development is narrated in
 [`docs/DEVELOPMENT_HISTORY.md`](docs/DEVELOPMENT_HISTORY.md), Phases 1-6 and Sessions 1-27, which
 covers the app from its first commit in December 2025 to the public TestFlight beta in January 2026.
 
-[Unreleased]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.9...HEAD
+[Unreleased]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.10...HEAD
+[1.0.0-build.10]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.9...v1.0.0-build.10
 [1.0.0-build.9]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.8...v1.0.0-build.9
 [1.0.0-build.8]: https://github.com/CuWilliams/GFPriceChecker/releases/tag/v1.0.0-build.8
