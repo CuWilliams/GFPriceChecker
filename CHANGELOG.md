@@ -53,10 +53,13 @@ Nothing yet.
 
 ---
 
-## [1.0.0-build.10] - 2026-09-19
+## [1.0.0-build.10] - 2026-09-20
 
-Upload metadata only. No source file changed and the app behaves exactly as build 9 does; tester
-notes are in [`docs/RELEASE_NOTES_BUILD_10.md`](docs/RELEASE_NOTES_BUILD_10.md) and say so plainly.
+Upload metadata only. No source file changed and the app behaves exactly as build 9 does. Tester
+notes are in [`docs/RELEASE_NOTES_BUILD_10.md`](docs/RELEASE_NOTES_BUILD_10.md), which says plainly
+that there is no new functionality to test, then re-carries build 9's outstanding test items —
+build 10 is what a new or external tester now lands on, and thin notes would tell them there is
+nothing to do.
 
 ### Added
 - **Export compliance is declared in the project**

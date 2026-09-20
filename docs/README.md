@@ -12,7 +12,11 @@ What lives in this folder, and where each thing's boundary is.
 - **[SCRIPTED_DEMO_PIPELINE.md](SCRIPTED_DEMO_PIPELINE.md)** — the plan and feasibility audit for
   generating the website's instructional videos from scripts the app plays against itself. Read it
   before touching the capture flows, `DocumentScannerView`, or navigation structure.
-- **[RELEASE_NOTES_BUILD_8.md](RELEASE_NOTES_BUILD_8.md)** — TestFlight release notes for build 8.
+- **`RELEASE_NOTES_BUILD_<n>.md`** — TestFlight release notes, one file per uploaded build,
+  written for testers and pasted into TestFlight at upload. Currently
+  [8](RELEASE_NOTES_BUILD_8.md), [9](RELEASE_NOTES_BUILD_9.md) and
+  [10](RELEASE_NOTES_BUILD_10.md). The repo-facing counterpart is
+  [../CHANGELOG.md](../CHANGELOG.md); neither replaces the other.
 - **[archive/](archive/)** — superseded planning documents, each carrying an archive banner.
   Historical record; they do not describe the app as it stands.
 
