@@ -666,10 +666,6 @@ struct ExportView: View {
             await MainActor.run {
                 shareItems = [fileURL]
                 showingShareSheet = true
-
-                // Print helpful message
-                let accountantEmail = AppSettings.shared.accountantEmail
-                print("📧 Email via share sheet - recipient: \(accountantEmail.isEmpty ? "not set" : accountantEmail)")
             }
         } catch {
             errorMessage = "Failed to generate \(exportFormat.rawValue): \(error.localizedDescription)"

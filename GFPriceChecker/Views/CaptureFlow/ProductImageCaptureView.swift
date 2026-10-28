@@ -236,14 +236,6 @@ struct ProductImageCaptureView: View {
 
         if let uuid = uuid {
             savedImageUUID = uuid
-            print("✅ Image saved with UUID: \(uuid)")
-
-            // Verify thumbnail was created
-            if let thumbnail = await ImageStorageService.shared.retrieveThumbnail(uuid: uuid, type: .product) {
-                print("✅ Thumbnail created: \(thumbnail.size)")
-            }
-        } else {
-            print("❌ Failed to save image")
         }
     }
 
@@ -258,27 +250,11 @@ struct ProductImageCaptureView: View {
             let productName = try await OCRService.shared.findProductName(in: image)
             extractedProductName = productName
 
-            if let productName = productName {
-                print("✅ Product Name: \(productName)")
-            } else {
-                print("⚠️ No product name detected")
-            }
-
             // Extract prices
             let prices = try await OCRService.shared.findPrices(in: image)
             extractedPrices = prices
-
-            if !prices.isEmpty {
-                print("✅ Detected \(prices.count) price(s):")
-                for (index, price) in prices.enumerated() {
-                    print("   \(index + 1). $\(price.amount) (confidence: \(Int(price.confidence * 100))%)")
-                }
-            } else {
-                print("⚠️ No prices detected")
-            }
-
         } catch {
-            print("❌ OCR Error: \(error.localizedDescription)")
+            ErrorHandler.shared.log(error, context: "Product OCR")
         }
 
         isProcessingOCR = false

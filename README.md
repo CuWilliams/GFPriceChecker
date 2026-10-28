@@ -237,7 +237,7 @@ Feedback from beta testers is very welcome — through TestFlight, or by email.
 ## Support & Feedback
 
 - **Beta testers:** submit feedback via TestFlight, and include a screenshot with bug reports
-- **Email:** gfpricechecker@gmail.com
+- **Email:** support@gfpricechecker.com
 - **Issues:** GitHub Issues
 
 ---

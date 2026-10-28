@@ -76,17 +76,12 @@ final class PDFGeneratorService {
             productsByReceipt[receipt.id.uuidString] != nil
         }
 
-        print("📄 DEBUG: Generating PDF with \(receiptsWithProducts.count) receipts, \(verifiedProducts.count) verified products, \(unverifiedProducts.count) unverified products")
-
         // Pre-load receipt images (async loading before PDF generation)
         var receiptImages: [String: UIImage] = [:]
         for receipt in receiptsWithProducts {
             if let imageUUID = receipt.receiptImageUUID,
                let image = await ImageStorageService.shared.retrieveImage(uuid: imageUUID, type: .receipt) {
                 receiptImages[receipt.id.uuidString] = image
-                print("📄 DEBUG: Loaded image for receipt \(receipt.id.uuidString)")
-            } else {
-                print("📄 DEBUG: No image available for receipt \(receipt.id.uuidString)")
             }
         }
 
