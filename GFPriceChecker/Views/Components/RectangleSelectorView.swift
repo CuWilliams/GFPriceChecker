@@ -133,7 +133,6 @@ struct RectangleSelectorView: View {
 
     private func handleRectangleTap(_ rectangle: DetectedRectangle) {
         selectedRectangle = rectangle
-        print("🔍 DEBUG: Selected rectangle - confidence: \(rectangle.confidence), area: \(rectangle.area)")
     }
 }
 

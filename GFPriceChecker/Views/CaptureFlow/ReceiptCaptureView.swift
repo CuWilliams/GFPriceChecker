@@ -585,19 +585,16 @@ struct ReceiptCaptureView: View {
     private func confirmMatch(for product: ProductPair, withLine text: String) {
         confirmedMatches[product.id] = text
         currentVerificationIndex += 1
-        print("✅ Matched: \(product.gfProductName) -> \(text)")
     }
 
     /// Skips current product without matching
     private func skipProduct(_ product: ProductPair) {
         // Don't add to confirmedMatches
         currentVerificationIndex += 1
-        print("⏭️ Skipped: \(product.gfProductName)")
     }
 
     /// Handles scanned receipt image
     private func handleScannedReceipt(_ image: UIImage) {
-        print("🎯 handleScannedReceipt called")
         receiptImage = image
         showingScanner = false
         isProcessingOCR = true
@@ -609,35 +606,28 @@ struct ReceiptCaptureView: View {
 
     /// Processes receipt with OCR
     private func processReceipt(_ image: UIImage) async {
-        print("🎯 Processing receipt...")
-
         do {
             // Extract full receipt text (for display and store/date parsing)
             let fullText = try await OCRService.shared.extractReceiptText(from: image)
             receiptText = fullText
-            print("📄 Receipt OCR extracted: \(fullText.count) characters")
 
             // Extract selectable observations for tap-to-select
             let observations = try await OCRService.shared.extractSelectableText(from: image)
             receiptOCRObservations = observations
-            print("📝 Selectable observations: \(observations.count)")
 
             // Parse receipt metadata (keep this functionality)
             let parser = ReceiptParserService.shared
 
             if let store = parser.extractStoreName(from: fullText) {
                 storeName = store
-                print("🏪 Store: \(store)")
             }
 
             if let date = parser.extractDate(from: fullText) {
                 purchaseDate = date
-                print("📅 Date: \(date.formatted(date: .abbreviated, time: .omitted))")
             }
 
             if let total = parser.extractTotal(from: fullText) {
                 totalAmount = "\(total)"
-                print("💰 Total: $\(total)")
             }
 
             // Reset verification state
@@ -651,7 +641,6 @@ struct ReceiptCaptureView: View {
             isProcessingOCR = false
             alertMessage = "Failed to process receipt: \(error.localizedDescription)"
             showingAlert = true
-            print("❌ OCR Error: \(error)")
         }
     }
 
@@ -681,12 +670,10 @@ struct ReceiptCaptureView: View {
             )
 
             // Associate confirmed products with receipt
-            var verifiedCount = 0
             for product in productsToVerify {
                 if confirmedMatches[product.id] != nil {
                     product.receipt = receipt
                     product.verified = true
-                    verifiedCount += 1
                 }
             }
 
@@ -694,7 +681,6 @@ struct ReceiptCaptureView: View {
 
             do {
                 try modelContext.save()
-                print("✅ Receipt saved with \(verifiedCount) verified products")
                 dismiss()
             } catch {
                 alertMessage = "Failed to save: \(error.localizedDescription)"

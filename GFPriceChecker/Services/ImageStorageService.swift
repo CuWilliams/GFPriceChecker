@@ -93,7 +93,7 @@ final class ImageStorageService {
         do {
             try fullImageData.write(to: fullImageURL)
         } catch {
-            print("Failed to save full image: \(error.localizedDescription)")
+            ErrorHandler.shared.log(error, context: "Saving full image")
             return nil
         }
 
@@ -173,7 +173,7 @@ final class ImageStorageService {
             do {
                 try FileManager.default.removeItem(at: imageURL)
             } catch {
-                print("Failed to delete image: \(error.localizedDescription)")
+                ErrorHandler.shared.log(error, context: "Deleting image")
                 success = false
             }
         }
@@ -183,7 +183,7 @@ final class ImageStorageService {
             do {
                 try FileManager.default.removeItem(at: thumbnailURL)
             } catch {
-                print("Failed to delete thumbnail: \(error.localizedDescription)")
+                ErrorHandler.shared.log(error, context: "Deleting thumbnail")
                 success = false
             }
         }
@@ -280,7 +280,7 @@ final class ImageStorageService {
                 do {
                     try FileManager.default.removeItem(at: directoryURL)
                 } catch {
-                    print("Failed to clear directory: \(error.localizedDescription)")
+                    ErrorHandler.shared.log(error, context: "Clearing image directory")
                     success = false
                 }
             }

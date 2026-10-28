@@ -237,9 +237,8 @@ struct ReceiptDetailView: View {
 
         do {
             try modelContext.save()
-            print("✅ Product unlinked from receipt")
         } catch {
-            print("❌ Failed to unlink product: \(error)")
+            ErrorHandler.shared.log(error, context: "Unlinking product from receipt")
         }
     }
 
@@ -263,10 +262,9 @@ struct ReceiptDetailView: View {
 
         do {
             try modelContext.save()
-            print("✅ Receipt deleted successfully")
             dismiss()
         } catch {
-            print("❌ Failed to delete receipt: \(error)")
+            ErrorHandler.shared.log(error, context: "Deleting receipt")
         }
     }
 }

@@ -49,7 +49,24 @@ Neither replaces the other.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+- **Contact Support writes to `support@gfpricechecker.com`**
+  ([#62](https://github.com/CuWilliams/GFPriceChecker/issues/62)). Settings → About → Contact
+  Support opened `mailto:support@gfpricechecker.app`, an address published nowhere else; the
+  README listed `gfpricechecker@gmail.com`. Both now use the one address, which the website moves
+  to in the same change.
+
+### Removed
+- **Console logging of user data in release builds**
+  ([#49](https://github.com/CuWilliams/GFPriceChecker/issues/49)). 75 of the app's 83 `print()`
+  calls ran in every build, and many wrote store names, purchase dates, receipt totals and product
+  names to the device console — for an app whose whole position is that nothing leaves the device.
+  Step-by-step traces and success messages (all of `OCRService`'s, the receipt pipeline's, the PDF
+  generator's) are deleted outright. The handful that reported a real failure with no other
+  outlet — image storage, the document scanner, product OCR, saving or deleting in the library —
+  now go through `ErrorHandler.shared.log(_:context:)`, which already existed, prints only under
+  `#if DEBUG`, and until now had no callers. Failures already surfaced to the user in an alert
+  lost their duplicate print. The eight `print()` calls left are all inside `#if DEBUG`.
 
 ---
 

@@ -194,7 +194,7 @@ private struct DocumentCameraView: UIViewControllerRepresentable {
             _ controller: VNDocumentCameraViewController,
             didFailWithError error: Error
         ) {
-            print("Document scanner failed: \(error.localizedDescription)")
+            ErrorHandler.shared.log(error, context: "Document scanner")
             controller.dismiss(animated: true) {
                 self.parent.completion(nil)
             }

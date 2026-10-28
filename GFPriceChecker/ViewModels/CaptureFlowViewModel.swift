@@ -578,7 +578,6 @@ final class CaptureFlowViewModel {
     @discardableResult
     func save(into modelContext: ModelContext) -> Bool {
         guard let productPair = makeProductPair() else {
-            print("❌ Invalid price format")
             return false
         }
 
@@ -588,14 +587,11 @@ final class CaptureFlowViewModel {
 
         do {
             try modelContext.save()
-            print("✅ Saved ProductPair: \(productPair.gfProductName) vs \(productPair.nonGFProductName)")
-            print("   Differential: $\(productPair.differential)")
-
             isSaving = false
             didSave = true
             return true
         } catch {
-            print("❌ Save failed: \(error.localizedDescription)")
+            ErrorHandler.shared.log(error, context: "Saving product pair")
             isSaving = false
             return false
         }

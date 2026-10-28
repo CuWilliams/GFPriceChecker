@@ -226,7 +226,7 @@ struct SettingsView: View {
                 Label("How to Use", systemImage: "questionmark.circle")
             }
 
-            Link(destination: URL(string: "mailto:support@gfpricechecker.app")!) {
+            Link(destination: URL(string: "mailto:support@gfpricechecker.com")!) {
                 Label("Contact Support", systemImage: "envelope")
             }
         } header: {

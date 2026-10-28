@@ -112,13 +112,11 @@ struct DetectedRectangle: Identifiable {
 /// - Product name extraction from top region
 @MainActor
 final class OCRService {
-
     // MARK: - Singleton
 
     static let shared = OCRService()
 
     private init() {}
-
     // MARK: - Constants
 
     /// Minimum confidence threshold for text recognition
@@ -138,52 +136,35 @@ final class OCRService {
     /// - Returns: Array of text observations with bounding boxes
     /// - Throws: OCRError if recognition fails
     func extractText(from image: UIImage) async throws -> [VNRecognizedTextObservation] {
-        print("🔍 OCRService: extractText called")
-
         guard let cgImage = image.cgImage else {
-            print("🔍 OCRService: ERROR - cgImage is nil")
             throw OCRError.invalidImage
         }
 
-        print("🔍 OCRService: cgImage obtained, size: \(cgImage.width)x\(cgImage.height)")
-
         return try await withCheckedThrowingContinuation { continuation in
-            print("🔍 OCRService: Creating VNRecognizeTextRequest")
-
             let request = VNRecognizeTextRequest { request, error in
-                print("🔍 OCRService: VNRecognizeTextRequest callback fired")
-
                 if let error = error {
-                    print("🔍 OCRService: ERROR in request - \(error)")
                     continuation.resume(throwing: OCRError.recognitionFailed(error))
                     return
                 }
 
                 guard let observations = request.results as? [VNRecognizedTextObservation] else {
-                    print("🔍 OCRService: ERROR - No observations or wrong type")
                     continuation.resume(throwing: OCRError.noTextDetected)
                     return
                 }
 
-                print("🔍 OCRService: Successfully got \(observations.count) observations")
                 continuation.resume(returning: observations)
             }
 
             // Configure for accurate recognition
-            print("🔍 OCRService: Configuring request")
             request.recognitionLevel = .accurate
             request.recognitionLanguages = ["en-US"]
             request.usesLanguageCorrection = true
 
-            print("🔍 OCRService: Creating VNImageRequestHandler")
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
             do {
-                print("🔍 OCRService: Performing Vision request...")
                 try handler.perform([request])
-                print("🔍 OCRService: Vision request performed (callback should fire)")
             } catch {
-                print("🔍 OCRService: ERROR performing request - \(error)")
                 continuation.resume(throwing: OCRError.recognitionFailed(error))
             }
         }
@@ -205,9 +186,7 @@ final class OCRService {
     /// - Returns: Array of PriceMatch results sorted by ranking score (highest first)
     /// - Throws: OCRError if recognition fails
     func findPrices(in image: UIImage) async throws -> [PriceMatch] {
-        print("🔍 DEBUG: findPrices() called")
         let observations = try await extractText(from: image)
-        print("🔍 DEBUG: Got \(observations.count) text observations")
 
         var priceMatches: [PriceMatch] = []
 
@@ -256,8 +235,6 @@ final class OCRService {
                             hasPrefix: hasPrefix
                         )
 
-                        print("🔍 DEBUG: Found price: \(priceString) | Amount: \(amount) | Confidence: \(candidate.confidence) | FontSize: \(fontSize) | Y-Pos: \(verticalPosition) | HasPrefix: \(hasPrefix) | Score: \(priceMatch.rankingScore)")
-
                         priceMatches.append(priceMatch)
                     }
                 }
@@ -266,12 +243,6 @@ final class OCRService {
 
         // Sort by ranking score (highest first)
         let sortedMatches = priceMatches.sorted { $0.rankingScore > $1.rankingScore }
-
-        print("🔍 DEBUG: Total price candidates found: \(sortedMatches.count)")
-        if let topCandidate = sortedMatches.first {
-            print("🔍 DEBUG: Top candidate: $\(topCandidate.amount) (score: \(topCandidate.rankingScore), quality: \(topCandidate.quality))")
-        }
-
         return sortedMatches
     }
 
@@ -330,10 +301,7 @@ final class OCRService {
     /// - Returns: Array of SelectableTextObservation sorted by vertical position (top first)
     /// - Throws: OCRError if recognition fails
     func extractSelectableText(from image: UIImage) async throws -> [SelectableTextObservation] {
-        print("🔍 OCRService: extractSelectableText called")
-
         let observations = try await extractText(from: image)
-        print("🔍 OCRService: Got \(observations.count) text observations for selection")
 
         var selectableObservations: [SelectableTextObservation] = []
 
@@ -362,9 +330,6 @@ final class OCRService {
         // Sort by vertical position descending (top of image first)
         // Vision uses bottom-left origin, so higher y values are at top
         let sorted = selectableObservations.sorted { $0.verticalPosition > $1.verticalPosition }
-
-        print("🔍 OCRService: Extracted \(sorted.count) selectable text observations")
-
         return sorted
     }
 
@@ -377,50 +342,37 @@ final class OCRService {
     /// - Returns: Array of DetectedRectangle sorted by area (largest first)
     /// - Throws: OCRError if detection fails
     func detectRectangles(in image: UIImage) async throws -> [DetectedRectangle] {
-        print("🔍 OCRService: detectRectangles called")
-
         guard let cgImage = image.cgImage else {
-            print("🔍 OCRService: ERROR - cgImage is nil")
             throw OCRError.invalidImage
         }
-
-        print("🔍 OCRService: cgImage obtained for rectangle detection")
 
         return try await withCheckedThrowingContinuation { continuation in
             let request = VNDetectRectanglesRequest { request, error in
                 if let error = error {
-                    print("🔍 OCRService: ERROR in rectangle detection - \(error)")
                     continuation.resume(throwing: OCRError.recognitionFailed(error))
                     return
                 }
 
                 guard let observations = request.results as? [VNRectangleObservation] else {
-                    print("🔍 OCRService: No rectangles detected")
                     continuation.resume(returning: [])
                     return
                 }
-
-                print("🔍 OCRService: Detected \(observations.count) rectangles")
 
                 var rectangles: [DetectedRectangle] = []
 
                 for observation in observations {
                     // Filter by confidence threshold
                     guard observation.confidence >= 0.5 else { continue }
-
                     let rectangle = DetectedRectangle(
                         boundingBox: observation.boundingBox,
                         confidence: observation.confidence
                     )
 
-                    print("🔍 DEBUG: Rectangle - confidence: \(observation.confidence), area: \(rectangle.area)")
                     rectangles.append(rectangle)
                 }
 
                 // Sort by area (largest first) - larger rectangles likely more important
                 let sorted = rectangles.sorted { $0.area > $1.area }
-
-                print("🔍 OCRService: Returning \(sorted.count) filtered rectangles")
                 continuation.resume(returning: sorted)
             }
 
@@ -435,7 +387,6 @@ final class OCRService {
             do {
                 try handler.perform([request])
             } catch {
-                print("🔍 OCRService: ERROR performing rectangle detection - \(error)")
                 continuation.resume(throwing: OCRError.recognitionFailed(error))
             }
         }
@@ -452,11 +403,7 @@ final class OCRService {
     /// - Returns: Array of SelectableTextObservation within the region, sorted top-to-bottom
     /// - Throws: OCRError if recognition fails
     func extractSelectableText(from image: UIImage, region: CGRect) async throws -> [SelectableTextObservation] {
-        print("🔍 OCRService: extractSelectableText(region) called")
-        print("🔍 OCRService: Region - x:\(region.origin.x) y:\(region.origin.y) w:\(region.width) h:\(region.height)")
-
         let observations = try await extractText(from: image)
-        print("🔍 OCRService: Got \(observations.count) total text observations")
 
         var selectableObservations: [SelectableTextObservation] = []
 
@@ -487,9 +434,6 @@ final class OCRService {
 
         // Sort by vertical position descending (top of image first)
         let sorted = selectableObservations.sorted { $0.verticalPosition > $1.verticalPosition }
-
-        print("🔍 OCRService: Extracted \(sorted.count) selectable text observations from region")
-
         return sorted
     }
 
@@ -504,11 +448,7 @@ final class OCRService {
     /// - Returns: Full text content with line breaks
     /// - Throws: OCRError if recognition fails
     func extractReceiptText(from image: UIImage) async throws -> String {
-        print("🔍 OCRService: extractReceiptText called")
-        print("🔍 OCRService: Image size: \(image.size)")
-
         let observations = try await extractText(from: image)
-        print("🔍 OCRService: Got \(observations.count) text observations")
 
         // Sort observations by vertical position (top to bottom)
         // VisionKit uses bottom-left origin, so higher y values are at top
