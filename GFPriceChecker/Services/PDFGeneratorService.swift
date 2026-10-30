@@ -103,7 +103,7 @@ final class PDFGeneratorService {
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: format)
 
         let simpleTotalDiff = calculateTotalDifferential(products: sortedProducts)
-        let normalizedResult = calculateNormalizedDifferential(products: sortedProducts)
+        let normalizedResult = ReportViewModel.calculateTotalNormalizedDifferential(for: sortedProducts)
 
         let data = renderer.pdfData { context in
             // Page 1: Cover Page
@@ -171,7 +171,7 @@ final class PDFGeneratorService {
         year: Int,
         userName: String?,
         totalDifferential: Decimal,
-        normalizedTotal: Decimal,
+        normalizedTotal: Decimal?,
         normalizedExcluded: Int,
         productCount: Int,
         receiptCount: Int
@@ -254,8 +254,8 @@ final class PDFGeneratorService {
         )
         yPosition += 80
 
-        // Primary: Unit Price Differential Total
-        let normalizedText = normalizedTotal.formatted(.currency(code: "CAD"))
+        // Primary: Unit Price Differential Total — "—" when no product has size data
+        let normalizedText = normalizedTotal?.formatted(.currency(code: "CAD")) ?? "—"
         let normalizedAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 40, weight: .bold),
             .foregroundColor: accentColor
@@ -640,11 +640,10 @@ final class PDFGeneratorService {
                 yPosition += 10
 
                 // Receipt subtotals — both adjusted and simple
-                let adjSubtotal = sortedProducts.compactMap(\.extendedNormalizedDifferential).reduce(Decimal.zero, +)
-                let adjExcluded = sortedProducts.filter { $0.normalizedDifferential == nil }.count
+                let (adjSubtotal, adjExcluded) = ReportViewModel.calculateTotalNormalizedDifferential(for: sortedProducts)
                 let priceSubtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
 
-                let adjSubtotalText = "Unit Price Subtotal: \(adjSubtotal.formatted(.currency(code: "CAD")))"
+                let adjSubtotalText = "Unit Price Subtotal: \(adjSubtotal?.formatted(.currency(code: "CAD")) ?? "—")"
                 let adjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                     .foregroundColor: accentColor
@@ -750,11 +749,10 @@ final class PDFGeneratorService {
             yPosition += 10
 
             // Unverified subtotals — both adjusted and simple
-            let unvAdjSubtotal = unverifiedProducts.compactMap(\.extendedNormalizedDifferential).reduce(Decimal.zero, +)
-            let unvAdjExcluded = unverifiedProducts.filter { $0.normalizedDifferential == nil }.count
+            let (unvAdjSubtotal, unvAdjExcluded) = ReportViewModel.calculateTotalNormalizedDifferential(for: unverifiedProducts)
             let unverifiedSubtotal = unverifiedProducts.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
 
-            let unvAdjSubtotalText = "Unit Price Subtotal: \(unvAdjSubtotal.formatted(.currency(code: "CAD")))"
+            let unvAdjSubtotalText = "Unit Price Subtotal: \(unvAdjSubtotal?.formatted(.currency(code: "CAD")) ?? "—")"
             let unvAdjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                 .foregroundColor: UIColor.systemOrange
@@ -1028,7 +1026,7 @@ final class PDFGeneratorService {
         // Grand totals — both adjusted and simple
         yPosition += 10
         let grandPriceTotal = calculateTotalDifferential(products: products)
-        let grandNormalizedResult = calculateNormalizedDifferential(products: products)
+        let grandNormalizedResult = ReportViewModel.calculateTotalNormalizedDifferential(for: products)
         yPosition = drawGrandTotals(
             context: context.cgContext,
             contentRect: contentRect,
@@ -1190,7 +1188,7 @@ final class PDFGeneratorService {
         context: CGContext,
         contentRect: CGRect,
         yPosition: CGFloat,
-        normalizedTotal: Decimal,
+        normalizedTotal: Decimal?,
         priceTotal: Decimal
     ) -> CGFloat {
         var y = yPosition
@@ -1200,7 +1198,7 @@ final class PDFGeneratorService {
         context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: 48))
 
         // Row 1: Unit Price Differential Total (primary)
-        let adjTotalText = "Unit Price Differential Total: \(normalizedTotal.formatted(.currency(code: "CAD")))"
+        let adjTotalText = "Unit Price Differential Total: \(normalizedTotal?.formatted(.currency(code: "CAD")) ?? "—")"
         let adjTotalAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 13, weight: .bold),
             .foregroundColor: accentColor
@@ -1333,22 +1331,6 @@ final class PDFGeneratorService {
     /// section subtotals reconcile against the transaction rows.
     private func calculateTotalDifferential(products: [ProductPair]) -> Decimal {
         products.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
-    }
-
-    /// Sums the size-adjusted differentials, counting the products that have no size data
-    ///
-    /// Extended for the same reason as `calculateTotalDifferential`.
-    private func calculateNormalizedDifferential(products: [ProductPair]) -> (total: Decimal, excludedCount: Int) {
-        var total = Decimal.zero
-        var excluded = 0
-        for product in products {
-            if let nd = product.extendedNormalizedDifferential {
-                total += nd
-            } else {
-                excluded += 1
-            }
-        }
-        return (total: total, excludedCount: excluded)
     }
 }
 

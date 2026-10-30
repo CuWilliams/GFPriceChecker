@@ -48,8 +48,8 @@ struct SummaryDashboardView: View {
     }
 
     /// Total normalized (size-adjusted) differential and excluded count for selected year
-    private var normalizedResult: (total: Decimal, excludedCount: Int) {
-        viewModel.calculateTotalNormalizedDifferential(for: yearProducts)
+    private var normalizedResult: (total: Decimal?, excludedCount: Int) {
+        ReportViewModel.calculateTotalNormalizedDifferential(for: yearProducts)
     }
 
     /// Available years that have data
@@ -128,11 +128,20 @@ struct SummaryDashboardView: View {
                         .foregroundStyle(.secondary)
                         .accessibilityLabel("Unit price differential total")
 
-                    Text(normalizedResult.total, format: .currency(code: "CAD"))
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .foregroundStyle(normalizedResult.total > 0 ? .green : .secondary)
-                        .accessibilityLabel("Unit price differential total: \(normalizedResult.total.formatted(.currency(code: "CAD")))")
-                        .accessibilityHint("Total adjusted for package size differences")
+                    // No size data anywhere means no value, not $0.00
+                    if let normalizedTotal = normalizedResult.total {
+                        Text(normalizedTotal, format: .currency(code: "CAD"))
+                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .foregroundStyle(normalizedTotal > 0 ? .green : .secondary)
+                            .accessibilityLabel("Unit price differential total: \(normalizedTotal.formatted(.currency(code: "CAD")))")
+                            .accessibilityHint("Total adjusted for package size differences")
+                    } else {
+                        Text("—")
+                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Unit price differential total: not available")
+                            .accessibilityHint("No products have size data to compare")
+                    }
                 }
 
                 Divider()

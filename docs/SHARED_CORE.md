@@ -7,7 +7,8 @@ test vectors in shared-docs, so that a future Android app can share it. Android 
 compile GFCore with the Swift SDK for Android, or reimplement it in Kotlin and pass the same
 vectors.
 
-**Status:** not started. This document grounds Track F and records the audit that sized it.
+**Status:** Stage 1 in progress. 1a (#65) fixed audit items 1, 5 and 6 below; 1b is open.
+This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.
 
@@ -80,7 +81,7 @@ brings it under test.
 | Computation | Locations |
 |---|---|
 | Sum of `extendedDifferential` | `ReportViewModel:67`, `CSVExportService:213`, `PDFGeneratorService:1334` and inline at 645, 755, 1004, `ExportView:116` |
-| Normalized total and excluded count | `ReportViewModel:103`, `PDFGeneratorService:1341` and inline at 643, 753, `ExportView:117` |
+| Normalized total and excluded count | `ReportViewModel:103`, `PDFGeneratorService:1341` and inline at 643, 753, `ExportView:117` — **since #65, all call the static `ReportViewModel.calculateTotalNormalizedDifferential`** |
 | Category grouping | `ReportViewModel:135,150`, `PDFGeneratorService:418–430` |
 | Monthly grouping | `ReportViewModel:181,200`, `PDFGeneratorService:473–487` |
 | Year filter | `ReportViewModel:38,48`, `ExportView:~108`, `DateRangePreset` in `AppSettings` |
@@ -134,6 +135,10 @@ App-side adapters keep the call sites stable:
   properties forward to the core.
 - `ReportViewModel`, `PDFGeneratorService`, `ExportView` and `CSVExportService` become thin
   wrappers. **The duplicated sums and grouping are deleted, not kept.**
+- The PDF gets its grand-total line. `drawGrandTotals` is reachable only from
+  `drawTransactionPages`, which nothing calls (found in #65), so the report has never printed
+  one. Wire it into `drawTransactionAndReceiptPages` from the core's totals, and delete
+  `drawTransactionPages`.
 - `OCRService` maps `VNRecognizedTextObservation` to `RecognizedText`.
 - The singletons stay for now. Only the logic inside them moves.
 
