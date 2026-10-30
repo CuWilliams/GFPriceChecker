@@ -75,6 +75,11 @@ Neither replaces the other.
   `PRODUCT_DEFINITION.md` §3; `ReportViewModel.calculateTotalNormalizedDifferential` is now the one
   static implementation, returns `nil` when nothing can be normalized, and every surface shows "—".
   `SpecConformanceTests` pins the spec's $5.63 worked example.
+- **The dashboard's size-adjusted average showed $0.00 without size data**
+  ([#75](https://github.com/CuWilliams/GFPriceChecker/issues/75)). #65 made the total `nil`, but the
+  Tax Summary's average card still fell back to zero. `StatisticCardDecimal.value` is now optional,
+  `SummaryDashboardView.displayAmount` renders `nil` as "—", and VoiceOver reads "not available".
+  `SpecConformanceTests` pins it.
 - **CSV fields with Windows line breaks went out unquoted**
   ([#66](https://github.com/CuWilliams/GFPriceChecker/issues/66)). Swift treats `\r\n` as one
   `Character`, so `contains("\n")` and `contains("\r")` were both false for a note whose only line
