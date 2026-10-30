@@ -66,6 +66,15 @@ Neither replaces the other.
   §6 is updated to match.
 
 ### Fixed
+- **Receipt totals ignored quantity, and missing size data showed as $0.00**
+  ([#65](https://github.com/CuWilliams/GFPriceChecker/issues/65)). `Receipt.totalDifferential`
+  summed the per-unit `differential`, so a receipt with a quantity above 1 under-reported; it now
+  sums `extendedDifferential`, and `ReceiptDetailView` shows the extended figure on each row and
+  formats its amounts as CAD currency rather than by interpolation. The size-adjusted total was
+  `nil` in the export preview but zero on the dashboard and in the PDF, against
+  `PRODUCT_DEFINITION.md` §3; `ReportViewModel.calculateTotalNormalizedDifferential` is now the one
+  static implementation, returns `nil` when nothing can be normalized, and every surface shows "—".
+  `SpecConformanceTests` pins the spec's $5.63 worked example.
 - **CSV fields with Windows line breaks went out unquoted**
   ([#66](https://github.com/CuWilliams/GFPriceChecker/issues/66)). Swift treats `\r\n` as one
   `Character`, so `contains("\n")` and `contains("\r")` were both false for a note whose only line
