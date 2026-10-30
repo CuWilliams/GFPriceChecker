@@ -137,6 +137,20 @@ struct SpecConformanceTests {
         #expect(result.excludedCount == 1)
     }
 
+    /// The dashboard's average card turned the view model's `nil` into $0.00 (#75), which
+    /// reads as "gluten-free costs nothing extra" for a year with no size data.
+    @Test("The dashboard shows no average, not $0.00, when nothing has size data")
+    func dashboardAverageIsNoValueWithoutSizeData() {
+        let viewModel = ReportViewModel()
+        let average = viewModel.calculateAverageNormalizedDifferential(
+            for: [makePair(quantity: 2, withSizeData: false)]
+        )
+        #expect(average == nil)
+        #expect(SummaryDashboardView.displayAmount(average) == "—")
+        #expect(SummaryDashboardView.displayAmount(Decimal(string: "1.01")!)
+            == Decimal(string: "1.01")!.formatted(.currency(code: "CAD")))
+    }
+
     /// The PDF used to carry its own copy of the sum, which reported $0.00. Read the text
     /// back out to check the cover and the receipt and unverified subtotals all show
     /// "no value". (`drawGrandTotals` is reachable only from `drawTransactionPages`, which

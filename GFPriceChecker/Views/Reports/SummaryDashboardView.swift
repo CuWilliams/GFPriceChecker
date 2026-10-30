@@ -52,6 +52,13 @@ struct SummaryDashboardView: View {
         ReportViewModel.calculateTotalNormalizedDifferential(for: yearProducts)
     }
 
+    /// Text for an amount that may not exist: "—" for `nil`, never $0.00
+    ///
+    /// PRODUCT_DEFINITION.md §3: a missing comparison is not a zero-dollar comparison.
+    static func displayAmount(_ value: Decimal?) -> String {
+        value?.formatted(.currency(code: "CAD")) ?? "—"
+    }
+
     /// Available years that have data
     private var availableYears: [Int] {
         viewModel.availableYears(from: allProducts)
@@ -205,12 +212,14 @@ struct SummaryDashboardView: View {
                 let avgNormalized = viewModel.calculateAverageNormalizedDifferential(for: yearProducts)
                 StatisticCardDecimal(
                     title: "Avg. Size-Adj. Diff",
-                    value: avgNormalized ?? Decimal.zero,
+                    value: avgNormalized,
                     icon: "ruler",
                     color: .green
                 )
-                .accessibilityLabel("Average size-adjusted differential: \((avgNormalized ?? Decimal.zero).formatted(.currency(code: "CAD")))")
-                .accessibilityHint("Average size-adjusted differential per item purchased")
+                .accessibilityLabel("Average size-adjusted differential: \(avgNormalized.map { $0.formatted(.currency(code: "CAD")) } ?? "not available")")
+                .accessibilityHint(avgNormalized == nil
+                    ? "No products have size data to compare"
+                    : "Average size-adjusted differential per item purchased")
 
                 // Average Price Differential Card
                 StatisticCardDecimal(
@@ -497,7 +506,7 @@ extension StatisticCard where Value == String {
 /// Specialized statistic card for Decimal values (currency)
 private struct StatisticCardDecimal: View {
     let title: String
-    let value: Decimal
+    let value: Decimal?
     let icon: String
     let color: Color
 
@@ -511,7 +520,7 @@ private struct StatisticCardDecimal: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text(value, format: .currency(code: "CAD"))
+            Text(SummaryDashboardView.displayAmount(value))
                 .font(.title3)
                 .fontWeight(.semibold)
         }
