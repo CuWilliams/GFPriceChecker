@@ -519,6 +519,8 @@ live in this repo's `docs/`. Change shared documents there, not here.
 
 **Scripted Demo Pipeline:** See `docs/SCRIPTED_DEMO_PIPELINE.md` — the plan and feasibility audit for generating the website's instructional videos from scripts the app plays against itself, so a new build regenerates the media set instead of needing a re-shoot. Read it before touching the capture flows, `DocumentScannerView`, or navigation structure: several of its stages are refactors of those, and it records why.
 
+**Shared Domain Core:** See `docs/SHARED_CORE.md` — the plan and audit for moving the arithmetic, reporting, exports, receipt parsing, validation and backup schema into the Foundation-only `GFCore` package, pinned by cross-platform test vectors in shared-docs so a future Android app can share it (Track F). Read it before touching any of those areas. It lists where the app currently departs from `PRODUCT_DEFINITION.md` and where the arithmetic is duplicated.
+
 ---
 
 *This documentation is maintained by Claude Code to guide ongoing development and session work.*

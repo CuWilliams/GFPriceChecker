@@ -12,6 +12,9 @@ What lives in this folder, and where each thing's boundary is.
 - **[SCRIPTED_DEMO_PIPELINE.md](SCRIPTED_DEMO_PIPELINE.md)** — the plan and feasibility audit for
   generating the website's instructional videos from scripts the app plays against itself. Read it
   before touching the capture flows, `DocumentScannerView`, or navigation structure.
+- **[SHARED_CORE.md](SHARED_CORE.md)** — the plan and audit for moving the domain logic into
+  the Foundation-only `GFCore` package, for sharing with a future Android app (Track F). Read it
+  before touching `ProductPair`'s arithmetic, reporting, exports, receipt parsing or validation.
 - **`RELEASE_NOTES_BUILD_<n>.md`** — TestFlight release notes, one file per uploaded build,
   written for testers and pasted into TestFlight at upload. Currently
   [8](RELEASE_NOTES_BUILD_8.md), [9](RELEASE_NOTES_BUILD_9.md) and
