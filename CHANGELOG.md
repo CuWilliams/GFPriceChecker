@@ -50,6 +50,27 @@ Neither replaces the other.
 ## [Unreleased]
 
 ### Changed
+- **The CSV export matches the spec, and the size-adjusted figure has its proper name**
+  ([#66](https://github.com/CuWilliams/GFPriceChecker/issues/66)). The CSV's numbers and dates
+  were formatted in the device locale, so a phone with its region set to France or Germany wrote
+  `7,99` and split every price into two columns. They are now `en_US_POSIX`: `.` decimals, no
+  grouping, Latin digits. A French-Canadian device was never affected — the app ships only an
+  English localization, so iOS resolves fr-CA to `en_CA` — which is why the issue's own example
+  could not reproduce it. Unit prices follow `PRODUCT_DEFINITION.md` §4 ($/100 g for grams,
+  $/unit otherwise) at 4 places instead of raw $/g at 2, with a new **Unit Price Basis** column
+  saying which. `normalizedDifferential` is a dollar amount per package, not a rate, and is now
+  labelled **Size-Adjusted Differential** in the CSV, PDF, dashboard, export screen, library,
+  detail and capture views; `CaptureFlowViewModel.unitPriceDifferential` is now
+  `normalizedDifferential`. The PDF's table cells format money from `Decimal`, where they went
+  through `Double` and could drop a cent (6.255 printed as 6.25). The column list in shared-docs
+  §6 is updated to match.
+
+### Fixed
+- **CSV fields with Windows line breaks went out unquoted**
+  ([#66](https://github.com/CuWilliams/GFPriceChecker/issues/66)). Swift treats `\r\n` as one
+  `Character`, so `contains("\n")` and `contains("\r")` were both false for a note whose only line
+  breaks were `\r\n`, and the note broke the row. Escaping now scans Unicode scalars.
+
 - **Contact Support writes to `support@gfpricechecker.com`**
   ([#62](https://github.com/CuWilliams/GFPriceChecker/issues/62)). Settings → About → Contact
   Support opened `mailto:support@gfpricechecker.app`, an address published nowhere else; the

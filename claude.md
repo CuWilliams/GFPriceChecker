@@ -276,7 +276,7 @@ init(dependencies: Dependencies = .live) { ... }
 
 **Derive once.** The finalize preview and `saveProductPair` each had their own copy of the
 unit-price back-calculation, so the two could disagree. Computed properties on the view
-model (`gfSizeValue`, `unitPriceDifferential`) are now the single source.
+model (`gfSizeValue`, `normalizedDifferential`) are now the single source.
 
 ---
 

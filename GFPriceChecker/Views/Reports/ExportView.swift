@@ -100,7 +100,7 @@ struct ExportView: View {
     }
 
     /// Export summary statistics
-    private var exportSummary: (count: Int, unitPriceDifferential: Decimal?, packagePriceDifferential: Decimal) {
+    private var exportSummary: (count: Int, normalizedDifferential: Decimal?, packagePriceDifferential: Decimal) {
         let productsToExport: [ProductPair]
 
         switch exportFormat {
@@ -114,8 +114,8 @@ struct ExportView: View {
         }
 
         let packageTotal = productsToExport.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
-        let unitTotal = ReportViewModel.calculateTotalNormalizedDifferential(for: productsToExport).total
-        return (count: productsToExport.count, unitPriceDifferential: unitTotal, packagePriceDifferential: packageTotal)
+        let normalizedTotal = ReportViewModel.calculateTotalNormalizedDifferential(for: productsToExport).total
+        return (count: productsToExport.count, normalizedDifferential: normalizedTotal, packagePriceDifferential: packageTotal)
     }
 
     // MARK: - Body
@@ -327,10 +327,10 @@ struct ExportView: View {
                 Divider()
                     .frame(height: 40)
 
-                // Primary: Unit Price Differential Total
+                // Primary: Size-Adjusted Differential Total
                 VStack(spacing: 4) {
-                    if let unitTotal = exportSummary.unitPriceDifferential {
-                        Text(unitTotal, format: .currency(code: "CAD"))
+                    if let normalizedTotal = exportSummary.normalizedDifferential {
+                        Text(normalizedTotal, format: .currency(code: "CAD"))
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundStyle(.green)
@@ -340,7 +340,7 @@ struct ExportView: View {
                             .fontWeight(.bold)
                             .foregroundStyle(.secondary)
                     }
-                    Text("Unit Price Differential")
+                    Text("Size-Adjusted Differential")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

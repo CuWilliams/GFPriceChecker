@@ -279,7 +279,7 @@ struct ProductPairRow: View {
             // Right side: Differential and Status
             VStack(alignment: .trailing, spacing: 4) {
                 if let unitDiff = productPair.normalizedDifferential {
-                    // Unit Price Differential (primary)
+                    // Size-Adjusted Differential (primary)
                     Text(formatCurrency(unitDiff))
                         .font(.headline)
                         .foregroundStyle(differentialColor(unitDiff))
@@ -337,7 +337,7 @@ struct ProductPairRow: View {
         let extended = productPair.extendedNormalizedDifferential ?? productPair.extendedDifferential
         let totalText = productPair.quantity > 1 ? ", total for purchase \(formatCurrency(extended))" : ""
         if let unitDiff = productPair.normalizedDifferential {
-            return "Unit price differential \(formatCurrency(unitDiff)), package difference \(formatCurrency(productPair.differential))\(totalText), \(verifiedStatus)\(receiptStatus)"
+            return "Size-adjusted differential \(formatCurrency(unitDiff)), package difference \(formatCurrency(productPair.differential))\(totalText), \(verifiedStatus)\(receiptStatus)"
         } else {
             return "Price difference \(formatCurrency(productPair.differential))\(totalText), \(verifiedStatus)\(receiptStatus)"
         }

@@ -169,13 +169,13 @@ struct SpecConformanceTests {
 
         let document = try #require(PDFDocument(url: url))
         let cover = try #require(document.page(at: 0)?.string)
-        #expect(cover.contains("Unit Price Differential Total (Primary)"))
+        #expect(cover.contains("Size-Adjusted Differential Total (Primary)"))
         #expect(cover.contains("—"))
 
         let text = try #require(document.string)
         // One subtotal for the receipt, one for the unverified section
-        #expect(text.components(separatedBy: "Unit Price Subtotal: —").count - 1 == 2)
-        #expect(!text.contains("Unit Price Subtotal: CA$0.00"))
-        #expect(!text.contains("Unit Price Subtotal: $0.00"))
+        #expect(text.components(separatedBy: "Size-Adjusted Subtotal: —").count - 1 == 2)
+        #expect(!text.contains("Size-Adjusted Subtotal: CA$0.00"))
+        #expect(!text.contains("Size-Adjusted Subtotal: $0.00"))
     }
 }

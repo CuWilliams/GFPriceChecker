@@ -92,12 +92,12 @@ final class ReportViewModel {
         return (verified: verified, unverified: unverified)
     }
 
-    // MARK: - Unit Price Differential Statistics
+    // MARK: - Size-Adjusted Differential Statistics
 
     /// Calculates the total size-adjusted (normalized) differential for given products
     ///
     /// Products without size data cannot be normalized and are excluded from the total.
-    /// This is the primary figure for unit price differential reporting, and the one
+    /// This is the primary figure for size-adjusted differential reporting, and the one
     /// implementation behind the dashboard, the PDF and the export preview.
     ///
     /// When no product has size data the total is `nil`, not zero: PRODUCT_DEFINITION.md §3

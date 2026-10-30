@@ -364,10 +364,10 @@ struct ProductCaptureFlowView: View {
                     .cornerRadius(12)
                 }
 
-                // Unit price differential preview — same back-calculation the save uses
-                if let normDiff = viewModel.unitPriceDifferential {
+                // Size-adjusted differential preview — same back-calculation the save uses
+                if let normDiff = viewModel.normalizedDifferential {
                     VStack(spacing: 4) {
-                        Text("Unit Price Differential")
+                        Text("Size-Adjusted Differential")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(normDiff.formatted(.currency(code: "CAD")))
@@ -383,7 +383,7 @@ struct ProductCaptureFlowView: View {
                     .background(Color.blue.opacity(0.08))
                     .cornerRadius(12)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Unit price differential: \(normDiff.formatted(.currency(code: "CAD"))). This accounts for the difference in package sizes.")
+                    .accessibilityLabel("Size-adjusted differential: \(normDiff.formatted(.currency(code: "CAD"))). This accounts for the difference in package sizes.")
                 }
 
                 // Category

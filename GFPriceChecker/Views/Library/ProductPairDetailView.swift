@@ -143,8 +143,8 @@ struct ProductPairDetailView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     if let normDiff = productPair.normalizedDifferential {
-                        // Unit Price Differential — value of record (primary)
-                        Text("Unit Price Differential")
+                        // Size-Adjusted Differential — value of record (primary)
+                        Text("Size-Adjusted Differential")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
 

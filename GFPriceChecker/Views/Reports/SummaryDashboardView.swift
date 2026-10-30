@@ -121,25 +121,25 @@ struct SummaryDashboardView: View {
 
             // Dual Totals Display
             VStack(spacing: 8) {
-                // Primary: Unit Price Differential Total
+                // Primary: Size-Adjusted Differential Total
                 VStack(spacing: 2) {
-                    Text("Unit Price Differential Total")
+                    Text("Size-Adjusted Differential Total")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .accessibilityLabel("Unit price differential total")
+                        .accessibilityLabel("Size-adjusted differential total")
 
                     // No size data anywhere means no value, not $0.00
                     if let normalizedTotal = normalizedResult.total {
                         Text(normalizedTotal, format: .currency(code: "CAD"))
                             .font(.system(size: 48, weight: .bold, design: .rounded))
                             .foregroundStyle(normalizedTotal > 0 ? .green : .secondary)
-                            .accessibilityLabel("Unit price differential total: \(normalizedTotal.formatted(.currency(code: "CAD")))")
+                            .accessibilityLabel("Size-adjusted differential total: \(normalizedTotal.formatted(.currency(code: "CAD")))")
                             .accessibilityHint("Total adjusted for package size differences")
                     } else {
                         Text("—")
                             .font(.system(size: 48, weight: .bold, design: .rounded))
                             .foregroundStyle(.secondary)
-                            .accessibilityLabel("Unit price differential total: not available")
+                            .accessibilityLabel("Size-adjusted differential total: not available")
                             .accessibilityHint("No products have size data to compare")
                     }
                 }
@@ -201,16 +201,16 @@ struct SummaryDashboardView: View {
                 )
                 .accessibilityLabel("Products: \(yearProducts.count)")
 
-                // Average Unit Price Differential Card (primary)
+                // Average Size-Adjusted Differential Card (primary)
                 let avgNormalized = viewModel.calculateAverageNormalizedDifferential(for: yearProducts)
                 StatisticCardDecimal(
-                    title: "Avg. Unit Price Diff",
+                    title: "Avg. Size-Adj. Diff",
                     value: avgNormalized ?? Decimal.zero,
                     icon: "ruler",
                     color: .green
                 )
-                .accessibilityLabel("Average unit price differential: \((avgNormalized ?? Decimal.zero).formatted(.currency(code: "CAD")))")
-                .accessibilityHint("Average unit price differential per unit purchased")
+                .accessibilityLabel("Average size-adjusted differential: \((avgNormalized ?? Decimal.zero).formatted(.currency(code: "CAD")))")
+                .accessibilityHint("Average size-adjusted differential per item purchased")
 
                 // Average Price Differential Card
                 StatisticCardDecimal(
@@ -270,7 +270,7 @@ struct SummaryDashboardView: View {
             chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Package Price Diff"))
         }
         for item in normalizedSummary {
-            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Unit Price Diff"))
+            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Size-Adjusted Diff"))
         }
 
         return Chart(chartItems) { item in
@@ -283,7 +283,7 @@ struct SummaryDashboardView: View {
             .cornerRadius(3)
         }
         .chartForegroundStyleScale([
-            "Unit Price Diff": Color.green,
+            "Size-Adjusted Diff": Color.green,
             "Package Price Diff": Color.blue
         ])
         .chartXAxis {
@@ -340,7 +340,7 @@ struct SummaryDashboardView: View {
         for item in topCategories {
             chartItems.append(CategoryChartItem(category: item.category, amount: item.total, series: "Package Price Diff"))
             if let normTotal = normalizedByCategory[item.category] {
-                chartItems.append(CategoryChartItem(category: item.category, amount: normTotal, series: "Unit Price Diff"))
+                chartItems.append(CategoryChartItem(category: item.category, amount: normTotal, series: "Size-Adjusted Diff"))
             }
         }
 
@@ -354,7 +354,7 @@ struct SummaryDashboardView: View {
             .cornerRadius(3)
         }
         .chartForegroundStyleScale([
-            "Unit Price Diff": Color.green,
+            "Size-Adjusted Diff": Color.green,
             "Package Price Diff": Color.blue
         ])
         .chartXAxis {

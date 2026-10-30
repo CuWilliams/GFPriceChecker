@@ -507,10 +507,12 @@ final class CaptureFlowViewModel {
         return gfPrice - nonGFPrice
     }
 
-    /// Price difference after normalizing for package size, expressed per GF package.
+    /// Price difference after normalizing for package size, expressed per GF package —
+    /// the spec's `normalizedDifferential`, shown as "Size-Adjusted Differential". Not a
+    /// unit price differential, which is a rate.
     ///
     /// `nil` unless both prices and both sizes are known and positive.
-    var unitPriceDifferential: Decimal? {
+    var normalizedDifferential: Decimal? {
         guard let gfPrice, let nonGFPrice,
               let gfValue = gfSizeValue, gfValue > 0,
               let nonGFValue = nonGFSizeValue, nonGFValue > 0 else {
