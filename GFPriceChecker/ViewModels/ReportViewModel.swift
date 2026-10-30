@@ -97,15 +97,20 @@ final class ReportViewModel {
     /// Calculates the total size-adjusted (normalized) differential for given products
     ///
     /// Products without size data cannot be normalized and are excluded from the total.
-    /// This is the primary figure for unit price differential reporting.
+    /// This is the primary figure for unit price differential reporting, and the one
+    /// implementation behind the dashboard, the PDF and the export preview.
+    ///
+    /// When no product has size data the total is `nil`, not zero: PRODUCT_DEFINITION.md §3
+    /// says a missing comparison is not a zero-dollar comparison. Show it as "—".
     /// - Parameter products: Products to sum
-    /// - Returns: Tuple with total normalized differential and count of excluded products
-    func calculateTotalNormalizedDifferential(for products: [ProductPair]) -> (total: Decimal, excludedCount: Int) {
-        var total = Decimal.zero
+    /// - Returns: Tuple with total normalized differential (nil if none could be normalized)
+    ///   and count of excluded products
+    static func calculateTotalNormalizedDifferential(for products: [ProductPair]) -> (total: Decimal?, excludedCount: Int) {
+        var total: Decimal?
         var excluded = 0
         for product in products {
             if let nd = product.extendedNormalizedDifferential {
-                total += nd
+                total = (total ?? .zero) + nd
             } else {
                 excluded += 1
             }

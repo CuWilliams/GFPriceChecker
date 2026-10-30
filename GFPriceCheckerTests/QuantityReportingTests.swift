@@ -179,7 +179,7 @@ struct QuantityReportingTests {
 
         #expect(viewModel.calculateTotalDifferential(for: [pair]) == Decimal(string: "13.50")!)
 
-        let normalized = viewModel.calculateTotalNormalizedDifferential(for: [pair])
+        let normalized = ReportViewModel.calculateTotalNormalizedDifferential(for: [pair])
         #expect(normalized.total == Decimal(string: "3.03")!)
         #expect(normalized.excludedCount == 0)
     }
@@ -205,7 +205,7 @@ struct QuantityReportingTests {
 
         // The sizeless pair contributes to neither the normalized total nor its denominator,
         // so the normalized average stays $1.01 across the four eligible units.
-        let normalized = viewModel.calculateTotalNormalizedDifferential(for: pairs)
+        let normalized = ReportViewModel.calculateTotalNormalizedDifferential(for: pairs)
         #expect(normalized.total == Decimal(string: "4.04")!)
         #expect(normalized.excludedCount == 1)
         #expect(viewModel.calculateAverageNormalizedDifferential(for: pairs) == Self.perUnitNormalized)

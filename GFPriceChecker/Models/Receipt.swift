@@ -65,10 +65,13 @@ final class Receipt {
     }
 
     /// Total differential amount for all products on this receipt
-    /// - Returns: Sum of all product pair differentials
+    ///
+    /// Extended, so a pair bought in multiples contributes its whole purchase amount — the
+    /// per-unit `differential` would under-report any receipt with a quantity above 1.
+    /// - Returns: Sum of all product pairs' `extendedDifferential`
     var totalDifferential: Decimal {
         productPairs.reduce(Decimal.zero) { sum, pair in
-            sum + pair.differential
+            sum + pair.extendedDifferential
         }
     }
 

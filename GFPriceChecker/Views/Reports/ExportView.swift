@@ -114,8 +114,7 @@ struct ExportView: View {
         }
 
         let packageTotal = productsToExport.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
-        let normalizedValues = productsToExport.compactMap(\.extendedNormalizedDifferential)
-        let unitTotal: Decimal? = normalizedValues.isEmpty ? nil : normalizedValues.reduce(Decimal.zero, +)
+        let unitTotal = ReportViewModel.calculateTotalNormalizedDifferential(for: productsToExport).total
         return (count: productsToExport.count, unitPriceDifferential: unitTotal, packagePriceDifferential: packageTotal)
     }
 

@@ -78,7 +78,7 @@ struct ReceiptDetailView: View {
                 // Total amount
                 if let total = receipt.totalAmount {
                     LabeledContent("Total") {
-                        Text("$\(total as NSDecimalNumber)")
+                        Text(total, format: .currency(code: "CAD"))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -92,7 +92,7 @@ struct ReceiptDetailView: View {
                 }
 
                 LabeledContent("Package Price Differential Total") {
-                    Text("$\(receipt.totalDifferential as NSDecimalNumber)")
+                    Text(receipt.totalDifferential, format: .currency(code: "CAD"))
                         .fontWeight(.bold)
                         .foregroundStyle(receipt.totalDifferential > 0 ? .green : .secondary)
                 }
@@ -178,7 +178,7 @@ struct ReceiptDetailView: View {
 
                 // Prices
                 HStack(spacing: 8) {
-                    Text("$\(productPair.gfPrice as NSDecimalNumber)")
+                    Text(productPair.gfPrice, format: .currency(code: "CAD"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -186,20 +186,28 @@ struct ReceiptDetailView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Text("$\(productPair.nonGFPrice as NSDecimalNumber)")
+                    Text(productPair.nonGFPrice, format: .currency(code: "CAD"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    if productPair.quantity > 1 {
+                        Text("×\(productPair.quantity)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel("\(productPair.quantity) units purchased")
+                    }
                 }
             }
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                // Differential
-                Text("$\(productPair.differential as NSDecimalNumber)")
+                // Differential for the whole purchase, so the rows add up to the summary total
+                Text(productPair.extendedDifferential, format: .currency(code: "CAD"))
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundStyle(productPair.differential > 0 ? .green : .secondary)
+                    .foregroundStyle(productPair.extendedDifferential > 0 ? .green : .secondary)
 
                 // Unlink button
                 Button(role: .destructive) {
