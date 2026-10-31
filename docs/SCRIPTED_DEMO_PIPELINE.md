@@ -256,7 +256,7 @@ The three call sites are unchanged, and on a device nothing about the behaviour 
   `GFPriceCheckerTests/DocumentScannerSourceTests.swift`, which also asserts that the test
   bundle's own environment resolves to the substitute.
 - `GFPriceCheckerTests/SubstituteScannerTests.swift` — runs the real `OCRService` and
-  `ReceiptParserService` over the drawn images. This is load-bearing, not decoration: a
+  `ReceiptParser` over the drawn images. This is load-bearing, not decoration: a
   sample the flow cannot read a price off fails *silently*, because the flow still advances
   to the review step, just with every field empty.
 

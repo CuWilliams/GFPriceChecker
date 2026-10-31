@@ -1,42 +1,70 @@
 //
-//  ReceiptParserService.swift
-//  GFPriceChecker
+//  ReceiptParser.swift
+//  GFCore
 //
-//  Created by Claude Code on 2025-12-27.
+//  Moved from GFPriceChecker/Services/ReceiptParserService.swift on 2026-10-31 (#69).
 //
 
 import Foundation
 
 /// Represents a line item extracted from a receipt
-struct ReceiptLineItem {
+public struct ReceiptLineItem: Sendable, Equatable {
     /// Product name or description
-    let productName: String
+    public let productName: String
 
     /// Price of the item
-    let price: Decimal
+    public let price: Decimal
 
     /// Confidence score for this extraction (0.0 to 1.0)
-    let confidence: Float
+    public let confidence: Float
+
+    public init(productName: String, price: Decimal, confidence: Float) {
+        self.productName = productName
+        self.price = price
+        self.confidence = confidence
+    }
 }
 
-/// Result of matching a ProductPair to a receipt line item
-struct ProductMatchResult {
-    /// The ProductPair being matched
-    let productPair: ProductPair
+/// A tracked product as the fuzzy matcher sees it: the GF side's name and price.
+///
+/// The app builds one from a `ProductPair` and keys the result back to the pair
+/// by `id`, the same way `ReportRow` stands in for the model in reporting.
+public struct MatchCandidate: Sendable, Equatable, Identifiable {
+    public let id: UUID
+    public let name: String
+    public let price: Decimal
+
+    public init(id: UUID, name: String, price: Decimal) {
+        self.id = id
+        self.name = name
+        self.price = price
+    }
+}
+
+/// Result of matching a candidate to a receipt line item
+public struct ProductMatchResult: Sendable, Equatable {
+    /// The candidate being matched
+    public let candidate: MatchCandidate
 
     /// The matched receipt line item (if found)
-    let matchedLineItem: ReceiptLineItem?
+    public let matchedLineItem: ReceiptLineItem?
 
     /// Confidence score for the match (0.0 to 1.0)
-    let matchConfidence: Float
+    public let matchConfidence: Float
+
+    public init(candidate: MatchCandidate, matchedLineItem: ReceiptLineItem?, matchConfidence: Float) {
+        self.candidate = candidate
+        self.matchedLineItem = matchedLineItem
+        self.matchConfidence = matchConfidence
+    }
 
     /// Whether this match should be auto-suggested
-    var isAutoSuggested: Bool {
+    public var isAutoSuggested: Bool {
         matchConfidence >= 0.8
     }
 
     /// Match quality category
-    var matchQuality: MatchQuality {
+    public var matchQuality: MatchQuality {
         if matchConfidence >= 0.8 {
             return .high
         } else if matchConfidence >= 0.5 {
@@ -46,40 +74,33 @@ struct ProductMatchResult {
         }
     }
 
-    enum MatchQuality {
+    public enum MatchQuality: Sendable {
         case high   // Auto-suggest (≥80%)
         case medium // Suggest with confirmation (50-79%)
         case low    // Show but don't suggest (<50%)
     }
 }
 
-/// Service for parsing receipt text and matching products
+/// Parses receipt text and matches products
 ///
 /// Provides capabilities for:
 /// - Store name extraction from receipt header
 /// - Date parsing with multiple format support
 /// - Line item extraction (product + price pairs)
 /// - Total amount detection
-/// - Fuzzy matching between ProductPairs and receipt items
-@MainActor
-final class ReceiptParserService {
-
-    // MARK: - Singleton
-
-    static let shared = ReceiptParserService()
-
-    private init() {}
+/// - Fuzzy matching between tracked products and receipt items
+public enum ReceiptParser {
 
     // MARK: - Constants
 
     /// Price matching tolerance for exact matches (±$0.25)
-    private let exactPriceTolerance: Decimal = 0.25
+    private static let exactPriceTolerance: Decimal = 0.25
 
     /// Price matching tolerance for partial matches (±$0.50)
-    private let partialPriceTolerance: Decimal = 0.50
+    private static let partialPriceTolerance: Decimal = 0.50
 
     /// Common store names in Canada
-    private let commonStores = [
+    static let commonStores = [
         "loblaws", "no frills", "real canadian superstore", "zehrs",
         "fortinos", "valu-mart", "independent", "metro", "food basics",
         "sobeys", "safeway", "iga", "freshco", "walmart", "costco",
@@ -87,7 +108,7 @@ final class ReceiptParserService {
     ]
 
     /// Common abbreviations in product names
-    private let abbreviations: [String: String] = [
+    private static let abbreviations: [String: String] = [
         "gf": "gluten free",
         "brd": "bread",
         "psta": "pasta",
@@ -108,7 +129,7 @@ final class ReceiptParserService {
     ///
     /// - Parameter text: Raw receipt OCR text
     /// - Returns: Store name if found, nil otherwise
-    func extractStoreName(from text: String) -> String? {
+    public static func extractStoreName(from text: String) -> String? {
         // Split into lines and check first 5 lines for store names
         let lines = text.components(separatedBy: .newlines)
         let headerLines = lines.prefix(5)
@@ -145,7 +166,7 @@ final class ReceiptParserService {
     ///
     /// - Parameter text: Raw receipt OCR text
     /// - Returns: Parsed Date if found, nil otherwise
-    func extractDate(from text: String) -> Date? {
+    public static func extractDate(from text: String) -> Date? {
         // Date regex patterns (ordered by priority)
         let patterns = [
             // ISO format: YYYY-MM-DD
@@ -181,7 +202,7 @@ final class ReceiptParserService {
     }
 
     /// Creates array of date formatters for various formats
-    private func createDateFormatters() -> [DateFormatter] {
+    private static func createDateFormatters() -> [DateFormatter] {
         let formats = [
             "yyyy-MM-dd",           // 2024-12-27
             "MM/dd/yyyy",           // 12/27/2024
@@ -210,7 +231,7 @@ final class ReceiptParserService {
     ///
     /// - Parameter text: Raw receipt OCR text
     /// - Returns: Array of ReceiptLineItem objects
-    func extractLineItems(from text: String) -> [ReceiptLineItem] {
+    public static func extractLineItems(from text: String) -> [ReceiptLineItem] {
         var lineItems: [ReceiptLineItem] = []
         let lines = text.components(separatedBy: .newlines)
         var processedLineIndices = Set<Int>()
@@ -380,7 +401,7 @@ final class ReceiptParserService {
     }
 
     /// Determines if a line is likely a header or footer
-    private func isHeaderOrFooterLine(_ line: String) -> Bool {
+    private static func isHeaderOrFooterLine(_ line: String) -> Bool {
         let lowercased = line.lowercased()
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -409,7 +430,7 @@ final class ReceiptParserService {
     }
 
     /// Determines if a line is likely a discount indicator (e.g., "2029974 TPD/1751411")
-    private func isLikelyDiscount(_ line: String) -> Bool {
+    private static func isLikelyDiscount(_ line: String) -> Bool {
         let lowercased = line.lowercased()
 
         // Common discount indicators
@@ -425,7 +446,7 @@ final class ReceiptParserService {
     }
 
     /// Checks if a line starts with a product code (6-7 digit number)
-    private func hasProductCode(_ line: String) -> Bool {
+    private static func hasProductCode(_ line: String) -> Bool {
         // Pattern: line starts with 6-7 digits followed by space
         let productCodePattern = #"^\d{6,7}\s+"#
         guard let regex = try? NSRegularExpression(pattern: productCodePattern, options: []) else {
@@ -437,7 +458,7 @@ final class ReceiptParserService {
     }
 
     /// Calculates confidence for a line item extraction
-    private func calculateLineConfidence(line: String, productName: String, price: Decimal) -> Float {
+    private static func calculateLineConfidence(line: String, productName: String, price: Decimal) -> Float {
         var confidence: Float = 0.7 // Base confidence
 
         // Higher confidence if product name has multiple words
@@ -482,15 +503,15 @@ final class ReceiptParserService {
     ///   `TOTAL      19.96`; the symbol appears in the header if at all. So the
     ///   symbol is optional here.
     /// - **The amount is right-aligned into a second column.** Vision returns a
-    ///   wide horizontal gap as a *separate* `VNRecognizedTextObservation`, so
-    ///   the label's line arrives carrying no amount and the number lands on
-    ///   the line below it. When that happens this falls through to the next
-    ///   line, the same way `extractMultiLineItems` pairs a Costco-style
-    ///   product line with the price printed beneath it.
+    ///   wide horizontal gap as a *separate* text observation, so the label's
+    ///   line arrives carrying no amount and the number lands on the line below
+    ///   it. When that happens this falls through to the next line, the same way
+    ///   `extractLineItems` pairs a Costco-style product line with the price
+    ///   printed beneath it.
     ///
     /// - Parameter text: Raw receipt OCR text
     /// - Returns: Total amount if found, nil otherwise
-    func extractTotal(from text: String) -> Decimal? {
+    public static func extractTotal(from text: String) -> Decimal? {
         let lines = text
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -521,7 +542,7 @@ final class ReceiptParserService {
             }
 
             // Skip subtotals and the other labels that merely contain the word.
-            if Self.nonTotalLabels.contains(where: { lowercased.contains($0) }) {
+            if nonTotalLabels.contains(where: { lowercased.contains($0) }) {
                 continue
             }
 
@@ -545,7 +566,7 @@ final class ReceiptParserService {
 
     // MARK: - Fuzzy Matching
 
-    /// Matches ProductPairs to receipt line items using fuzzy matching
+    /// Matches candidates to receipt line items using fuzzy matching
     ///
     /// Algorithm considers:
     /// - Exact and partial product name matches
@@ -554,20 +575,20 @@ final class ReceiptParserService {
     /// - Levenshtein distance for typos
     ///
     /// - Parameters:
-    ///   - productPairs: Array of ProductPairs to match
+    ///   - candidates: The tracked products to match
     ///   - lineItems: Array of ReceiptLineItems from OCR
-    /// - Returns: Array of ProductMatchResult with confidence scores
-    func matchProducts(_ productPairs: [ProductPair], to lineItems: [ReceiptLineItem]) -> [ProductMatchResult] {
+    /// - Returns: One ProductMatchResult per candidate, in the same order, with confidence scores
+    public static func matchProducts(_ candidates: [MatchCandidate], to lineItems: [ReceiptLineItem]) -> [ProductMatchResult] {
         var results: [ProductMatchResult] = []
 
-        for productPair in productPairs {
+        for candidate in candidates {
             var bestMatch: ReceiptLineItem?
             var bestConfidence: Float = 0.0
 
             // Try to find best matching line item
             for lineItem in lineItems {
                 let confidence = calculateMatchConfidence(
-                    productPair: productPair,
+                    candidate: candidate,
                     lineItem: lineItem
                 )
 
@@ -578,7 +599,7 @@ final class ReceiptParserService {
             }
 
             results.append(ProductMatchResult(
-                productPair: productPair,
+                candidate: candidate,
                 matchedLineItem: bestMatch,
                 matchConfidence: bestConfidence
             ))
@@ -587,20 +608,20 @@ final class ReceiptParserService {
         return results
     }
 
-    /// Calculates match confidence between a ProductPair and ReceiptLineItem
-    private func calculateMatchConfidence(productPair: ProductPair, lineItem: ReceiptLineItem) -> Float {
+    /// Calculates match confidence between a candidate and ReceiptLineItem
+    private static func calculateMatchConfidence(candidate: MatchCandidate, lineItem: ReceiptLineItem) -> Float {
         var confidence: Float = 0.0
 
         // Check price matching (50% weight)
         let priceConfidence = calculatePriceConfidence(
-            productPairPrice: productPair.gfPrice,
+            productPairPrice: candidate.price,
             lineItemPrice: lineItem.price
         )
         confidence += priceConfidence * 0.5
 
         // Check name matching (50% weight)
         let nameConfidence = calculateNameConfidence(
-            productPairName: productPair.gfProductName,
+            productPairName: candidate.name,
             lineItemName: lineItem.productName
         )
         confidence += nameConfidence * 0.5
@@ -609,7 +630,7 @@ final class ReceiptParserService {
     }
 
     /// Calculates confidence for price matching
-    private func calculatePriceConfidence(productPairPrice: Decimal, lineItemPrice: Decimal) -> Float {
+    static func calculatePriceConfidence(productPairPrice: Decimal, lineItemPrice: Decimal) -> Float {
         let difference = abs(productPairPrice - lineItemPrice)
 
         if difference == 0 {
@@ -626,7 +647,7 @@ final class ReceiptParserService {
     }
 
     /// Calculates confidence for name matching using fuzzy string comparison
-    private func calculateNameConfidence(productPairName: String, lineItemName: String) -> Float {
+    static func calculateNameConfidence(productPairName: String, lineItemName: String) -> Float {
         // Normalize both strings
         let normalizedProductName = normalizeProductName(productPairName)
         let normalizedLineItemName = normalizeProductName(lineItemName)
@@ -646,13 +667,9 @@ final class ReceiptParserService {
         let productWords = Set(normalizedProductName.split(separator: " ").map(String.init))
         let lineItemWords = Set(normalizedLineItemName.split(separator: " ").map(String.init))
 
-        let intersection = productWords.intersection(lineItemWords)
-        let union = productWords.union(lineItemWords)
-
-        if !union.isEmpty {
-            let jaccardSimilarity = Float(intersection.count) / Float(union.count)
-
+        if let jaccardSimilarity = calculateJaccardSimilarity(productWords, lineItemWords) {
             // Boost confidence if key words like "gluten free" match
+            let intersection = productWords.intersection(lineItemWords)
             if intersection.contains("gluten") || intersection.contains("free") {
                 return min(jaccardSimilarity + 0.2, 1.0)
             }
@@ -670,7 +687,7 @@ final class ReceiptParserService {
     }
 
     /// Normalizes product name for matching
-    private func normalizeProductName(_ name: String) -> String {
+    static func normalizeProductName(_ name: String) -> String {
         var normalized = name.lowercased()
 
         // Expand abbreviations
@@ -689,8 +706,20 @@ final class ReceiptParserService {
         return normalized.trimmingCharacters(in: .whitespaces)
     }
 
+    /// Jaccard similarity of two word sets: shared words over all words.
+    ///
+    /// - Returns: nil when both sets are empty, since the ratio is undefined
+    static func calculateJaccardSimilarity(_ a: Set<String>, _ b: Set<String>) -> Float? {
+        let intersection = a.intersection(b)
+        let union = a.union(b)
+
+        guard !union.isEmpty else { return nil }
+
+        return Float(intersection.count) / Float(union.count)
+    }
+
     /// Calculates Levenshtein similarity (0.0 = completely different, 1.0 = identical)
-    private func calculateLevenshteinSimilarity(_ s1: String, _ s2: String) -> Float {
+    static func calculateLevenshteinSimilarity(_ s1: String, _ s2: String) -> Float {
         let distance = levenshteinDistance(s1, s2)
         let maxLength = max(s1.count, s2.count)
 
@@ -701,7 +730,7 @@ final class ReceiptParserService {
     }
 
     /// Calculates Levenshtein distance between two strings
-    private func levenshteinDistance(_ s1: String, _ s2: String) -> Int {
+    static func levenshteinDistance(_ s1: String, _ s2: String) -> Int {
         let s1Array = Array(s1)
         let s2Array = Array(s2)
         let m = s1Array.count

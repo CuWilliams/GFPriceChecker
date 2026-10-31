@@ -26,7 +26,7 @@ import UIKit
 ///   ranking has to prefer it over the unit price sitting two lines below it.
 /// - Sizes read `400 g` and unit prices `$1.87 /100 g`, which is what
 ///   `SizeTextParser.parseSize` and `.parseUnitPrice` match against.
-/// - The receipt carries a store in `ReceiptParserService.commonStores`, an ISO
+/// - The receipt carries a store in `ReceiptParser.commonStores`, an ISO
 ///   date, and a `TOTAL` line below a `SUBTOTAL` line it must not pick instead.
 ///   It prints in two columns with bare amounts, as receipts do, which is the
 ///   layout `extractTotal` could not read until issue #51.

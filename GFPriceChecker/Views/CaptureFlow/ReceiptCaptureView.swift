@@ -5,6 +5,7 @@
 //  Created by Claude Code on 2025-12-27.
 //
 
+import GFCore
 import SwiftUI
 import SwiftData
 
@@ -616,17 +617,15 @@ struct ReceiptCaptureView: View {
             receiptOCRObservations = observations
 
             // Parse receipt metadata (keep this functionality)
-            let parser = ReceiptParserService.shared
-
-            if let store = parser.extractStoreName(from: fullText) {
+            if let store = ReceiptParser.extractStoreName(from: fullText) {
                 storeName = store
             }
 
-            if let date = parser.extractDate(from: fullText) {
+            if let date = ReceiptParser.extractDate(from: fullText) {
                 purchaseDate = date
             }
 
-            if let total = parser.extractTotal(from: fullText) {
+            if let total = ReceiptParser.extractTotal(from: fullText) {
                 totalAmount = "\(total)"
             }
 

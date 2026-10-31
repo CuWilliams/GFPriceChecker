@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import Testing
 import UIKit
 @testable import GFPriceChecker
@@ -18,7 +19,7 @@ import UIKit
 /// and it would fail silently — the flow still advances to the review step, only
 /// with every field empty.
 ///
-/// So these tests run the real `OCRService` and the real `ReceiptParserService`
+/// So these tests run the real `OCRService` and the real `ReceiptParser`
 /// over the drawn images and assert the values the flows depend on come back.
 @MainActor
 @Suite("Substitute scanner", .serialized)
@@ -119,18 +120,17 @@ struct SubstituteScannerTests {
         let image = SampleScanImages.receipt(SampleScanImages.groceryReceipt,
                                              style: try #require(Self.rowStyle(style)))
         let text = try await OCRService.shared.extractReceiptText(from: image)
-        let parser = ReceiptParserService.shared
 
-        #expect(parser.extractStoreName(from: text) == "Loblaws", "store not found in:\n\(text)")
+        #expect(ReceiptParser.extractStoreName(from: text) == "Loblaws", "store not found in:\n\(text)")
 
-        let date = try #require(parser.extractDate(from: text), "date not found in:\n\(text)")
+        let date = try #require(ReceiptParser.extractDate(from: text), "date not found in:\n\(text)")
         let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
         #expect(components.year == 2026)
         #expect(components.month == 3)
         #expect(components.day == 14)
 
         // 19.96, not the 17.66 subtotal sitting two lines above it.
-        #expect(parser.extractTotal(from: text) == Decimal(string: "19.96"),
+        #expect(ReceiptParser.extractTotal(from: text) == Decimal(string: "19.96"),
                 "total wrong in \(style):\n\(text)")
     }
 

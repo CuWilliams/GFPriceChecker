@@ -1,13 +1,13 @@
 //
 //  ReceiptTotalTests.swift
-//  GFPriceCheckerTests
+//  GFCoreTests
 //
-//  Created by Claude Code on 2026-09-14.
+//  Created by Claude Code on 2026-09-14. Moved from GFPriceCheckerTests on 2026-10-31 (#69).
 //
 
 import Foundation
 import Testing
-@testable import GFPriceChecker
+import GFCore
 
 /// `extractTotal` against the shapes receipts actually print (issue #51).
 ///
@@ -20,11 +20,10 @@ import Testing
 /// Every case below marked "issue #51" returns nil before the fix, because the
 /// old pattern was `#"\$(\d{1,4}\.\d{2})"# ` — a mandatory `$`, on the label's
 /// own line.
-@MainActor
-@Suite("Receipt total extraction", .serialized)
+@Suite("Receipt total extraction")
 struct ReceiptTotalTests {
 
-    private var parser: ReceiptParserService { .shared }
+    private var parser: ReceiptParser.Type { ReceiptParser.self }
 
     // MARK: - Single Line
 
