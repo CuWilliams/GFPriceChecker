@@ -141,6 +141,19 @@ struct VectorTests {
         }
     }
 
+    @Test("reporting.json: custom date ranges")
+    func reportingCustomDateRange() throws {
+        for testCase in try Vectors.load("reporting.json")["customDateRange"].array {
+            let input = testCase["input"]
+            let name = testCase["name"].string
+            let calculator = ReportCalculator(calendar: Vectors.calendar(input["timeZone"]))
+            let range = calculator.dateRange(from: Vectors.date(input["from"]),
+                                             through: Vectors.date(input["through"]))
+            #expect(range.lowerBound == Vectors.date(testCase["expected"]["start"]), "\(name): start")
+            #expect(range.upperBound == Vectors.date(testCase["expected"]["end"]), "\(name): end")
+        }
+    }
+
     @Test("reporting.json: by category")
     func reportingByCategory() throws {
         for testCase in try Vectors.load("reporting.json")["byCategory"].array {

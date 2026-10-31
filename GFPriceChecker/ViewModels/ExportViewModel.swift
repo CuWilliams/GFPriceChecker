@@ -70,7 +70,7 @@ final class ExportViewModel {
 
     private let dependencies: Dependencies
 
-    /// Buckets years in the device's calendar and time zone, as the dashboard does
+    /// Buckets years and days in the device's calendar and time zone, as the dashboard does
     private let calculator = ReportCalculator(calendar: .current)
 
     // MARK: - Data
@@ -132,13 +132,14 @@ final class ExportViewModel {
 
     // MARK: - Derived Values
 
-    /// The custom range, in order whichever way round the two dates were picked.
+    /// The custom range: every day from the start date's through the end date's.
     ///
-    /// The view constrains each picker by the other, but a `ClosedRange` whose lower
-    /// bound is above its upper bound traps, release builds included, so the order
-    /// is not left to the pickers.
+    /// The pickers show days only, but their dates carry the time of day the view
+    /// model was created at, so filtering on them as instants cut off part of the
+    /// first and last day (#94). GFCore widens them to whole days, and puts them in
+    /// order whichever way round they were picked, rather than trapping.
     var customDateRange: ClosedRange<Date> {
-        min(customStartDate, customEndDate)...max(customStartDate, customEndDate)
+        calculator.dateRange(from: customStartDate, through: customEndDate)
     }
 
     /// Current date range based on preset or custom selection

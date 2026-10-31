@@ -57,6 +57,10 @@ half-up, away from zero, so it shows as $0.47. §3 says so, GFCore's `.cad` styl
 formatter ask for it, and several vectors sit on a half cent to hold any platform to it. Behaviour pinned only as a known gap,
 above, is kept out of the vectors so it does not become a rule. `scripts/sync-vectors.sh`
 updates the copy, and `--check` runs from the tracked `.githooks/pre-push`.
+#94 closed one more gap the spec left open: how a custom export range is bounded. The pickers'
+dates carry a time of day, and filtering on them as instants cut off part of the first and last
+day. §6 now says a custom range is whole days in the device's time zone, `customDateRange`
+vectors pin it, and `ReportCalculator.dateRange(from:through:)` implements it beside the presets.
 This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.
