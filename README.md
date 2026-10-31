@@ -90,7 +90,6 @@ GFPriceChecker/
 │   └── Components/      # Reusable UI components
 ├── Services/            # Business services
 │   ├── OCRService.swift
-│   ├── ReceiptParserService.swift
 │   ├── ImageStorageService.swift
 │   ├── CSVExportService.swift
 │   ├── PDFGeneratorService.swift

@@ -21,6 +21,20 @@ rounds each row's size-adjusted figure to the cent, so on the demo dataset that 
 $355.57 against the $355.58 the PDF and dashboard show. Resolved: a total rounds the final sum,
 not the rows, which is what `ReportTotals` already does. PRODUCT_DEFINITION.md §3 now says so,
 and the test pins it.
+2c (#69) moved `ReceiptParsing` and `PriceRanking`. `OCRService` now holds only the Vision
+requests and the mapping to `RecognizedText`. `ReceiptParserService` is deleted rather than
+kept as a singleton, because nothing platform-bound was left in it, and callers use
+`ReceiptParser` directly. `TextOrdering` carries the reading order, so the two orders now sit
+side by side: the tap-to-select list sorts by a box's centre, and receipt text sorts by its
+origin. Vision's iOS 18 Swift API has its own `RecognizedText` and `NormalizedRect`, so
+`OCRService` writes the core's as `GFCore.RecognizedText` and `GFCore.NormalizedRect`. Every parser now has tests, and they turned up four gaps, each pinned by a "Known gap"
+test for #36 and #22 to flip:
+on a product-first receipt with several items, the look-behind pass pairs each price with the
+name *below* it. The discount keyword `off` rejects "COFFEE". Abbreviations expand inside
+words, so "snacks" becomes "snacookies". And the Levenshtein fallback in name matching is
+unreachable: the Jaccard branch returns first whenever either name has a word. That fallback
+would also trap on an empty string (`for i in 1...m`), so it needs a guard before anything
+reaches it. All four were moved unchanged, under the fix-first rule.
 This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.
@@ -87,7 +101,7 @@ A shared core would copy these over unless they are fixed first:
 
 The receipt fuzzy matching (Levenshtein and Jaccard), which the spec calls behaviour worth
 copying, has no production callers and no tests. Wiring it up belongs to #36 and #22. Stage 2
-brings it under test.
+brings it under test. Done in 2c (#69).
 
 ### Duplicated arithmetic
 
@@ -110,6 +124,9 @@ Levenshtein or Jaccard, `rankingScore` on its own, CSV escaping and number forma
 `ValidationRules`, `DateRangePreset`, or `Receipt.totalDifferential`. There are no
 cross-platform fixtures anywhere. The closest thing is `Tools/Demo/demo-dataset.json`, which is a
 real backup-format file.
+
+2c (#69) added tests for the parsers, matching, Levenshtein, Jaccard and `rankingScore`, in
+`ReceiptParserTests`, `ProductMatchingTests` and `PriceRankingTests`.
 
 ---
 

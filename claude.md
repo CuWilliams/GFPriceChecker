@@ -70,8 +70,7 @@ GFPriceChecker/
 │       ├── RectangleSelectorView.swift
 │       └── OCRTextSelectorView.swift
 ├── Services/
-│   ├── OCRService.swift        # Vision framework text + rectangle detection
-│   ├── ReceiptParserService.swift  # Receipt parsing with fuzzy matching
+│   ├── OCRService.swift        # Vision text + rectangle requests, mapped to GFCore values
 │   ├── ImageStorageService.swift   # Local image storage + thumbnails
 │   ├── CSVExportService.swift  # Itemized CSV generation
 │   ├── PDFGeneratorService.swift   # Professional PDF tax reports
@@ -96,8 +95,14 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 │   │   ├── ReportRow.swift     # One pair as the reports see it
 │   │   ├── ReportCalculator.swift  # ReportTotals, year/range filters, category and month groups
 │   │   └── DateRangePreset.swift   # Export date-range presets (raw values are persisted)
-│   └── CSV/
-│       └── CSVExporter.swift   # Columns, machine number/date formats, escaping
+│   ├── CSV/
+│   │   └── CSVExporter.swift   # Columns, machine number/date formats, escaping
+│   ├── ReceiptParsing/
+│   │   └── ReceiptParser.swift # Store, date, line items, total; fuzzy matching via MatchCandidate
+│   └── PriceRanking/
+│       ├── RecognizedText.swift  # RecognizedText and NormalizedRect, the core's CGRect
+│       ├── PriceRanking.swift  # PriceMatch.rankingScore, thresholds, price regex, name heuristic
+│       └── TextOrdering.swift  # Reading order for tap-to-select lists and receipt text
 └── Tests/GFCoreTests/          # Swift Testing, run with `swift test` on macOS
 ```
 
@@ -106,13 +111,14 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 `Packages/GFCore` is where the app's arithmetic and other platform-independent behaviour live,
 so they can be tested without a simulator and shared with a future Android app. It is added to
 the Xcode project as an `XCLocalSwiftPackageReference` and linked to the app target. Track F
-(`docs/SHARED_CORE.md`) moves the rest in area by area; today it holds `Pricing`, `Reporting`
-and `CSV`.
+(`docs/SHARED_CORE.md`) moves the rest in area by area; today it holds `Pricing`, `Reporting`,
+`CSV`, `ReceiptParsing` and `PriceRanking`.
 
 **Boundary rule: GFCore imports Foundation only.** No SwiftUI, UIKit, SwiftData, Vision,
 PDFKit, CoreGraphics or `NSPredicate`. Anything that needs one of those stays in the app, and
 the app adapts its types to the core's at the edge: `ProductPair.pricing` builds a
-`PricingInputs`, and the model's computed properties forward to it.
+`PricingInputs`, and the model's computed properties forward to it. `OCRService` maps each
+`VNRecognizedTextObservation` to a `RecognizedText` and hands the rest to the core.
 
 - A local package does not inherit `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, and
   swift-tools 6.0 builds it in Swift 6 language mode. Its types are nonisolated; make them
@@ -251,7 +257,8 @@ case .failure(let error):
 ### 4. OCR Enhancements
 
 #### Spatial Analysis for Price Detection
-**File:** `Services/OCRService.swift`
+**File:** `Packages/GFCore/Sources/GFCore/PriceRanking/PriceRanking.swift` (the Vision request
+is in `Services/OCRService.swift`)
 
 Ranks price candidates by:
 - Font size (50% weight) - larger text likely actual price
