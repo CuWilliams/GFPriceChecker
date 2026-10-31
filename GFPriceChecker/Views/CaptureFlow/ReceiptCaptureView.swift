@@ -70,7 +70,7 @@ struct ReceiptCaptureView: View {
                 Text(viewModel.alertMessage)
             }
             .onChange(of: unverifiedProducts, initial: true) { _, products in
-                viewModel.unverifiedProducts = products
+                viewModel.refreshUnverifiedProducts(products)
             }
             .onChange(of: viewModel.didSave) { _, saved in
                 if saved { dismiss() }
@@ -384,10 +384,10 @@ struct ReceiptCaptureView: View {
                 ReceiptLineSelector(
                     image: image,
                     observations: viewModel.receiptOCRObservations,
-                    productName: product.gfProductName,
-                    onLineSelected: { selectedText in
-                        viewModel.confirmMatch(for: product, withLine: selectedText)
-                    },
+                    selectedObservation: viewModel.selectedReceiptLine,
+                    suggestedObservation: viewModel.suggestedReceiptLine(for: product),
+                    onLineTapped: { viewModel.selectReceiptLine($0) },
+                    onConfirm: { viewModel.confirmSelectedLine() },
                     onSkip: {
                         viewModel.skipProduct(product)
                     }
@@ -521,30 +521,17 @@ struct ReceiptCaptureView: View {
 // MARK: - Receipt Line Selector
 
 /// Simplified selector for receipt verification - single line selection
+///
+/// The selection and the suggestion belong to `ReceiptCaptureViewModel`; this
+/// view draws them and sends taps back.
 private struct ReceiptLineSelector: View {
     let image: UIImage
     let observations: [SelectableTextObservation]
-    let productName: String
-    let onLineSelected: (String) -> Void
+    let selectedObservation: SelectableTextObservation?
+    let suggestedObservation: SelectableTextObservation?
+    let onLineTapped: (SelectableTextObservation) -> Void
+    let onConfirm: () -> Void
     let onSkip: () -> Void
-
-    @State private var selectedObservation: SelectableTextObservation?
-
-    /// Find suggested match via simple text search
-    private var suggestedObservation: SelectableTextObservation? {
-        let searchTerms = productName.lowercased().split(separator: " ").map(String.init)
-
-        // Find observation containing any significant word from product name
-        for observation in observations {
-            let obsLower = observation.text.lowercased()
-            for term in searchTerms where term.count >= 3 {
-                if obsLower.contains(term) {
-                    return observation
-                }
-            }
-        }
-        return nil
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -575,9 +562,7 @@ private struct ReceiptLineSelector: View {
                 .buttonStyle(.bordered)
 
                 Button {
-                    if let selected = selectedObservation {
-                        onLineSelected(selected.text)
-                    }
+                    onConfirm()
                 } label: {
                     Label("Confirm Match", systemImage: "checkmark")
                         .frame(maxWidth: .infinity)
@@ -594,7 +579,7 @@ private struct ReceiptLineSelector: View {
         let isSuggested = suggestedObservation?.id == observation.id && selectedObservation == nil
 
         return Button {
-            selectedObservation = observation
+            onLineTapped(observation)
         } label: {
             HStack {
                 Text(observation.text)

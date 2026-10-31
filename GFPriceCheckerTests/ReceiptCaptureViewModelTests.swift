@@ -223,6 +223,50 @@ struct ReceiptCaptureViewModelTests {
         #expect(flow.selectedProducts == [bread.id])
     }
 
+    // MARK: - Receipt Lines
+
+    @Test("A tapped line is confirmed for the current pair, then cleared for the next")
+    func tappedLineConfirms() async throws {
+        let (container, context) = try Self.makeStore()
+        defer { withExtendedLifetime(container) {} }
+        let bread = Self.pair("GF Bread", in: context)
+        let pasta = Self.pair("GF Pasta", in: context)
+        let (flow, spy) = makeFlow(products: [bread, pasta])
+        flow.selectAllProducts()
+        await flow.handleScannedReceipt(Self.stubImage())
+
+        // Confirm does nothing until a line is tapped
+        flow.confirmSelectedLine()
+        #expect(flow.currentVerificationIndex == 0)
+
+        flow.selectReceiptLine(spy.observations[0])
+        #expect(flow.selectedReceiptLine?.id == spy.observations[0].id)
+        flow.confirmSelectedLine()
+
+        #expect(flow.confirmedMatches[bread.id] == "GF BREAD 6.99")
+        #expect(flow.currentProductToVerify?.id == pasta.id)
+        #expect(flow.selectedReceiptLine == nil, "The next pair starts with nothing selected")
+
+        flow.selectReceiptLine(spy.observations[1])
+        flow.skipProduct(pasta)
+        #expect(flow.selectedReceiptLine == nil)
+        #expect(flow.confirmedMatches[pasta.id] == nil)
+    }
+
+    @Test("The suggested line is the first that shares a word of the GF name")
+    func suggestedLine() async throws {
+        let (container, context) = try Self.makeStore()
+        defer { withExtendedLifetime(container) {} }
+        let pasta = Self.pair("Gluten Free Pasta", in: context)
+        let soup = Self.pair("GF Soup", in: context)
+        let (flow, spy) = makeFlow(products: [pasta, soup])
+        await flow.handleScannedReceipt(Self.stubImage())
+
+        #expect(flow.suggestedReceiptLine(for: pasta)?.id == spy.observations[1].id)
+        // "GF" is too short to count, and "Soup" is on no line
+        #expect(flow.suggestedReceiptLine(for: soup) == nil)
+    }
+
     // MARK: - Scanning
 
     @Test("A cancelled scan closes the scanner and reads nothing")
@@ -291,6 +335,28 @@ struct ReceiptCaptureViewModelTests {
         let receipt = try #require(try context.fetch(FetchDescriptor<Receipt>()).first)
         #expect(receipt.storeName == nil)
         #expect(receipt.totalAmount == nil)
+    }
+
+    /// The view's query drops the pairs a save verifies, and the sheet is still
+    /// on screen while it is dismissed.
+    @Test("After saving, the query emptying keeps the pairs that were verified")
+    func savedPairsOutliveTheQuery() async throws {
+        let (container, context) = try Self.makeStore()
+        defer { withExtendedLifetime(container) {} }
+        let bread = Self.pair("GF Bread", in: context)
+        let (flow, _) = makeFlow(products: [bread])
+        flow.selectAllProducts()
+        await flow.handleScannedReceipt(Self.stubImage())
+        flow.confirmMatch(for: bread, withLine: "GF BREAD 6.99")
+
+        flow.refreshUnverifiedProducts([bread])
+        #expect(flow.productsToVerify.count == 1, "before saving, the query is followed")
+
+        #expect(await flow.save(into: context))
+        flow.refreshUnverifiedProducts([])
+
+        #expect(flow.productsToVerify.map(\.id) == [bread.id])
+        #expect(flow.confirmedCount == 1)
     }
 
     // MARK: - Saving

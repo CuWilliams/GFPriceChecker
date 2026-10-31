@@ -327,6 +327,108 @@ struct CaptureFlowViewModelTests {
         #expect(flow.selectedUnit == .ounces, "The unit is shared by the pair, so the first choice stands")
     }
 
+    // MARK: - Review Taps
+
+    @Test("Review taps fill name, then price, then size")
+    func reviewTapsWalkThePhases() async {
+        let name = Self.observation("Gluten Free White Bread", y: 0.8)
+        let price = Self.observation("$7.49", y: 0.6)
+        let size = Self.observation("400 g", y: 0.4)
+        let (flow, _) = makeFlow(observations: [name, price, size])
+        flow.startCapture()
+        await flow.handleScannedImage(Self.stubImage())
+        #expect(flow.gfReviewPhase == .selectingName)
+
+        #expect(flow.handleReviewTap(name, isGF: true) == nil)
+        #expect(flow.gfProductName == "Gluten Free White Bread")
+        #expect(flow.gfSelectedNameObservationID == name.id)
+        #expect(flow.gfReviewPhase == .selectingPrice)
+
+        #expect(flow.handleReviewTap(price, isGF: true) == nil)
+        #expect(flow.gfPriceText == "7.49", "The $ is dropped")
+        #expect(flow.gfSelectedPriceObservationID == price.id)
+        #expect(flow.gfReviewPhase == .selectingSize)
+
+        #expect(flow.handleReviewTap(size, isGF: true) == nil)
+        #expect(flow.gfSizeText == "400")
+        #expect(flow.gfSelectedSizeObservationID == size.id)
+        #expect(flow.gfReviewPhase == .selectingSize, "Size stays open so another row can be retapped")
+
+        // The regular product's review is untouched
+        #expect(flow.nonGFReviewPhase == .selectingName)
+        #expect(flow.nonGFProductName.isEmpty)
+    }
+
+    @Test("A price with no decimal point is suggested, not set")
+    func reviewTapSuggestsDecimal() {
+        let (flow, _) = makeFlow()
+        flow.handleReviewTap(Self.observation("Bread"), isGF: false)
+        let price = Self.observation("1299")
+
+        #expect(flow.handleReviewTap(price, isGF: false) == "$12.99")
+        #expect(flow.nonGFPriceText.isEmpty)
+        #expect(flow.nonGFReviewPhase == .selectingPrice)
+
+        flow.confirmPrice(price, text: "$12.99", isGF: false)
+        #expect(flow.nonGFPriceText == "12.99")
+        #expect(flow.nonGFSelectedPriceObservationID == price.id)
+        #expect(flow.nonGFReviewPhase == .selectingSize)
+    }
+
+    @Test("Skipping the size completes the review")
+    func skipSizeCompletesReview() {
+        let (flow, _) = makeFlow()
+        flow.handleReviewTap(Self.observation("Bread"), isGF: true)
+        flow.handleReviewTap(Self.observation("$3.29"), isGF: true)
+
+        flow.skipSize(isGF: true)
+
+        #expect(flow.gfReviewPhase == .complete)
+        #expect(flow.gfSizeText.isEmpty)
+    }
+
+    @Test("A fresh scan, a retake or a clear starts the review over")
+    func reviewResets() async {
+        let name = Self.observation("Bread")
+        let price = Self.observation("$3.29")
+        let (flow, _) = makeFlow(observations: [name, price])
+        flow.startCapture()
+        await flow.handleScannedImage(Self.stubImage())
+
+        func select() {
+            flow.handleReviewTap(name, isGF: true)
+            flow.handleReviewTap(price, isGF: true)
+            #expect(flow.gfReviewPhase == .selectingSize)
+        }
+        func expectFresh(_ comment: Comment) {
+            #expect(flow.gfReviewPhase == .selectingName, comment)
+            #expect(flow.gfSelectedNameObservationID == nil, comment)
+            #expect(flow.gfSelectedPriceObservationID == nil, comment)
+        }
+
+        select()
+        flow.resetProductFields(isGF: true)
+        expectFresh("Clear Selections")
+
+        select()
+        flow.retake(isGF: true)
+        expectFresh("Retake")
+
+        select()
+        flow.currentStep = .captureGF
+        await flow.handleScannedImage(Self.stubImage())
+        expectFresh("A new scan")
+    }
+
+    @Test("Price text keeps only the first $d.dd it contains", arguments: [
+        ("$7.49", "7.49"),
+        ("SALE 4.99 ea", "4.99"),
+        ("no price", "no price")
+    ])
+    func extractPrice(text: String, expected: String) {
+        #expect(CaptureFlowViewModel.extractPrice(from: text) == expected)
+    }
+
     // MARK: - Derived Values
 
     @Test("Package-size mode takes the size straight from the field")

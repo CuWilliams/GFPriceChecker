@@ -235,9 +235,9 @@ struct ProductCaptureFlowView: View {
     /// Single-screen guided review: name → price → size in one uninterrupted pass
     ///
     /// The selector stays mounted for all three phases so the scan results never
-    /// disappear mid-review. `reviewToken` gives each fresh scan a new identity,
-    /// which resets the selector's phase when the user retakes a photo or moves
-    /// on to the regular product.
+    /// disappear mid-review. The view model restarts the review's phase on each
+    /// fresh scan; `reviewToken` gives the selector a new identity alongside, so
+    /// its decimal-placement alert state does not outlive the scan either.
     @ViewBuilder
     private func reviewView(isGF: Bool) -> some View {
         let observations = isGF ? viewModel.gfOCRObservations : viewModel.nonGFOCRObservations
@@ -247,17 +247,21 @@ struct ProductCaptureFlowView: View {
             OCRTextSelectorView(
                 image: image,
                 observations: observations,
-                productName: isGF ? $viewModel.gfProductName : $viewModel.nonGFProductName,
-                priceText: isGF ? $viewModel.gfPriceText : $viewModel.nonGFPriceText,
+                productName: isGF ? viewModel.gfProductName : viewModel.nonGFProductName,
+                priceText: isGF ? viewModel.gfPriceText : viewModel.nonGFPriceText,
                 sizeMode: isGF ? $viewModel.gfSizeMode : $viewModel.nonGFSizeMode,
                 sizeText: isGF ? $viewModel.gfSizeText : $viewModel.nonGFSizeText,
                 unitPriceText: isGF ? $viewModel.gfUnitPriceText : $viewModel.nonGFUnitPriceText,
                 unitPriceBasis: isGF ? $viewModel.gfUnitPriceBasis : $viewModel.nonGFUnitPriceBasis,
                 selectedUnit: $viewModel.selectedUnit,
+                phase: viewModel.reviewPhase(isGF: isGF),
+                selectedNameObservationID: isGF ? viewModel.gfSelectedNameObservationID : viewModel.nonGFSelectedNameObservationID,
+                selectedPriceObservationID: isGF ? viewModel.gfSelectedPriceObservationID : viewModel.nonGFSelectedPriceObservationID,
                 selectedSizeObservationID: isGF ? viewModel.gfSelectedSizeObservationID : viewModel.nonGFSelectedSizeObservationID,
-                onSizeRowTapped: { observation in
-                    viewModel.handleSizeRowTap(observation, isGF: isGF)
-                },
+                onRowTapped: { viewModel.handleReviewTap($0, isGF: isGF) },
+                onPriceConfirmed: { viewModel.confirmPrice($0, text: $1, isGF: isGF) },
+                onSkipSize: { viewModel.skipSize(isGF: isGF) },
+                onClear: { viewModel.resetProductFields(isGF: isGF) },
                 continueTitle: isGF ? "Continue to Regular Product" : "Continue to Finalize",
                 onContinue: {
                     viewModel.continueFromReview(isGF: isGF)

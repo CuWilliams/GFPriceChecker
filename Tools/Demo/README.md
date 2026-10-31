@@ -199,9 +199,9 @@ Tools/Demo/play.sh tour --no-build      # reuse what is installed
 `GFPC_DEMO_SCRIPT` names a script in
 [`GFPriceChecker/Dev/DemoScripts.swift`](../../GFPriceChecker/Dev/DemoScripts.swift), and
 [`DemoDirector`](../../GFPriceChecker/Dev/DemoDirector.swift) plays it against `AppRouter`
-and the view models: no taps, the same take every run. `tour` is the only script so far. It
-visits each tab, a product and the export sheet, and exists to prove the mechanism; the
-website's storyboards are Stage 6.
+and the view models: no taps, the same take every run. `tour` visits each tab, a product and
+the export sheet, and exists to prove the mechanism; the website's three storyboards are
+Stage 6's, below.
 
 `play.sh` seeds from the committed dataset in the same launch unless told `--no-seed` or given
 `--dataset`, so every take starts from the same library. Its files go in
@@ -260,8 +260,80 @@ A script is an `async throws` function in `DemoScripts`, listed in `names`. The 
 To drive a capture without a camera, enqueue images on `ScannerImageProvider` before the
 scanner opens. The scanner takes them with no UI drawn.
 
-## Stages 6-7
+## Stage 6 — record the site's takes and stills
 
-Not built yet. `record.sh`, `launch_frame.py` and `stills.sh` port from
-`../TrendFitApp_App/Tools/Demo/`. `record.sh` should wrap `play.sh`'s launch in
-`simctl io recordVideo` rather than repeat it.
+```bash
+Tools/Demo/record.sh price-tracking           # build, seed, record, cut, report freezes
+Tools/Demo/record.sh receipt-management --no-build
+Tools/Demo/record.sh price-tracking --keep    # leave the raw recording beside the take
+Tools/Demo/record.sh price-tracking --recut   # cut the kept recording again, no re-record
+Tools/Demo/stills.sh all                      # the three site screenshots
+```
+
+Takes land in `$GFPC_DEMO_HOME/takes/` and stills in `$GFPC_DEMO_HOME/stills/` (default
+`~/GFPCDemoData/`). Both scripts take `--dataset`, `--no-seed`, `--no-build`, `--udid`,
+`--appearance` and `--out`, as `play.sh` does. They launch through the same `lib.sh`
+`launch_script`, so a take is what `play.sh` plays, with a recorder running around it.
+
+| Script | Site video | Site screenshot (`assets/images/screenshots/`) | Still |
+| --- | --- | --- | --- |
+| `price-tracking` | `price-tracking.mp4` | `screenshot-08-ProductCaptureFlowView.png` | The finalize screen |
+| `receipt-management` | `receipt-management.mp4` | `screenshot-10-ReceiptCaptureView.png` | Matching, the first line selected |
+| `reporting-exporting` | `reporting-exporting.mp4` | `screenshot-14-SummaryDashBoardView.png` | The dashboard |
+
+The storyboards are the three scripts in
+[`DemoScripts.swift`](../../GFPriceChecker/Dev/DemoScripts.swift). Each one's doc comment
+says what the video shows and where its still is. The capture takes scan
+`SampleScanImages`' drawn shelf tags and receipt, so real Vision OCR runs on every take, and
+each row is tapped by what it reads. A scan that reads differently fails the take; it does not
+tap the wrong row.
+
+### How a take is cut
+
+`simctl io recordVideo` writes a frame only when the screen changes, and its file starts when
+the recorder starts. `record.sh` notes the wall-clock time at spawn and at stop, and then:
+
+1. **Start.** `launch_frame.py` finds the curtain's white hold and cuts on the frame after
+   it, the first drawn screen. It is TrendFit's detector with its constants unchanged (4×4
+   grid, top row skipped, `LIGHT = 200`, `FLAT = 12`, `STILL_GAP = 0.8`). `GFPC_DEMO_LEAD_IN`
+   moves the cut by that many seconds.
+2. **Frame rate.** `-vf fps=60`, **not `-r 60`.** The recording declares 600 fps over its
+   sparse frames, and `-r` resampled against that: the receipt take opened on 4 s of white
+   that the raw file holds for under one. The filter places each frame by its own timestamp.
+   TrendFit's `record.sh` uses `-r 60` and probably has the same fault.
+3. **Tail.** The file ends at the last change, so a closing hold on a still screen is not in
+   it. `tpad` clones the last frame out to the stop time.
+4. **Size.** 1170 wide, H.264 CRF 20, `yuv420p`, `+faststart`, no audio. Stage 7 composites
+   these portrait takes into the site's frame.
+
+A script that fails still writes its done file. `record.sh` then stops, keeps the raw
+recording to look at, and cuts nothing.
+
+### Checking a take
+
+Every take ends with `freezedetect=n=-55dB:d=0.20`: each stretch of 0.2 s or more with no
+change. A scripted `wait` is a freeze too, so the list is read against the storyboard and is
+not a pass/fail. A freeze that matches a `wait` is fine. A freeze that matches nothing, or one
+longer than its `wait`, is a stall worth chasing. Two were found this way:
+
+- **A tab's first render over the seeded library holds the screen for 2–4 s.** A tab stays
+  built once shown, so `prepare` shows the take's tab once behind the curtain (`warm`). The
+  receipt sheet counts: it is presented from Library.
+- **Pushing onto the Library stack while a sheet is still sliding away stalls the push
+  halfway, for seconds.** Hold 1.5 s after a save that dismisses a sheet before pushing.
+
+Measured on iPhone 17 Pro, iOS 26.5: `price-tracking` twice in a row, 31.3 s and 30.0 s, both
+with only scripted holds. `receipt-management` 27.5 s and `reporting-exporting` 13.9 s, both
+clean.
+
+Still to be dealt with in Stage 7: each scan shows the substitute scanner's sheet as a blank
+white sheet for about 2 s.
+
+### Stills
+
+`stills.sh` launches each script in stills mode, waits for its `still()`, screenshots it and
+terminates. `--mark NAME` stops at `still("NAME")` instead, and adds `-NAME` to the file name.
+The carousel shows each screenshot whole at 1206×2622, so nothing is cropped. Each file is
+quantised to 256 colours, at about half the size of the site's current RGB files, and the RMSE
+is printed beside it. The three came in at 0.004–0.006. Copy a still over its namesake in the
+site repo.

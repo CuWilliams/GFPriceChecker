@@ -5,6 +5,7 @@
 //  Created by Claude Code on 2026-10-31.
 //
 
+import CoreGraphics
 import Foundation
 import SwiftData
 import Testing
@@ -168,22 +169,48 @@ struct DemoDirectorTests {
         }
     }
 
-    /// `bootstrapIfRequested` checks `GFPC_DEMO_SCRIPT` against `names`, so a
-    /// script `run` dispatches but `names` omits could never be launched.
-    @Test("Every listed script is one run dispatches", arguments: DemoScripts.names)
-    func listedScriptsDispatch(name: String) async throws {
-        // An empty store: the tour fails on its first `destination("product")`,
-        // which is past dispatch, and so proves the name was recognized.
+    /// The receipt take taps each pair's "Suggested" line, so its pairs must
+    /// suggest their own lines on the drawn receipt, and not the regular
+    /// product's line or the store's address.
+    @Test("receipt-management's pairs each suggest their own line on the drawn receipt")
+    func receiptPairsMatchTheReceipt() async throws {
         let store = try Self.makeStore()
         let director = Self.director()
         director.attach(router: AppRouter(), context: store.context)
 
-        do {
-            try await DemoScripts.run(name, on: director)
-        } catch DemoDirector.DemoError.unknownScript {
-            Issue.record("\(name) is listed but not dispatched")
-        } catch {
-            // Anything else is the script running, which is the point
+        try await DemoScripts.prepare("receipt-management", on: director)
+
+        let pairs = try store.context.fetch(FetchDescriptor<ProductPair>(sortBy: [SortDescriptor(\.createdDate)]))
+        #expect(pairs.map(\.gfProductName) == ["Gluten Free White Bread", "Gluten Free Penne"])
+        #expect(pairs.allSatisfy { !$0.verified })
+
+        let receipt = SampleScanImages.groceryReceipt
+        let flow = ReceiptCaptureViewModel()
+        flow.receiptOCRObservations = ([receipt.store, receipt.address, receipt.city] + receipt.lines.map(\.name))
+            .map { SelectableTextObservation(text: $0, boundingBox: CGRect(x: 0, y: 0, width: 1, height: 0.05), confidence: 1) }
+
+        #expect(pairs.map { flow.suggestedReceiptLine(for: $0)?.text } ==
+                ["NORTHFIELD GF WHITE BREAD", "NORTHFIELD GF PENNE"])
+    }
+
+    /// reporting-exporting's prepare only moves between tabs
+    @Test("Only receipt-management's prepare adds to the store")
+    func otherScriptsPrepareNothing() async throws {
+        let store = try Self.makeStore()
+        let director = Self.director()
+        director.attach(router: AppRouter(), context: store.context)
+
+        for name in DemoScripts.names where name != "receipt-management" {
+            try await DemoScripts.prepare(name, on: director)
         }
+
+        #expect(try store.context.fetchCount(FetchDescriptor<ProductPair>()) == 0)
+    }
+
+    /// `bootstrapIfRequested` checks `GFPC_DEMO_SCRIPT` against `names`, so a
+    /// script `run` dispatches but `names` omits could never be launched.
+    @Test("Every listed script is one run dispatches", arguments: DemoScripts.names)
+    func listedScriptsDispatch(name: String) {
+        #expect(DemoScripts.script(named: name) != nil, "\(name) is listed but not dispatched")
     }
 }

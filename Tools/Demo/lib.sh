@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Shared by seed.sh and play.sh. Source it; it defines functions and constants
+# Shared by the scripts here. Source it; it defines functions and constants
 # and runs nothing.
 
 BUNDLE_ID="com.cuwilliams66.GFPriceChecker"
@@ -53,4 +53,73 @@ build_and_install() {
         exit 1
     fi
     xcrun simctl install "$udid" "$app"
+}
+
+# Exits unless $1 passes scrub_backup.py --verify. The dataset is the one file
+# here that can leak PII, so every launch that seeds checks it first.
+verify_dataset() {
+    local dataset="$1"
+    [[ -f "$dataset" ]] || { echo "No dataset at $dataset" >&2; exit 1; }
+    echo "==> Verifying $dataset"
+    python3 "$ROOT/Tools/Demo/scrub_backup.py" --verify "$dataset" >/dev/null
+}
+
+# The status bar every take and still carries: 9:41, full signal, and a full
+# battery with no charging bolt (`discharging` at 100; `charged` adds the bolt).
+clean_status_bar() {
+    xcrun simctl status_bar "$1" override --time 9:41 --batteryState discharging --batteryLevel 100 \
+        --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4
+}
+
+# Launches the app on $1 playing script $2, which writes done file $3, seeded
+# from dataset $4 unless it is empty. Any further NAME=VALUE arguments reach
+# the app as GFPC_DEMO_NAME=VALUE, such as STILL_FILE=… for a stills run.
+# Terminates a running instance first: it would keep the environment it
+# launched with.
+launch_script() {
+    local udid="$1" script="$2" done_file="$3" dataset="$4"
+    shift 4
+    local env=(
+        SIMCTL_CHILD_GFPC_DEMO_SCRIPT="$script"
+        SIMCTL_CHILD_GFPC_DEMO_DONE_FILE="$done_file"
+    )
+    [[ -n "$dataset" ]] && env+=(SIMCTL_CHILD_GFPC_DEMO_DATASET="$dataset")
+    local pair
+    for pair in "$@"; do env+=("SIMCTL_CHILD_GFPC_DEMO_$pair"); done
+
+    xcrun simctl terminate "$udid" "$BUNDLE_ID" 2>/dev/null || true
+    env "${env[@]}" xcrun simctl launch "$udid" "$BUNDLE_ID" >/dev/null
+}
+
+# Whether the app is running on $1. It is a launchd job in the Simulator while
+# it runs. Not `| grep -q`: grep quits at the first match, launchctl takes a
+# SIGPIPE, and pipefail reports a running app as a dead one.
+app_running() {
+    [[ "$(xcrun simctl spawn "$1" launchctl list 2>/dev/null)" == *"UIKitApplication:$BUNDLE_ID"* ]]
+}
+
+# Waits up to $3 seconds for file $2 while the app on $1 runs. Returns non-zero
+# if the deadline passes, the app dies first — a fatalError in the seed, say,
+# fails now rather than at the deadline — or file $4, when given, appears
+# first (a stills run's done file: the script ended without marking a still).
+wait_for_file() {
+    local udid="$1" file="$2" timeout="$3" instead="${4:-}"
+    local deadline=$(( SECONDS + timeout ))
+    until [[ -f "$file" ]]; do
+        if [[ -n "$instead" && -f "$instead" ]]; then
+            echo "$(head -n 1 "$instead") — it ended before writing $file" >&2
+            return 1
+        fi
+        if (( SECONDS >= deadline )); then
+            echo "Timed out waiting for $file" >&2
+            return 1
+        fi
+        if ! app_running "$udid"; then
+            # It may have finished between the file check and this one.
+            [[ -f "$file" ]] && break
+            echo "The app is no longer running. Its log: xcrun simctl spawn $udid log show --last 5m --predicate 'process == \"$SCHEME\"'" >&2
+            return 1
+        fi
+        sleep 0.5
+    done
 }

@@ -14,8 +14,8 @@
 # --still runs the script in stills mode: it waits for DemoDirector.still() to
 # mark the frame (at `tile`, or the mark given), screenshots it, and terminates.
 #
-# Nothing here records video. That is record.sh, Stage 6, which wraps this same
-# launch in `simctl io recordVideo`.
+# Nothing here records video. That is record.sh, which wraps the same launch
+# (lib.sh's launch_script) in `simctl io recordVideo`.
 
 set -euo pipefail
 
@@ -52,65 +52,30 @@ STILL_FILE="$OUT_DIR/$SCRIPT_NAME.still"
 SHOT="$OUT_DIR/$SCRIPT_NAME${STILL_MARK:+-$STILL_MARK}.png"
 rm -f "$DONE_FILE" "$STILL_FILE"
 
-if [[ -n "$DATASET" ]]; then
-    [[ -f "$DATASET" ]] || { echo "No dataset at $DATASET" >&2; exit 1; }
-    # As in seed.sh: the dataset is the one file here that can leak PII.
-    echo "==> Verifying $DATASET"
-    python3 "$ROOT/Tools/Demo/scrub_backup.py" --verify "$DATASET" >/dev/null
-fi
+[[ -n "$DATASET" ]] && verify_dataset "$DATASET"
 
 UDID=$(resolve_udid "$DEVICE")
 (( BUILD )) && build_and_install "$UDID"
 
-# A running instance keeps the environment it launched with.
-xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-
-ENV=(
-    SIMCTL_CHILD_GFPC_DEMO_SCRIPT="$SCRIPT_NAME"
-    SIMCTL_CHILD_GFPC_DEMO_DONE_FILE="$DONE_FILE"
-)
-[[ -n "$DATASET" ]] && ENV+=(SIMCTL_CHILD_GFPC_DEMO_DATASET="$DATASET")
+EXTRA=()
 if (( STILLS )); then
-    ENV+=(SIMCTL_CHILD_GFPC_DEMO_STILL_FILE="$STILL_FILE")
-    [[ -n "$STILL_MARK" ]] && ENV+=(SIMCTL_CHILD_GFPC_DEMO_STILL_MARK="$STILL_MARK")
+    EXTRA+=(STILL_FILE="$STILL_FILE")
+    [[ -n "$STILL_MARK" ]] && EXTRA+=(STILL_MARK="$STILL_MARK")
 fi
 
 echo "==> Playing $SCRIPT_NAME"
-env "${ENV[@]}" xcrun simctl launch "$UDID" "$BUNDLE_ID" >/dev/null
-
-# The app is a launchd job in the Simulator while it runs. Checked so that a
-# crash — a fatalError in the seed, say — fails now rather than at the deadline.
-# Not `| grep -q`: grep quits at the first match, launchctl takes a SIGPIPE,
-# and pipefail reports a running app as a dead one.
-running() {
-    [[ "$(xcrun simctl spawn "$UDID" launchctl list 2>/dev/null)" == *"UIKitApplication:$BUNDLE_ID"* ]]
-}
-
-WAIT_FOR="$DONE_FILE"
-(( STILLS )) && WAIT_FOR="$STILL_FILE"
-DEADLINE=$(( SECONDS + 180 ))
-until [[ -f "$WAIT_FOR" ]]; do
-    if (( SECONDS >= DEADLINE )); then
-        echo "Timed out waiting for $WAIT_FOR" >&2
-        exit 1
-    fi
-    if ! running; then
-        # It may have finished between the file check and this one.
-        [[ -f "$WAIT_FOR" ]] && break
-        echo "The app is no longer running. Its log: xcrun simctl spawn $UDID log show --last 5m --predicate 'process == \"$SCHEME\"'" >&2
-        exit 1
-    fi
-    sleep 0.5
-done
+launch_script "$UDID" "$SCRIPT_NAME" "$DONE_FILE" "$DATASET" ${EXTRA[@]+"${EXTRA[@]}"}
 
 if (( STILLS )); then
+    wait_for_file "$UDID" "$STILL_FILE" 180 "$DONE_FILE"
     xcrun simctl io "$UDID" screenshot "$SHOT" >/dev/null 2>&1
     xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
-    rm -f "$STILL_FILE"
+    rm -f "$STILL_FILE" "$DONE_FILE"
     echo "Still: $SHOT"
     exit 0
 fi
 
+wait_for_file "$UDID" "$DONE_FILE" 180
 RESULT=$(head -n 1 "$DONE_FILE")
 rm -f "$DONE_FILE"
 echo "$RESULT"
