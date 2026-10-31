@@ -6,33 +6,10 @@
 //
 
 import Foundation
+import GFCore
 import SwiftData
 import UIKit
 import SwiftUI
-
-/// Unit of measurement for product sizes
-enum SizeUnit: String, CaseIterable, Sendable {
-    case grams = "g"
-    case kilograms = "kg"
-    case milliliters = "mL"
-    case liters = "L"
-    case ounces = "oz"
-    case pounds = "lb"
-    case flOunces = "fl oz"
-    case count = "count"
-
-    var displayName: String { rawValue }
-
-    /// Scaling factor for display: grams use $/100g convention; all other units display as-is
-    var unitPriceScaleFactor: Decimal {
-        self == .grams ? 100 : 1
-    }
-
-    /// Label used when displaying a unit price (e.g. "100g" for grams, "oz" for ounces)
-    var unitPriceLabel: String {
-        self == .grams ? "100g" : rawValue
-    }
-}
 
 /// Represents a comparison between a gluten-free product and its non-gluten-free equivalent
 ///
@@ -134,15 +111,25 @@ final class ProductPair {
 
     // MARK: - Computed Properties
 
-    /// The price differential between gluten-free and non-gluten-free products, for one unit
+    /// The pair's prices, sizes and quantity, which GFCore does the arithmetic over
+    ///
+    /// Every figure below forwards to it, so the formulas live in one place
+    /// (`PricingInputs`) and can be tested without a `ModelContainer`.
+    var pricing: PricingInputs {
+        PricingInputs(
+            gfPrice: gfPrice,
+            nonGFPrice: nonGFPrice,
+            gfSizeValue: gfSizeValue,
+            nonGFSizeValue: nonGFSizeValue,
+            quantity: quantity
+        )
+    }
+
+    /// The price differential for one unit — see `PricingInputs.differential`
     ///
     /// - Important: This is a **per-unit** value and ignores `quantity`. Anything that totals
-    ///   a purchase — report aggregates, export line items, grand totals — must use
-    ///   `extendedDifferential` instead, or it will under-report multi-unit purchases.
-    /// - Returns: The difference (gfPrice - nonGFPrice)
-    var differential: Decimal {
-        gfPrice - nonGFPrice
-    }
+    ///   a purchase must use `extendedDifferential` instead.
+    var differential: Decimal { pricing.differential }
 
     /// The SizeUnit enum resolved from the raw sizeUnit string
     var resolvedSizeUnit: SizeUnit? {
@@ -150,54 +137,28 @@ final class ProductPair {
         return SizeUnit(rawValue: raw)
     }
 
-    /// Price per size unit for the GF product (nil if size is unavailable or zero)
-    var gfUnitPrice: Decimal? {
-        guard let s = gfSizeValue, s > 0 else { return nil }
-        return gfPrice / s
-    }
+    /// Price per size unit for the GF product — see `PricingInputs.gfUnitPrice`
+    var gfUnitPrice: Decimal? { pricing.gfUnitPrice }
 
-    /// Price per size unit for the regular product (nil if size is unavailable or zero)
-    var regularUnitPrice: Decimal? {
-        guard let s = nonGFSizeValue, s > 0 else { return nil }
-        return nonGFPrice / s
-    }
+    /// Price per size unit for the regular product — see `PricingInputs.regularUnitPrice`
+    var regularUnitPrice: Decimal? { pricing.regularUnitPrice }
 
-    /// Size-adjusted differential for one unit, normalized for package size
+    /// Size-adjusted differential for one unit — see `PricingInputs.normalizedDifferential`
     ///
-    /// Formula: (gfUnitPrice - regularUnitPrice) × gfSize
-    /// Example: GF $7.99/400g vs Regular $3.99/675g → ($0.01997 - $0.00591) × 400 = $5.63
-    /// Returns nil when size data is incomplete for either product.
     /// - Important: **Per-unit**, like `differential`. Totals must use
     ///   `extendedNormalizedDifferential`.
-    var normalizedDifferential: Decimal? {
-        guard let gfU = gfUnitPrice,
-              let regU = regularUnitPrice,
-              let s = gfSizeValue else { return nil }
-        return (gfU - regU) * s
-    }
+    var normalizedDifferential: Decimal? { pricing.normalizedDifferential }
 
-    /// Price difference per unit between GF and regular products (nil if size data incomplete)
-    ///
-    /// - Note: This is a rate ($/g, $/oz, …), so it deliberately does **not** scale with
-    ///   `quantity`. Buying three loaves does not change the price per gram.
-    var unitPriceDifferential: Decimal? {
-        guard let gfU = gfUnitPrice, let regU = regularUnitPrice else { return nil }
-        return gfU - regU
-    }
+    /// Price difference per size unit, a rate — see `PricingInputs.unitPriceDifferential`
+    var unitPriceDifferential: Decimal? { pricing.unitPriceDifferential }
 
-    /// The package price differential for the whole purchase: `differential` × `quantity`
-    ///
-    /// This is the figure that belongs in report totals and export line items.
-    var extendedDifferential: Decimal {
-        differential * Decimal(quantity)
-    }
+    /// The package price differential for the whole purchase — see
+    /// `PricingInputs.extendedDifferential`
+    var extendedDifferential: Decimal { pricing.extendedDifferential }
 
-    /// The size-adjusted differential for the whole purchase: `normalizedDifferential` × `quantity`
-    ///
-    /// Returns nil for the same reason `normalizedDifferential` does — incomplete size data.
-    var extendedNormalizedDifferential: Decimal? {
-        normalizedDifferential.map { $0 * Decimal(quantity) }
-    }
+    /// The size-adjusted differential for the whole purchase — see
+    /// `PricingInputs.extendedNormalizedDifferential`
+    var extendedNormalizedDifferential: Decimal? { pricing.extendedNormalizedDifferential }
 
     /// True when both size values and a unit are available to compute unit pricing
     var hasUnitPricingData: Bool {

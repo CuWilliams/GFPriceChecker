@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import SwiftData
 import Testing
 import UIKit
@@ -286,73 +287,6 @@ struct CaptureFlowViewModelTests {
         #expect(flow.gfProductName == "Partially typed")
     }
 
-    // MARK: - Size Parsing
-
-    @Test("Package sizes parse to a value and a unit", arguments: [
-        ("400g", "400", SizeUnit.grams),
-        ("400 g", "400", SizeUnit.grams),
-        ("1.5 L", "1.5", SizeUnit.liters),
-        ("750mL", "750", SizeUnit.milliliters),
-        ("2.5kg", "2.5", SizeUnit.kilograms),
-        ("12oz", "12", SizeUnit.ounces),
-        ("16 fl oz", "16", SizeUnit.flOunces),
-        ("1.5 lb", "1.5", SizeUnit.pounds),
-        ("24 count", "24", SizeUnit.count),
-    ])
-    func parseSize(input: String, value: String, unit: SizeUnit) {
-        let (flow, _) = makeFlow()
-        let parsed = flow.parseSizeFromOCR(input)
-        #expect(parsed.value == value)
-        #expect(parsed.unit == unit)
-    }
-
-    @Test("A unit only counts when it sits immediately after the number")
-    func unitsMustBeAdjacentToTheNumber() {
-        let (flow, _) = makeFlow()
-
-        // "kg" and "fl oz" each contain a shorter unit's suffix, so something
-        // has to stop 2.5kg reading as 2.5 g. It is not pattern order — it is
-        // that every pattern demands the number right before its suffix, and
-        // the "k" and the "fl " are in the way.
-        #expect(flow.parseSizeFromOCR("2.5kg").unit == .kilograms)
-        #expect(flow.parseSizeFromOCR("16 fl. oz").unit == .flOunces)
-
-        // The same rule, seen from the other side: a unit further along the
-        // line is not this number's unit.
-        #expect(flow.parseSizeFromOCR("500 net g").unit == nil)
-        #expect(flow.parseUnitPriceFromOCR("$1.49/each 100 g").unit == nil)
-    }
-
-    @Test("Unparseable size text comes back untouched for manual editing")
-    func parseSizeFallsBackToRawText() {
-        let (flow, _) = makeFlow()
-        let parsed = flow.parseSizeFromOCR("Family Pack")
-        #expect(parsed.value == "Family Pack")
-        #expect(parsed.unit == nil)
-    }
-
-    @Test("Unit prices parse to a value and a unit", arguments: [
-        ("$1.49/100g", "1.49", SizeUnit.grams),
-        ("0.99/oz", "0.99", SizeUnit.ounces),
-        ("$3.50 / kg", "3.50", SizeUnit.kilograms),
-        ("$0.45/100 mL", "0.45", SizeUnit.milliliters),
-        ("$2.19/fl oz", "2.19", SizeUnit.flOunces),
-    ])
-    func parseUnitPrice(input: String, value: String, unit: SizeUnit) {
-        let (flow, _) = makeFlow()
-        let parsed = flow.parseUnitPriceFromOCR(input)
-        #expect(parsed.value == value)
-        #expect(parsed.unit == unit)
-    }
-
-    @Test("Unparseable unit price text comes back untouched")
-    func parseUnitPriceFallsBackToRawText() {
-        let (flow, _) = makeFlow()
-        let parsed = flow.parseUnitPriceFromOCR("per package")
-        #expect(parsed.value == "per package")
-        #expect(parsed.unit == nil)
-    }
-
     // MARK: - OCR Row Taps
 
     @Test("A tapped row fills the size field in package-size mode")
@@ -410,50 +344,44 @@ struct CaptureFlowViewModelTests {
         flow.gfSizeMode = .unitPrice
         flow.gfPriceText = "5.00"
 
-        // Cents basis: 50¢ per unit → $0.50 → 10 units for $5.00
+        // 50¢ per unit → $0.50 → 10 units for $5.00. The arithmetic, and its zero and
+        // dollar cases, are GFCore's `PricingInputsTests`; this checks the mode routes there.
         flow.gfUnitPriceBasis = .cents
         flow.gfUnitPriceText = "50"
         #expect(flow.gfSizeValue == Decimal(10))
-
-        // Dollars basis: $0.50 per unit → the same 10 units
-        flow.gfUnitPriceBasis = .dollars
-        flow.gfUnitPriceText = "0.50"
-        #expect(flow.gfSizeValue == Decimal(10))
-    }
-
-    @Test("A zero or missing unit price leaves the size unknown")
-    func sizeValueNilWhenUnitPriceUnusable() {
-        let (flow, _) = makeFlow()
-        flow.gfSizeMode = .unitPrice
-        flow.gfPriceText = "5.00"
-
-        flow.gfUnitPriceText = "0"
-        #expect(flow.gfSizeValue == nil, "Dividing by a zero unit price is not a size")
 
         flow.gfUnitPriceText = ""
         #expect(flow.gfSizeValue == nil)
     }
 
-    @Test("The package differential is the plain price difference")
-    func packageDifferential() {
+    @Test("The differentials come from the text fields through GFCore")
+    func differentialsFromTextFields() {
         let (flow, _) = makeFlow()
-        flow.gfPriceText = "7.49"
-        flow.nonGFPriceText = "4.29"
-
-        #expect(flow.packagePriceDifferential == Decimal(string: "3.20"))
-    }
-
-    @Test("The size-adjusted differential normalizes for package size")
-    func normalizedDifferential() {
-        let (flow, _) = makeFlow()
-        // GF: $6.00 for 500 g → $0.012/g.  Regular: $4.00 for 1000 g → $0.004/g.
-        // Difference $0.008/g over the 500 g GF package → $4.00.
         flow.gfPriceText = "6.00"
         flow.gfSizeText = "500"
         flow.nonGFPriceText = "4.00"
         flow.nonGFSizeText = "1000"
 
+        #expect(flow.pricing == PricingInputs(
+            gfPrice: Decimal(string: "6.00")!,
+            nonGFPrice: Decimal(string: "4.00")!,
+            gfSizeValue: 500,
+            nonGFSizeValue: 1000
+        ))
+        #expect(flow.packagePriceDifferential == Decimal(2))
         #expect(flow.normalizedDifferential == Decimal(4))
+    }
+
+    @Test("There is nothing to compute until both prices parse")
+    func differentialsNeedBothPrices() {
+        let (flow, _) = makeFlow()
+        flow.gfPriceText = "6.00"
+        flow.gfSizeText = "500"
+        flow.nonGFSizeText = "1000"
+
+        #expect(flow.pricing == nil)
+        #expect(flow.packagePriceDifferential == nil)
+        #expect(flow.normalizedDifferential == nil)
     }
 
     @Test("The size-adjusted differential is unavailable until both sizes are known")

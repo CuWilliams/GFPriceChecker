@@ -25,7 +25,7 @@ import UIKit
 /// - The shelf price is the largest text on the tag, so `OCRService`'s spatial
 ///   ranking has to prefer it over the unit price sitting two lines below it.
 /// - Sizes read `400 g` and unit prices `$1.87 /100 g`, which is what
-///   `parseSizeFromOCR` and `parseUnitPriceFromOCR` match against.
+///   `SizeTextParser.parseSize` and `.parseUnitPrice` match against.
 /// - The receipt carries a store in `ReceiptParserService.commonStores`, an ISO
 ///   date, and a `TOTAL` line below a `SUBTOTAL` line it must not pick instead.
 ///   It prints in two columns with bare amounts, as receipts do, which is the
@@ -44,9 +44,9 @@ enum SampleScanImages {
         let name: String
         /// Shelf price, as printed: `"$7.49"`.
         let price: String
-        /// Package size, in a form `parseSizeFromOCR` matches: `"400 g"`.
+        /// Package size, in a form `SizeTextParser.parseSize` matches: `"400 g"`.
         let size: String
-        /// Unit price, in a form `parseUnitPriceFromOCR` matches: `"$1.87 /100 g"`.
+        /// Unit price, in a form `SizeTextParser.parseUnitPrice` matches: `"$1.87 /100 g"`.
         let unitPrice: String
     }
 

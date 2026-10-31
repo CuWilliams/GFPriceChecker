@@ -84,7 +84,35 @@ GFPriceChecker/
 │   └── ImageViewer.swift       # Zoomable image viewer component
 └── Resources/
     └── AppLogo.swift           # App branding for PDF reports
+
+Packages/GFCore/                # Local Swift package: the platform-independent core
+├── Package.swift               # swift-tools 6.0, iOS 18 / macOS 15
+├── Sources/GFCore/
+│   └── Pricing/
+│       ├── SizeUnit.swift      # SizeUnit, UnitPriceBasis
+│       ├── PricingInputs.swift # Every PRODUCT_DEFINITION.md §3 formula, size back-calculation
+│       └── SizeTextParser.swift  # Size and unit-price parsing of OCR text
+└── Tests/GFCoreTests/          # Swift Testing, run with `swift test` on macOS
 ```
+
+### GFCore and its boundary rule
+
+`Packages/GFCore` is where the app's arithmetic and other platform-independent behaviour live,
+so they can be tested without a simulator and shared with a future Android app. It is added to
+the Xcode project as an `XCLocalSwiftPackageReference` and linked to the app target. Track F
+(`docs/SHARED_CORE.md`) moves the rest in area by area; today it holds `Pricing`.
+
+**Boundary rule: GFCore imports Foundation only.** No SwiftUI, UIKit, SwiftData, Vision,
+PDFKit, CoreGraphics or `NSPredicate`. Anything that needs one of those stays in the app, and
+the app adapts its types to the core's at the edge: `ProductPair.pricing` builds a
+`PricingInputs`, and the model's computed properties forward to it.
+
+- A local package does not inherit `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, and
+  swift-tools 6.0 builds it in Swift 6 language mode. Its types are nonisolated; make them
+  `Sendable` value types.
+- Declarations the app uses must be `public`.
+- The app has `MemberImportVisibility` on, so a file that only *uses* a GFCore type's members
+  still needs `import GFCore`.
 
 ---
 
@@ -100,7 +128,9 @@ Stores gluten-free and regular product comparison data.
 - `nonGFProductName`, `nonGFPrice`, `nonGFSize`, `nonGFImageUUID`, `nonGFOCRConfidence`
 - `category`, `notes`, `createdDate`
 - `receipt: Receipt?` (optional relationship)
-- `differential: Decimal` (computed: gfPrice - nonGFPrice)
+- `pricing: PricingInputs` (computed): the prices, sizes and quantity handed to GFCore.
+  `differential`, the unit prices, `normalizedDifferential` and the `extended*` figures all
+  forward to it; the model has no arithmetic of its own
 - `reportingDate: Date` (computed: receipt?.purchaseDate ?? createdDate)
 
 **Design Decisions:**
@@ -403,11 +433,21 @@ House rules that follow from the MainActor default:
 **Claude is authorized to build and run the automated tests in this project.** This is a
 deliberate project-level override of the global "user runs tests" default.
 
-Working invocation (scheme resolves from local `xcuserdata`; no shared scheme is committed):
+**GFCore's tests run first and need no simulator:**
+
+```bash
+cd Packages/GFCore && swift test
+```
+
+The pure arithmetic and parsing tests live there. Tests that need SwiftData, UIKit or Vision
+stay in `GFPriceCheckerTests`.
+
+Working invocation for the app (scheme resolves from local `xcuserdata`; no shared scheme is
+committed):
 
 ```bash
 xcodebuild test -scheme GFPriceChecker \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -parallel-testing-enabled NO \
   -only-testing:GFPriceCheckerTests
 ```
@@ -415,6 +455,10 @@ xcodebuild test -scheme GFPriceChecker \
 **`-parallel-testing-enabled NO` is not optional here.** Without it xcodebuild clones a
 second simulator and the run dies with "Unable to boot device due to insufficient system
 resources" before a single test executes.
+
+**Keep the `OS=` in the destination.** Without it xcodebuild looks for the device on the
+newest installed runtime, and fails with "Unable to find a device matching the provided
+destination specifier" when that runtime has no iPhone 17 Pro, as iOS 27.0 does not.
 
 Drop `-only-testing:` to include the UI test target. Now that the deployment target is 18.0,
 any runtime from iOS 18.0 up is a valid destination — pick one that matches what you are

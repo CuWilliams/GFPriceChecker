@@ -5,6 +5,7 @@
 //  Created by Claude Code on 2026-01-09.
 //
 
+import GFCore
 import SwiftUI
 import UIKit
 

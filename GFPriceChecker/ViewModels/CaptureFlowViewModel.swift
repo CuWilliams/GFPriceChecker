@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import SwiftData
 import SwiftUI
 import UIKit
@@ -16,13 +17,6 @@ enum SizeInputMode: String, CaseIterable {
     case packageSize = "Package Size"
     case unitPrice = "Unit Price"
     case manual = "Manual"
-}
-
-// MARK: - Unit Price Basis
-
-enum UnitPriceBasis: String, CaseIterable {
-    case cents = "Cents (¢)"
-    case dollars = "Dollars ($)"
 }
 
 // MARK: - Capture Step
@@ -367,70 +361,13 @@ final class CaptureFlowViewModel {
         isProcessingOCR = false
     }
 
-    // MARK: - Size OCR Parsing
-
-    /// Extracts a numeric size and suggests a SizeUnit from text like "400g", "1.5 L", "12oz"
-    func parseSizeFromOCR(_ text: String) -> (value: String, unit: SizeUnit?) {
-        let unitPatterns: [(pattern: String, unit: SizeUnit)] = [
-            (#"(\d+\.?\d*)\s*fl\.?\s*oz"#, .flOunces),
-            (#"(\d+\.?\d*)\s*kg"#, .kilograms),
-            (#"(\d+\.?\d*)\s*mL"#, .milliliters),
-            (#"(\d+\.?\d*)\s*L\b"#, .liters),
-            (#"(\d+\.?\d*)\s*oz"#, .ounces),
-            (#"(\d+\.?\d*)\s*lb"#, .pounds),
-            (#"(\d+\.?\d*)\s*g\b"#, .grams),
-            (#"(\d+\.?\d*)\s*count"#, .count),
-        ]
-
-        return firstMatch(in: text, patterns: unitPatterns)
-    }
-
-    /// Extracts a unit price and suggests a SizeUnit from text like "$1.49/100g", "0.99/oz"
-    func parseUnitPriceFromOCR(_ text: String) -> (value: String, unit: SizeUnit?) {
-        let unitPatterns: [(pattern: String, unit: SizeUnit)] = [
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*fl\.?\s*oz"#, .flOunces),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*kg"#, .kilograms),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*mL"#, .milliliters),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*L\b"#, .liters),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*oz"#, .ounces),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*lb"#, .pounds),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*g\b"#, .grams),
-            (#"\$?(\d+\.?\d*)\s*/\s*\d*\s*count"#, .count),
-        ]
-
-        return firstMatch(in: text, patterns: unitPatterns)
-    }
-
-    /// Returns the first capture group any pattern matches, with its unit.
-    ///
-    /// Every pattern requires its suffix to sit immediately after the number,
-    /// which is what keeps "2.5kg" from reading as grams and "16 fl oz" from
-    /// reading as ounces — the "k" and the "fl " are in the way, so the shorter
-    /// patterns do not match at all. Order is the tie-break if that ever stops
-    /// holding, so the ambiguous units are still listed first.
-    private func firstMatch(
-        in text: String,
-        patterns: [(pattern: String, unit: SizeUnit)]
-    ) -> (value: String, unit: SizeUnit?) {
-        for (pattern, unit) in patterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                let range = NSRange(text.startIndex..., in: text)
-                if let match = regex.firstMatch(in: text, options: [], range: range),
-                   match.numberOfRanges > 1,
-                   let valRange = Range(match.range(at: 1), in: text) {
-                    return (String(text[valRange]), unit)
-                }
-            }
-        }
-        // No pattern matched — return raw text for manual editing
-        return (text, nil)
-    }
+    // MARK: - Size Row Taps
 
     /// Routes an OCR row tap to the correct size field based on the current mode
     func handleSizeRowTap(_ obs: SelectableTextObservation, isGF: Bool) {
         let mode = isGF ? gfSizeMode : nonGFSizeMode
         if mode == .packageSize {
-            let parsed = parseSizeFromOCR(obs.text)
+            let parsed = SizeTextParser.parseSize(obs.text)
             if isGF {
                 gfSizeText = parsed.value
                 gfSelectedSizeObservationID = obs.id
@@ -440,7 +377,7 @@ final class CaptureFlowViewModel {
             }
             if let u = parsed.unit, selectedUnit == nil { selectedUnit = u }
         } else {
-            let parsed = parseUnitPriceFromOCR(obs.text)
+            let parsed = SizeTextParser.parseUnitPrice(obs.text)
             if isGF {
                 gfUnitPriceText = parsed.value
                 gfSelectedSizeObservationID = obs.id
@@ -494,32 +431,32 @@ final class CaptureFlowViewModel {
             return Decimal(string: sizeText)
         }
         guard let price = Decimal(string: priceText),
-              let unitPrice = Decimal(string: unitPriceText), unitPrice > 0 else {
+              let unitPrice = Decimal(string: unitPriceText) else {
             return nil
         }
-        let unitPriceInDollars = basis == .cents ? unitPrice / 100 : unitPrice
-        return price / unitPriceInDollars
+        return PricingInputs.packageSize(price: price, unitPrice: unitPrice, basis: basis)
+    }
+
+    /// The pair's figures for GFCore's arithmetic — `nil` until both prices parse.
+    var pricing: PricingInputs? {
+        guard let gfPrice, let nonGFPrice else { return nil }
+        return PricingInputs(
+            gfPrice: gfPrice,
+            nonGFPrice: nonGFPrice,
+            gfSizeValue: gfSizeValue,
+            nonGFSizeValue: nonGFSizeValue
+        )
     }
 
     /// Straight price difference between the two packages, ignoring their sizes.
-    var packagePriceDifferential: Decimal? {
-        guard let gfPrice, let nonGFPrice else { return nil }
-        return gfPrice - nonGFPrice
-    }
+    var packagePriceDifferential: Decimal? { pricing?.differential }
 
     /// Price difference after normalizing for package size, expressed per GF package —
     /// the spec's `normalizedDifferential`, shown as "Size-Adjusted Differential". Not a
     /// unit price differential, which is a rate.
     ///
     /// `nil` unless both prices and both sizes are known and positive.
-    var normalizedDifferential: Decimal? {
-        guard let gfPrice, let nonGFPrice,
-              let gfValue = gfSizeValue, gfValue > 0,
-              let nonGFValue = nonGFSizeValue, nonGFValue > 0 else {
-            return nil
-        }
-        return ((gfPrice / gfValue) - (nonGFPrice / nonGFValue)) * gfValue
-    }
+    var normalizedDifferential: Decimal? { pricing?.normalizedDifferential }
 
     /// Legacy display string for the GF size field, e.g. `"400g"`.
     var gfSizeDisplay: String? { sizeDisplay(mode: gfSizeMode, sizeText: gfSizeText, unitPriceText: gfUnitPriceText) }
