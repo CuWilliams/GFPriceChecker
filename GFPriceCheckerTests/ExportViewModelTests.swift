@@ -168,8 +168,45 @@ struct ExportViewModelTests {
 
         let range = try #require(export.currentDateRange)
         #expect(range.lowerBound == Self.date(2026, 1, 1, hour: 0))
-        #expect(range.upperBound == Self.date(2026, 3, 31, hour: 23))
+        #expect(range.upperBound == Self.date(2026, 4, 1, hour: 0).addingTimeInterval(-1))
         #expect(export.filteredRows.map(\.id) == [inside.id])
+    }
+
+    @Test("A custom range covers the whole of its first and last day, whatever time its dates carry")
+    func customRangeIsWholeDays() throws {
+        let (container, context) = try Self.makeStore()
+        defer { withExtendedLifetime(container) {} }
+        let dayBefore = Self.pair("Day Before", on: Self.date(2026, 2, 28, hour: 23), in: context)
+        let earlyFirstDay = Self.pair("Early First Day", on: Self.date(2026, 3, 1, hour: 8), in: context)
+        let lateLastDay = Self.pair("Late Last Day", on: Self.date(2026, 3, 31, hour: 23), in: context)
+        let dayAfter = Self.pair("Day After", on: Self.date(2026, 4, 1, hour: 0), in: context)
+        let (export, _) = makeExport(products: [dayBefore, earlyFirstDay, lateLastDay, dayAfter])
+
+        // Picked days keep the time of day the screen was opened at: noon
+        export.useCustomRange = true
+        export.customStartDate = Self.date(2026, 3, 1)
+        export.customEndDate = Self.date(2026, 3, 31)
+        #expect(Set(export.filteredRows.map(\.id)) == [earlyFirstDay.id, lateLastDay.id])
+
+        export.customStartDate = Self.date(2026, 3, 31)
+        export.customEndDate = Self.date(2026, 3, 1)
+        #expect(Set(export.filteredRows.map(\.id)) == [earlyFirstDay.id, lateLastDay.id])
+    }
+
+    @Test("A custom range of one day covers that whole day")
+    func customRangeOfOneDay() throws {
+        let (container, context) = try Self.makeStore()
+        defer { withExtendedLifetime(container) {} }
+        let morning = Self.pair("Morning", on: Self.date(2026, 3, 1, hour: 8), in: context)
+        let evening = Self.pair("Evening", on: Self.date(2026, 3, 1, hour: 23), in: context)
+        let nextDay = Self.pair("Next Day", on: Self.date(2026, 3, 2, hour: 0), in: context)
+        let (export, _) = makeExport(products: [morning, evening, nextDay])
+
+        export.useCustomRange = true
+        export.customStartDate = Self.date(2026, 3, 1)
+        export.customEndDate = Self.date(2026, 3, 1)
+
+        #expect(Set(export.filteredRows.map(\.id)) == [morning.id, evening.id])
     }
 
     // MARK: - Exporting

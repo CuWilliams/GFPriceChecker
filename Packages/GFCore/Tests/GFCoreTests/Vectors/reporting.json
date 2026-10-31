@@ -1,5 +1,5 @@
 {
-  "about": "PRODUCT_DEFINITION.md §1 and §3: totals over report rows, year and range filters, export presets, groupings",
+  "about": "PRODUCT_DEFINITION.md §1 and §3: totals over report rows, year and range filters, export presets and custom ranges, groupings",
   "totals": [
     {
       "name": "No rows",
@@ -693,6 +693,83 @@
         "timeZone": "America/Toronto"
       },
       "expected": null
+    }
+  ],
+  "customDateRange": [
+    {
+      "name": "Whole days, whatever time of day the dates carry",
+      "note": "10:00 on 1 March and 10:00 on 31 March: midnight EST to 23:59:59 EDT",
+      "input": {
+        "from": "2026-03-01T15:00:00Z",
+        "through": "2026-03-31T14:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2026-03-01T05:00:00Z",
+        "end": "2026-04-01T03:59:59Z"
+      }
+    },
+    {
+      "name": "Dates picked end first give the same range",
+      "input": {
+        "from": "2026-03-31T14:00:00Z",
+        "through": "2026-03-01T15:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2026-03-01T05:00:00Z",
+        "end": "2026-04-01T03:59:59Z"
+      }
+    },
+    {
+      "name": "One day for both ends is that whole day",
+      "input": {
+        "from": "2026-06-15T16:00:00Z",
+        "through": "2026-06-15T16:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2026-06-15T04:00:00Z",
+        "end": "2026-06-16T03:59:59Z"
+      }
+    },
+    {
+      "name": "Days are local days, not UTC days",
+      "note": "22:00 on 14 and 15 June in Toronto, already the next day in UTC",
+      "input": {
+        "from": "2026-06-15T02:00:00Z",
+        "through": "2026-06-16T02:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2026-06-14T04:00:00Z",
+        "end": "2026-06-16T03:59:59Z"
+      }
+    },
+    {
+      "name": "A last day of 25 hours ends at its own midnight",
+      "note": "Clocks fall back on 1 November: midnight EDT to 23:59:59 EST",
+      "input": {
+        "from": "2026-11-01T17:00:00Z",
+        "through": "2026-11-01T17:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2026-11-01T04:00:00Z",
+        "end": "2026-11-02T04:59:59Z"
+      }
+    },
+    {
+      "name": "St. John's, on a half-hour offset",
+      "input": {
+        "from": "2026-10-31T12:00:00Z",
+        "through": "2026-10-31T12:00:00Z",
+        "timeZone": "America/St_Johns"
+      },
+      "expected": {
+        "start": "2026-10-31T02:30:00Z",
+        "end": "2026-11-01T02:29:59Z"
+      }
     }
   ],
   "byCategory": [

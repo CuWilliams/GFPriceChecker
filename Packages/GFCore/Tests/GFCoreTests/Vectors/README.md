@@ -8,7 +8,7 @@ vector changes here first, in a reviewed PR, and every platform follows.
 | File | Covers |
 |---|---|
 | `pricing.json` | §3 differentials and the worked example, package size from a unit price, size and unit-price text parsing, §4 size units |
-| `reporting.json` | Totals, year and date-range filters, export presets, by-category and by-month groups, the demo dataset's figures |
+| `reporting.json` | Totals, year and date-range filters, export presets, custom ranges, by-category and by-month groups, the demo dataset's figures |
 | `csv.json` | §6: the column headers and whole CSV files, character for character |
 | `receipt-parsing.json` | Store name, date, line items and total from receipt text; matching tracked products to line items |
 | `price-ranking.json` | Shelf-tag price candidates and their ranking, product name, reading order of recognised text |

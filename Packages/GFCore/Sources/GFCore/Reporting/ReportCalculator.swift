@@ -163,6 +163,22 @@ public struct ReportCalculator: Sendable {
         }
     }
 
+    /// The whole days from the day of one date through the day of the other, in either order
+    ///
+    /// A custom range is picked as two days, but the dates behind a day picker still carry a
+    /// time of day. Only the days count: the range runs from midnight on the earlier day to
+    /// 23:59:59 on the later one, matching the end of `.currentYear`, so a pair reported at
+    /// any time on either end day is inside it. A `ClosedRange` whose lower bound is above
+    /// its upper bound traps, so the order is not left to the caller.
+    public func dateRange(from first: Date, through second: Date) -> ClosedRange<Date> {
+        let start = calendar.startOfDay(for: min(first, second))
+        let lastDay = calendar.startOfDay(for: max(first, second))
+        guard let dayAfter = calendar.date(byAdding: .day, value: 1, to: lastDay) else {
+            return start...lastDay
+        }
+        return start...dayAfter.addingTimeInterval(-1)
+    }
+
     // MARK: - Totals
 
     /// The totals over `rows`
