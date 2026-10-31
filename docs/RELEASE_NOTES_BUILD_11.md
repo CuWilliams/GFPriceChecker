@@ -1,8 +1,5 @@
 # GFPriceChecker — Build 11 (v1.0)
 
-> **Draft — build 11 has not been cut.** Entries are added as changes merge. Remove this note when
-> the build is uploaded.
-
 Paste the "What to Test" section below into TestFlight when you upload.
 
 ---
@@ -37,13 +34,24 @@ Paste the "What to Test" section below into TestFlight when you upload.
   breaks could spill into the next row.
 - **PDF amounts are exact.** A few amounts in the PDF's transaction table could be a cent lower
   than the true figure. They now always agree with the totals.
+- **Half cents round up.** An amount that lands on exactly half a cent, such as $0.465, now shows
+  as $0.47 everywhere. Before, it sometimes rounded down to $0.46.
 
----
+### Typing prices and sizes
+
+- **Stray characters are no longer quietly dropped.** A price pasted in as "12.99abc" used to be
+  saved as $12.99, and a size pasted as "1,5" was saved as 1, with nothing on screen to say so. Both are now
+  refused with a message, so you can correct them. Prices take at most two decimal places.
+- **Error messages fit the problem.** A size of zero used to produce "GF size must be greater
+  than zero cannot be empty" and a suggestion to enter a product name. Each mistake now gets its
+  own message.
 
 ### A new app icon
 
 - **The icon is redrawn** as bold "GF" letters over a check, on the same blue. If your Home
   Screen is set to Dark or Tinted, it now has a proper dark and tinted version too.
+
+---
 
 ## What to Test
 
@@ -60,7 +68,10 @@ Paste the "What to Test" section below into TestFlight when you upload.
    up under its heading, that unit prices look sensible (a loaf of bread should be a dollar or two
    per 100 g, not $0.02), and that the Unit Price Basis column is filled in for pairs with sizes.
 5. **Export a PDF** and compare a few rows of the transaction table against the totals.
-6. **Look at the icon** on your Home Screen, then switch it to Dark and to Tinted (long-press the
+6. **Try some bad input.** Add a product by hand and enter a price of "4.999" and a size of "0",
+   then paste "12.99abc" into a price field (copy it from Notes). Each should be refused with a
+   message that describes what is wrong.
+7. **Look at the icon** on your Home Screen, then switch it to Dark and to Tinted (long-press the
    Home Screen, tap Edit, then Customize). It should be clear and centred in all three.
 
 Nothing in this build changes your existing data, and backups from earlier builds import normally.
