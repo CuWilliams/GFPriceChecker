@@ -23,8 +23,9 @@ import Testing
 /// So these tests deliberately use a quantity of 3 and assert exact totals rather than
 /// "greater than zero". The arithmetic itself lives in GFCore and is tested there:
 /// `PricingInputsTests` for one pair, `ReportCalculatorTests` for the totals and groupings,
-/// and `CSVExporterTests` for the CSV columns. What stays here is the app's edge — the
-/// services handing `ProductPair`s to the core, and the PDF's parallel column arrays.
+/// `CSVExporterTests` for the CSV columns, and `ValidationTests` for the quantity field.
+/// What stays here is the app's edge — the services handing `ProductPair`s to the core,
+/// and the PDF's parallel column arrays.
 ///
 /// Run serially: the CSV and PDF services are `@MainActor` singletons that write files
 /// into the shared temporary directory under a date-derived filename.
@@ -146,40 +147,5 @@ struct QuantityReportingTests {
         let data = try Data(contentsOf: url)
         #expect(!data.isEmpty)
         #expect(data.starts(with: Array("%PDF".utf8)))
-    }
-
-    // MARK: - Validation
-
-    @Test("Empty quantity input means a single unit")
-    func emptyQuantityDefaultsToOne() throws {
-        // The form leaves the field blank-able rather than forcing the user to type 1 for
-        // the overwhelmingly common single-item case.
-        let blank = try ValidationRules.validateQuantityString("").get()
-        let whitespace = try ValidationRules.validateQuantityString("   ").get()
-
-        #expect(blank == ValidationRules.minQuantity)
-        #expect(whitespace == ValidationRules.minQuantity)
-    }
-
-    @Test("A valid whole number is accepted")
-    func validQuantityIsAccepted() throws {
-        let result = try ValidationRules.validateQuantityString("12").get()
-        #expect(result == 12)
-    }
-
-    @Test(
-        "Out-of-range and non-integer quantities are rejected",
-        arguments: ["0", "-1", "1000", "2.5", "two", "3 loaves"]
-    )
-    func invalidQuantityIsRejected(input: String) {
-        switch ValidationRules.validateQuantityString(input) {
-        case .success(let value):
-            Issue.record("Expected \(input) to be rejected, got \(value)")
-        case .failure(let error):
-            guard case .invalidQuantity = error else {
-                Issue.record("Expected .invalidQuantity for \(input), got \(error)")
-                return
-            }
-        }
     }
 }

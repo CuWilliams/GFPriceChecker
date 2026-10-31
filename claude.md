@@ -74,11 +74,11 @@ GFPriceChecker/
 │   ├── ImageStorageService.swift   # Local image storage + thumbnails
 │   ├── CSVExportService.swift  # Itemized CSV generation
 │   ├── PDFGeneratorService.swift   # Professional PDF tax reports
-│   └── DataBackupService.swift # JSON backup/restore with Base64 images
+│   └── DataBackupService.swift # Backup <-> SwiftData, Base64 images, settings; schema is GFCore's
 ├── Utilities/
 │   ├── AppSettings.swift       # @AppStorage user preferences
 │   ├── ErrorHandler.swift      # Centralized error handling
-│   ├── ValidationRules.swift   # Data validation logic
+│   ├── ValidationRules.swift   # GFCore's Validation in AppError, with the app's messages
 │   ├── ConfidenceIndicatorView.swift  # OCR confidence UI
 │   └── ImageViewer.swift       # Zoomable image viewer component
 └── Resources/
@@ -99,10 +99,15 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 │   │   └── CSVExporter.swift   # Columns, machine number/date formats, escaping
 │   ├── ReceiptParsing/
 │   │   └── ReceiptParser.swift # Store, date, line items, total; fuzzy matching via MatchCandidate
-│   └── PriceRanking/
-│       ├── RecognizedText.swift  # RecognizedText and NormalizedRect, the core's CGRect
-│       ├── PriceRanking.swift  # PriceMatch.rankingScore, thresholds, price regex, name heuristic
-│       └── TextOrdering.swift  # Reading order for tap-to-select lists and receipt text
+│   ├── PriceRanking/
+│   │   ├── RecognizedText.swift  # RecognizedText and NormalizedRect, the core's CGRect
+│   │   ├── PriceRanking.swift  # PriceMatch.rankingScore, thresholds, price regex, name heuristic
+│   │   └── TextOrdering.swift  # Reading order for tap-to-select lists and receipt text
+│   ├── Validation/
+│   │   └── Validation.swift    # Input limits and rules, returning ValidationError
+│   └── Backup/
+│       ├── BackupSchema.swift  # BackupData and its DTOs: the shared JSON contract (§7)
+│       └── BackupFormat.swift  # Coders, version gate, decimals as strings
 └── Tests/GFCoreTests/          # Swift Testing, run with `swift test` on macOS
 ```
 
@@ -111,14 +116,16 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 `Packages/GFCore` is where the app's arithmetic and other platform-independent behaviour live,
 so they can be tested without a simulator and shared with a future Android app. It is added to
 the Xcode project as an `XCLocalSwiftPackageReference` and linked to the app target. Track F
-(`docs/SHARED_CORE.md`) moves the rest in area by area; today it holds `Pricing`, `Reporting`,
-`CSV`, `ReceiptParsing` and `PriceRanking`.
+(`docs/SHARED_CORE.md`) moved it in area by area, and with Stage 2 done it holds `Pricing`,
+`Reporting`, `CSV`, `ReceiptParsing`, `PriceRanking`, `Validation` and `Backup`.
 
 **Boundary rule: GFCore imports Foundation only.** No SwiftUI, UIKit, SwiftData, Vision,
 PDFKit, CoreGraphics or `NSPredicate`. Anything that needs one of those stays in the app, and
 the app adapts its types to the core's at the edge: `ProductPair.pricing` builds a
 `PricingInputs`, and the model's computed properties forward to it. `OCRService` maps each
 `VNRecognizedTextObservation` to a `RecognizedText` and hands the rest to the core.
+`DataBackupService` maps SwiftData models, image files and `AppSettings` to the core's backup
+DTOs, and leaves the coders and version gate to `BackupFormat`.
 
 - A local package does not inherit `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, and
   swift-tools 6.0 builds it in Swift 6 language mode. Its types are nonisolated; make them
@@ -235,11 +242,13 @@ Task { @MainActor in
 
 **Centralized Error Types:**
 - `Utilities/ErrorHandler.swift` - AppError enum with user-friendly messages
-- `Utilities/ValidationRules.swift` - Data validation (price, name, date)
+- `Utilities/ValidationRules.swift` - Data validation (price, name, size, quantity, notes).
+  The rules are GFCore's `Validation`, which returns a `ValidationError` naming what is
+  wrong; `AppError.init(_: ValidationError)` turns that into the app's message
 
 **Pattern:**
 ```swift
-let result = ValidationRules.validatePrice(price, fieldName: "GF Price")
+let result = ValidationRules.validatePriceString(priceText, fieldName: "GF Price")
 switch result {
 case .success:
     // Proceed

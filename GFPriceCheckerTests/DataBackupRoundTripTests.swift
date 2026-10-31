@@ -14,7 +14,7 @@ import Testing
 /// Guards against silent drift between the SwiftData models and the backup DTOs.
 ///
 /// `DataBackupService` hand-duplicates the field list of `ProductPair` and `Receipt` into
-/// `ProductPairBackup` / `ReceiptBackup`. Nothing keeps them in sync and a mismatch fails
+/// GFCore's `ProductPairBackup` / `ReceiptBackup`. Nothing keeps them in sync and a mismatch fails
 /// *silently* — it compiles, it ships, and the data is only lost when a user restores.
 ///
 /// This already happened once: `ProductPairBackup` was never given `gfSizeValue`,
@@ -206,15 +206,15 @@ struct DataBackupRoundTripTests {
 
     @Test("ProductPair has no stored property the backup DTO is unaware of")
     func productPairSchemaIsAccountedFor() {
-        // Every one of these is carried by `DataBackupService.ProductPairBackup` and
+        // Every one of these is carried by GFCore's `ProductPairBackup` and
         // asserted in `expectFieldsPreserved`, except `receipt`, which is a relationship
         // denormalised to `receiptID` and covered by `receiptProductLinkIsRebuilt`.
         //
         // If this fails you added, removed or renamed a property on ProductPair. Carry it
-        // through all three sites in DataBackupService.swift — the DTO, `exportBackup` and
-        // `importBackup` — then populate it in `makeFullyPopulatedProductPair`, assert it
-        // in `expectFieldsPreserved`, and add it here. Skipping the DataBackupService half
-        // is exactly the b7216c9 bug.
+        // through all three sites — the DTO in GFCore's BackupSchema.swift, and
+        // `exportBackup` and `importBackup` in DataBackupService.swift — then populate it
+        // in `makeFullyPopulatedProductPair`, assert it in `expectFieldsPreserved`, and add
+        // it here. Skipping the DTO and DataBackupService half is exactly the b7216c9 bug.
         let accountedFor: Set<String> = [
             "gfProductName", "gfPrice", "gfSize", "gfSizeValue", "gfImageUUID", "gfOCRConfidence",
             "nonGFProductName", "nonGFPrice", "nonGFSize", "nonGFSizeValue", "nonGFImageUUID",

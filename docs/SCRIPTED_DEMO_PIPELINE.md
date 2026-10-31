@@ -420,7 +420,7 @@ Two things worth carrying into Stage 5:
 - TrendFit in-app half: `../TrendFitApp_App/Features/Dev/Demo/`
 - Website repo: `../gfpricechecker.github.io`, videos in `assets/video/`, embedded from
   `features.html`.
-- This app's backup format: `Services/DataBackupService.swift`.
+- This app's backup format: `Packages/GFCore/Sources/GFCore/Backup/`, the schema, and `Services/DataBackupService.swift`, its mapping to SwiftData.
 
 ---
 

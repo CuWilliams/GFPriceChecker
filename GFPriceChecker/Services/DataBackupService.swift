@@ -26,74 +26,9 @@ final class DataBackupService {
     static let shared = DataBackupService()
     private init() {}
 
-    // MARK: - Backup Data Structures
-
-    /// Complete backup package
-    struct BackupData: Codable {
-        let version: String
-        let timestamp: Date
-        let appVersion: String
-        let productPairs: [ProductPairBackup]
-        let receipts: [ReceiptBackup]
-        let settings: SettingsBackup
-    }
-
-    /// ProductPair backup representation
-    ///
-    /// - Note: `gfSizeValue`, `nonGFSizeValue`, `sizeUnit` and `quantity` are optional so that
-    ///   backup files written before those fields existed still decode — a missing
-    ///   key is only tolerated by `JSONDecoder` for optional properties. The `version` gate in
-    ///   `importBackup` is all-or-nothing and has never been bumped, so a non-optional new
-    ///   field here would reject every older backup outright.
-    struct ProductPairBackup: Codable {
-        let id: UUID
-        let gfProductName: String
-        let gfPrice: String // Decimal as String for JSON compatibility
-        let gfSize: String?
-        let gfSizeValue: String? // Decimal as String
-        let gfImageUUID: String?
-        let gfImageData: String? // Base64 encoded image
-        let gfOCRConfidence: Float
-
-        let nonGFProductName: String
-        let nonGFPrice: String // Decimal as String
-        let nonGFSize: String?
-        let nonGFSizeValue: String? // Decimal as String
-        let nonGFImageUUID: String?
-        let nonGFImageData: String? // Base64 encoded image
-        let nonGFOCRConfidence: Float
-
-        let sizeUnit: String? // SizeUnit raw value, shared by both products
-        let quantity: Int? // Units purchased; nil in backups written before quantity existed
-
-        let createdDate: Date
-        let category: String?
-        let notes: String?
-        let verified: Bool
-        let receiptID: UUID? // Reference to receipt by ID
-    }
-
-    /// Receipt backup representation
-    struct ReceiptBackup: Codable {
-        let id: UUID
-        let purchaseDate: Date
-        let storeName: String?
-        let receiptImageUUID: String?
-        let receiptImageData: String? // Base64 encoded image
-        let totalAmount: String? // Decimal as String
-        let extractedOCRText: String?
-        let productPairIDs: [UUID] // References to product pairs
-    }
-
-    /// Settings backup representation
-    struct SettingsBackup: Codable {
-        let userName: String
-        let accountantEmail: String
-        let taxID: String
-        let currencySymbol: String
-        let defaultPaperSize: String
-        let defaultDateRange: String
-    }
+    // The backup DTOs (`BackupData` and the three it holds), the coder settings and the
+    // version gate are GFCore's (`BackupSchema.swift`, `BackupFormat.swift`). This service
+    // maps them to and from SwiftData, the image files and `AppSettings`.
 
     // MARK: - Export
 
@@ -119,16 +54,16 @@ final class DataBackupService {
             let backup = ProductPairBackup(
                 id: product.id,
                 gfProductName: product.gfProductName,
-                gfPrice: "\(product.gfPrice)",
+                gfPrice: BackupFormat.string(from: product.gfPrice),
                 gfSize: product.gfSize,
-                gfSizeValue: product.gfSizeValue.map { "\($0)" },
+                gfSizeValue: product.gfSizeValue.map(BackupFormat.string(from:)),
                 gfImageUUID: product.gfImageUUID,
                 gfImageData: gfImageData,
                 gfOCRConfidence: product.gfOCRConfidence,
                 nonGFProductName: product.nonGFProductName,
-                nonGFPrice: "\(product.nonGFPrice)",
+                nonGFPrice: BackupFormat.string(from: product.nonGFPrice),
                 nonGFSize: product.nonGFSize,
-                nonGFSizeValue: product.nonGFSizeValue.map { "\($0)" },
+                nonGFSizeValue: product.nonGFSizeValue.map(BackupFormat.string(from:)),
                 nonGFImageUUID: product.nonGFImageUUID,
                 nonGFImageData: nonGFImageData,
                 nonGFOCRConfidence: product.nonGFOCRConfidence,
@@ -153,7 +88,7 @@ final class DataBackupService {
                 storeName: receipt.storeName,
                 receiptImageUUID: receipt.receiptImageUUID,
                 receiptImageData: receiptImageData,
-                totalAmount: receipt.totalAmount != nil ? "\(receipt.totalAmount!)" : nil,
+                totalAmount: receipt.totalAmount.map(BackupFormat.string(from:)),
                 extractedOCRText: receipt.extractedOCRText,
                 productPairIDs: receipt.productPairs.map { $0.id }
             )
@@ -173,7 +108,6 @@ final class DataBackupService {
 
         // Create backup package
         let backup = BackupData(
-            version: "1.0",
             timestamp: Date(),
             appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0",
             productPairs: productPairBackups,
@@ -181,12 +115,7 @@ final class DataBackupService {
             settings: settingsBackup
         )
 
-        // Encode to JSON
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-
-        return try encoder.encode(backup)
+        return try BackupFormat.encode(backup)
     }
 
     // MARK: - Import
@@ -199,15 +128,12 @@ final class DataBackupService {
     ///   - strategy: Import strategy (replace or merge)
     /// - Throws: DataBackupError if import fails
     func importBackup(data: Data, modelContext: ModelContext, strategy: ImportStrategy) async throws {
-        // Decode JSON
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        let backup = try decoder.decode(BackupData.self, from: data)
-
-        // Validate backup version
-        guard backup.version == "1.0" else {
-            throw DataBackupError.incompatibleVersion(backup.version)
+        // Decode JSON and check the version
+        let backup: BackupData
+        do {
+            backup = try BackupFormat.decode(data)
+        } catch BackupFormatError.incompatibleVersion(let version) {
+            throw DataBackupError.incompatibleVersion(version)
         }
 
         // Clear existing data if replace strategy
@@ -242,7 +168,7 @@ final class DataBackupService {
                 purchaseDate: receiptBackup.purchaseDate,
                 storeName: receiptBackup.storeName,
                 receiptImageUUID: imageUUID ?? receiptBackup.receiptImageUUID,
-                totalAmount: receiptBackup.totalAmount != nil ? Decimal(string: receiptBackup.totalAmount!) : nil,
+                totalAmount: receiptBackup.totalAmount.flatMap(BackupFormat.decimal(from:)),
                 extractedOCRText: receiptBackup.extractedOCRText
             )
 
@@ -278,19 +204,19 @@ final class DataBackupService {
 
             let product = ProductPair(
                 gfProductName: productBackup.gfProductName,
-                gfPrice: Decimal(string: productBackup.gfPrice) ?? 0,
+                gfPrice: BackupFormat.decimal(from: productBackup.gfPrice) ?? 0,
                 gfSize: productBackup.gfSize,
-                gfSizeValue: productBackup.gfSizeValue.flatMap { Decimal(string: $0) },
+                gfSizeValue: productBackup.gfSizeValue.flatMap(BackupFormat.decimal(from:)),
                 gfImageUUID: gfImageUUID ?? productBackup.gfImageUUID,
                 gfOCRConfidence: productBackup.gfOCRConfidence,
                 nonGFProductName: productBackup.nonGFProductName,
-                nonGFPrice: Decimal(string: productBackup.nonGFPrice) ?? 0,
+                nonGFPrice: BackupFormat.decimal(from: productBackup.nonGFPrice) ?? 0,
                 nonGFSize: productBackup.nonGFSize,
-                nonGFSizeValue: productBackup.nonGFSizeValue.flatMap { Decimal(string: $0) },
+                nonGFSizeValue: productBackup.nonGFSizeValue.flatMap(BackupFormat.decimal(from:)),
                 nonGFImageUUID: nonGFImageUUID ?? productBackup.nonGFImageUUID,
                 nonGFOCRConfidence: productBackup.nonGFOCRConfidence,
                 sizeUnit: productBackup.sizeUnit,
-                quantity: productBackup.quantity ?? 1,
+                quantity: productBackup.effectiveQuantity,
                 id: productBackup.id,
                 createdDate: productBackup.createdDate,
                 category: productBackup.category,

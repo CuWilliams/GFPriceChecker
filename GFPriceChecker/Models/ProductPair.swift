@@ -17,7 +17,7 @@ import SwiftUI
 /// gluten-free and regular products for celiac disease cost documentation.
 ///
 /// - Important: Every stored property here is hand-duplicated in
-///   `DataBackupService.ProductPairBackup`, and in the mapping code on both sides of it.
+///   GFCore's `ProductPairBackup`, and in `DataBackupService`'s mapping on both sides of it.
 ///   Adding a property without doing the same there compiles fine and ships fine — the
 ///   field is simply gone when the user restores a backup. This happened once already
 ///   with the unit-pricing fields (fixed in `b7216c9`). `DataBackupRoundTripTests` now
