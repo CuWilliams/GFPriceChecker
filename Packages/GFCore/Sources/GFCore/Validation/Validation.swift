@@ -126,7 +126,14 @@ public enum Validation {
         return .success(price)
     }
 
+    /// Most decimal places a price string may have
+    public static let maxPriceFractionDigits = 2
+
     /// Validates a price string and converts to Decimal
+    ///
+    /// The trimmed text must be wholly a plain decimal (`PlainDecimal`) with at most
+    /// `maxPriceFractionDigits` places. A minus on an otherwise plain number is reported as
+    /// `priceNegative`, which tells the user more than an invalid price.
     ///
     /// - Note: `fieldName` names only the empty and unparseable cases. A parsed value that
     ///   fails `validatePrice` reports the field as "Price", as it always has.
@@ -139,13 +146,22 @@ public enum Validation {
             return .failure(.emptyRequiredField(field: fieldName))
         }
 
-        // Try to convert to Decimal
-        guard let decimal = Decimal(string: trimmed) else {
+        // The whole string must be the number
+        guard let plain = PlainDecimal(trimmed) else {
+            return .failure(.invalidPrice(field: fieldName))
+        }
+
+        // Negative before places, so "-12.999" still says negative
+        if plain.value < 0 {
+            return .failure(.priceNegative)
+        }
+
+        guard plain.fractionDigits <= maxPriceFractionDigits else {
             return .failure(.invalidPrice(field: fieldName))
         }
 
         // Validate the decimal value
-        return validatePrice(decimal)
+        return validatePrice(plain.value)
     }
 
     // MARK: - Product Name Validation
@@ -199,12 +215,15 @@ public enum Validation {
 
     /// Validates a numeric size value entered as a string
     ///
+    /// The trimmed text must be wholly a plain decimal (`PlainDecimal`), with any number of
+    /// places. A minus on an otherwise plain number is reported as `sizeNotPositive`.
+    ///
     /// - Returns: The validated value, or `nil` for an empty string, meaning not provided
     public static func validateSizeValue(_ text: String, fieldName: String = "Size") -> Result<Decimal?, ValidationError> {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return .success(nil) }
 
-        guard let value = Decimal(string: trimmed) else {
+        guard let value = PlainDecimal(trimmed)?.value else {
             return .failure(.sizeNotANumber(field: fieldName))
         }
 

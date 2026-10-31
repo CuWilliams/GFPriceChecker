@@ -277,8 +277,9 @@ struct BackupFormatTests {
         #expect(BackupFormat.decimal(from: text) == value)
     }
 
-    @Test("A decimal string that isn't a number reads as nil")
-    func nonNumericDecimalString() {
-        #expect(BackupFormat.decimal(from: "abc") == nil)
+    @Test("A decimal string that isn't wholly a plain number reads as nil",
+          arguments: ["abc", "", "12.99abc", "1,5", "1e3", "+1", " 6.39", "NaN", "-"])
+    func nonNumericDecimalString(text: String) {
+        #expect(BackupFormat.decimal(from: text) == nil)
     }
 }

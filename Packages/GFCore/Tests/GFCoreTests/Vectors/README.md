@@ -54,6 +54,11 @@ otherwise the created date (§1).
 no line break after the last row. With no rows it is the header line and one `\n`. Rows are
 oldest first; rows with the same date keep their input order.
 
+**Decimal text** — a price or size the user typed, and every decimal string in a backup — is
+read only in the plain format [PRODUCT_DEFINITION.md](../PRODUCT_DEFINITION.md) §2 sets out.
+`validation.json` and `backup/backup.json` pin it with inputs a lenient parser half-reads:
+`"12.99abc"`, `"1,5"`, `"1e3"`, a fullwidth digit.
+
 **Validation results** are `{"ok": value}`, carrying the trimmed or parsed value, or
 `{"error": "<case>"}` with that case's `field`, `max` or `value`. A product pair is
 `{"valid": true}` or its first error, in field order.
@@ -67,8 +72,7 @@ applying these rules.
 Behaviour the iOS app has but nobody would choose is left out, so it does not become a rule:
 expanding abbreviations inside words (`Snacks` read as `snacookies`), reading `COFFEE` as a
 discount line because it contains `off`, and pairing prices off by one on product-first receipts
-with several items. Inputs that only parse because a platform's decimal parser is lenient, such
-as `"12.99abc"`, are unspecified too.
+with several items.
 
 ## Changing a vector
 

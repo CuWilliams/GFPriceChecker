@@ -140,6 +140,164 @@
         "error": "priceTooHigh",
         "value": "20000"
       }
+    },
+    {
+      "input": {
+        "text": "12.99abc",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "Trailing text: the whole trimmed string must be the number"
+    },
+    {
+      "input": {
+        "text": "1,5",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "A comma is not a decimal separator here, and a lenient parser reads this as 1"
+    },
+    {
+      "input": {
+        "text": "1,234.56",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "No grouping separators"
+    },
+    {
+      "input": {
+        "text": "1e3",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "No exponents, which Kotlin's BigDecimal(String) would accept"
+    },
+    {
+      "input": {
+        "text": "5 99",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      }
+    },
+    {
+      "input": {
+        "text": "+5",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "No plus sign"
+    },
+    {
+      "input": {
+        "text": "12.999",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "A price has at most 2 decimal places"
+    },
+    {
+      "input": {
+        "text": "５.99",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "Only ASCII digits: this is a fullwidth 5, which Kotlin's BigDecimal(String) would accept"
+    },
+    {
+      "input": {
+        "text": ".",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "At least one digit"
+    },
+    {
+      "input": {
+        "text": "-",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      }
+    },
+    {
+      "input": {
+        "text": ".5",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "ok": "0.5"
+      },
+      "note": "No digit is needed before the point"
+    },
+    {
+      "input": {
+        "text": "5.",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "ok": "5"
+      },
+      "note": "Nor after it: the field holds this on the way to 5.99"
+    },
+    {
+      "input": {
+        "text": "6.90",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "ok": "6.90"
+      }
+    },
+    {
+      "input": {
+        "text": "-0.50",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "priceNegative"
+      },
+      "note": "A leading minus on an otherwise plain number gives the negative error, not invalidPrice"
+    },
+    {
+      "input": {
+        "text": "-12.99abc",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      },
+      "note": "A minus does not rescue text that is not a number"
     }
   ],
   "productName": [
@@ -376,6 +534,108 @@
         "field": "GF size",
         "max": "100000"
       }
+    },
+    {
+      "input": {
+        "text": "400g",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotANumber",
+        "field": "GF size"
+      },
+      "note": "Trailing text: the whole trimmed string must be the number"
+    },
+    {
+      "input": {
+        "text": "1,5",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotANumber",
+        "field": "GF size"
+      },
+      "note": "A comma is not a decimal separator here, and a lenient parser reads this as 1"
+    },
+    {
+      "input": {
+        "text": "1e3",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotANumber",
+        "field": "GF size"
+      },
+      "note": "No exponents"
+    },
+    {
+      "input": {
+        "text": "5 99",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotANumber",
+        "field": "GF size"
+      }
+    },
+    {
+      "input": {
+        "text": "+5",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotANumber",
+        "field": "GF size"
+      }
+    },
+    {
+      "input": {
+        "text": ".",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotANumber",
+        "field": "GF size"
+      }
+    },
+    {
+      "input": {
+        "text": ".5",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": "0.5"
+      }
+    },
+    {
+      "input": {
+        "text": "5.",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": "5"
+      }
+    },
+    {
+      "input": {
+        "text": "1.2345",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": "1.2345"
+      },
+      "note": "A size has no limit on decimal places"
+    },
+    {
+      "input": {
+        "text": "-.5",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotPositive",
+        "field": "GF size"
+      },
+      "note": "A leading minus on an otherwise plain number gives sizeNotPositive"
     }
   ],
   "quantity": [

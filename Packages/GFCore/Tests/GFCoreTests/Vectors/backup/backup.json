@@ -273,6 +273,38 @@
     {
       "input": "",
       "expected": null
+    },
+    {
+      "input": "12.99abc",
+      "expected": null
+    },
+    {
+      "input": "1,5",
+      "expected": null
+    },
+    {
+      "input": "1e3",
+      "expected": null
+    },
+    {
+      "input": "+1",
+      "expected": null
+    },
+    {
+      "input": " 6.39",
+      "expected": null
+    },
+    {
+      "input": "NaN",
+      "expected": null
+    },
+    {
+      "input": "-",
+      "expected": null
+    },
+    {
+      "input": ".5",
+      "expected": "0.5"
     }
   ]
 }
