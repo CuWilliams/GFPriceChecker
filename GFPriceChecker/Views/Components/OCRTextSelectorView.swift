@@ -9,23 +9,6 @@ import GFCore
 import SwiftUI
 import UIKit
 
-/// Selection phase for the three-step selection workflow
-private enum SelectionPhase {
-    case selectingName
-    case selectingPrice
-    case selectingSize
-    case complete
-
-    /// 1-based step number for the progress indicator
-    var stepNumber: Int {
-        switch self {
-        case .selectingName: return 1
-        case .selectingPrice: return 2
-        case .selectingSize, .complete: return 3
-        }
-    }
-}
-
 /// A view that displays OCR text observations and allows tap-to-select
 ///
 /// Guides the user through a single uninterrupted product verification pass:
@@ -34,6 +17,10 @@ private enum SelectionPhase {
 /// never swaps out from under the user.
 ///
 /// Size entry is optional — the user can skip it and continue.
+///
+/// Which phase the review is in, and which rows are chosen, belong to
+/// `CaptureFlowViewModel`; this view draws them and sends taps back. Only the
+/// decimal-placement question is its own, because it is presentation.
 struct OCRTextSelectorView: View {
 
     // MARK: - Properties
@@ -45,10 +32,10 @@ struct OCRTextSelectorView: View {
     let observations: [SelectableTextObservation]
 
     /// Selected product name (owned by the capture flow)
-    @Binding var productName: String
+    let productName: String
 
     /// Selected price as a plain decimal string, no currency symbol
-    @Binding var priceText: String
+    let priceText: String
 
     /// How the user is entering size: package size, unit price, or manual
     @Binding var sizeMode: SizeInputMode
@@ -65,14 +52,27 @@ struct OCRTextSelectorView: View {
     /// Shared unit of measurement for both products in the pair
     @Binding var selectedUnit: SizeUnit?
 
-    /// Observation currently feeding the size field, for highlight tracking
+    /// Where the review is in its name → price → size pass
+    let phase: ReviewPhase
+
+    /// Observations chosen for each field, for highlight tracking
+    let selectedNameObservationID: UUID?
+    let selectedPriceObservationID: UUID?
     let selectedSizeObservationID: UUID?
 
-    /// Called when a row is tapped during the size phase
-    ///
-    /// The capture flow parses the row and routes it to the correct field
-    /// based on the active size mode.
-    let onSizeRowTapped: (SelectableTextObservation) -> Void
+    /// Called when a row is tapped. The capture flow routes it by phase, and
+    /// returns a suggested price when the row needs the decimal question asked.
+    let onRowTapped: (SelectableTextObservation) -> String?
+
+    /// Called with the price row and the text the user chose for it, once the
+    /// decimal question is answered
+    let onPriceConfirmed: (SelectableTextObservation, String) -> Void
+
+    /// Ends the review without a size
+    let onSkipSize: () -> Void
+
+    /// Resets name, price and size
+    let onClear: () -> Void
 
     /// Title for the primary advance button (varies by product step)
     let continueTitle: String
@@ -84,10 +84,6 @@ struct OCRTextSelectorView: View {
     let onRetake: () -> Void
 
     // MARK: - State
-
-    @State private var selectionPhase: SelectionPhase = .selectingName
-    @State private var selectedNameObservationID: UUID?
-    @State private var selectedPriceObservationID: UUID?
 
     // Decimal inference state
     @State private var showingDecimalConfirmation = false
@@ -113,7 +109,7 @@ struct OCRTextSelectorView: View {
                 ocrTextList
 
                 // Size entry controls (third phase only)
-                if selectionPhase == .selectingSize || selectionPhase == .complete {
+                if phase == .selectingSize || phase == .complete {
                     sizeInputCard
                 }
 
@@ -141,7 +137,7 @@ struct OCRTextSelectorView: View {
 
     private var instructionsHeader: some View {
         VStack(spacing: 4) {
-            Text("Step \(selectionPhase.stepNumber) of 3")
+            Text("Step \(phase.stepNumber) of 3")
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.secondary)
@@ -153,7 +149,7 @@ struct OCRTextSelectorView: View {
         }
         .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Step \(selectionPhase.stepNumber) of 3. \(instructionText)")
+        .accessibilityLabel("Step \(phase.stepNumber) of 3. \(instructionText)")
     }
 
     private var selectedValuesDisplay: some View {
@@ -342,9 +338,9 @@ struct OCRTextSelectorView: View {
                 ? "Continues to the next step"
                 : "Select a product name and price first")
 
-            if selectionPhase == .selectingSize {
+            if phase == .selectingSize {
                 Button("Skip Size") {
-                    selectionPhase = .complete
+                    onSkipSize()
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Skip size")
@@ -353,7 +349,7 @@ struct OCRTextSelectorView: View {
 
             HStack(spacing: 12) {
                 Button("Clear Selections") {
-                    clearSelection()
+                    onClear()
                 }
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Clear selections")
@@ -372,7 +368,7 @@ struct OCRTextSelectorView: View {
     // MARK: - Computed Properties
 
     private var instructionText: String {
-        switch selectionPhase {
+        switch phase {
         case .selectingName:
             return "Tap the product name"
         case .selectingPrice:
@@ -385,7 +381,7 @@ struct OCRTextSelectorView: View {
     }
 
     private var instructionColor: Color {
-        switch selectionPhase {
+        switch phase {
         case .selectingName:
             return .blue
         case .selectingPrice:
@@ -398,7 +394,7 @@ struct OCRTextSelectorView: View {
     }
 
     private var listHintText: String {
-        switch selectionPhase {
+        switch phase {
         case .selectingName:
             return "Tap a row to set the name"
         case .selectingPrice:
@@ -418,7 +414,7 @@ struct OCRTextSelectorView: View {
     /// Human-readable summary of the current size entry
     private var sizeSummaryText: String {
         guard hasSizeEntry else {
-            return selectionPhase == .complete ? "(skipped)" : "(not selected)"
+            return phase == .complete ? "(skipped)" : "(not selected)"
         }
 
         let unitLabel = selectedUnit?.displayName ?? ""
@@ -459,68 +455,16 @@ struct OCRTextSelectorView: View {
     }
 
     private func handleObservationTap(_ observation: SelectableTextObservation) {
-        switch selectionPhase {
-        case .selectingName:
-            productName = observation.text
-            selectedNameObservationID = observation.id
-            selectionPhase = .selectingPrice
-
-        case .selectingPrice:
-            // Check if we should infer decimal placement
-            if shouldInferDecimal(for: observation.text) {
-                // Store pending observation and show confirmation alert
-                pendingPriceObservation = observation
-                originalPrice = observation.text
-                suggestedDecimalPrice = suggestDecimalPlacement(for: observation.text)
-                showingDecimalConfirmation = true
-            } else {
-                // Normal price selection
-                priceText = extractPrice(from: observation.text)
-                selectedPriceObservationID = observation.id
-                selectionPhase = .selectingSize
-            }
-
-        case .selectingSize, .complete:
-            // Stay in phase so the user can retap a different row
-            onSizeRowTapped(observation)
-        }
-    }
-
-    private func clearSelection() {
-        productName = ""
-        priceText = ""
-        sizeText = ""
-        unitPriceText = ""
-        sizeMode = .packageSize
-        unitPriceBasis = .cents
-        selectedNameObservationID = nil
-        selectedPriceObservationID = nil
-        selectionPhase = .selectingName
-    }
-
-    /// Extracts price from text using regex pattern
-    /// - Parameter text: The text to extract price from
-    /// - Returns: Extracted price string, or full text if no pattern found
-    private func extractPrice(from text: String) -> String {
-        // Pattern: Optional $, 1-3 digits, dot, 2 digits
-        let pattern = #"\$?\d{1,3}\.\d{2}"#
-
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
-            let range = NSRange(text.startIndex..., in: text)
-            if let match = regex.firstMatch(in: text, options: [], range: range),
-               let matchRange = Range(match.range, in: text) {
-                let priceString = String(text[matchRange])
-                // Remove $ if present
-                return priceString.replacingOccurrences(of: "$", with: "")
-            }
-        }
-
-        // If no pattern found, return full text
-        return text
+        guard let suggestion = onRowTapped(observation) else { return }
+        // A price row with no decimal point: ask before setting it
+        pendingPriceObservation = observation
+        originalPrice = observation.text
+        suggestedDecimalPrice = suggestion
+        showingDecimalConfirmation = true
     }
 
     private func accessibilityLabel(for observation: SelectableTextObservation) -> String {
-        switch selectionPhase {
+        switch phase {
         case .selectingName:
             return "Select \(observation.text) as product name"
         case .selectingPrice:
@@ -531,7 +475,7 @@ struct OCRTextSelectorView: View {
     }
 
     private func accessibilityHint(for observation: SelectableTextObservation) -> String {
-        switch selectionPhase {
+        switch phase {
         case .selectingName:
             return "Double tap to select this as the product name"
         case .selectingPrice:
@@ -543,61 +487,17 @@ struct OCRTextSelectorView: View {
 
     // MARK: - Decimal Inference Helpers
 
-    /// Checks if a text value should trigger decimal inference
-    /// - Parameter text: The text to check
-    /// - Returns: true if text is 3+ consecutive digits without decimal point
-    private func shouldInferDecimal(for text: String) -> Bool {
-        // Remove whitespace and extract numeric part
-        let cleaned = text.trimmingCharacters(in: .whitespaces)
-
-        // Pattern: 3 or more consecutive digits, no decimal point
-        let pattern = #"^\d{3,}$"#
-
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
-            let range = NSRange(cleaned.startIndex..., in: cleaned)
-            return regex.firstMatch(in: cleaned, options: [], range: range) != nil
-        }
-
-        return false
-    }
-
-    /// Suggests decimal placement for a numeric string
-    /// - Parameter text: The numeric text (e.g., "999", "1299")
-    /// - Returns: Suggested price with decimal (e.g., "$9.99", "$12.99")
-    private func suggestDecimalPlacement(for text: String) -> String {
-        let cleaned = text.trimmingCharacters(in: .whitespaces)
-
-        // Insert decimal point before last 2 digits
-        if cleaned.count >= 3 {
-            let endIndex = cleaned.index(cleaned.endIndex, offsetBy: -2)
-            let dollars = String(cleaned[..<endIndex])
-            let cents = String(cleaned[endIndex...])
-            return "$\(dollars).\(cents)"
-        }
-
-        // Fallback: just add $
-        return "$\(cleaned)"
-    }
-
     /// User accepted the suggested decimal placement
     private func acceptSuggestedDecimal() {
         guard let pending = pendingPriceObservation else { return }
-
-        priceText = extractPrice(from: suggestedDecimalPrice)
-        selectedPriceObservationID = pending.id
-        selectionPhase = .selectingSize
-
+        onPriceConfirmed(pending, suggestedDecimalPrice)
         resetPendingPriceState()
     }
 
     /// User chose to use the original price without decimal inference
     private func useOriginalPrice() {
         guard let pending = pendingPriceObservation else { return }
-
-        priceText = extractPrice(from: pending.text)
-        selectedPriceObservationID = pending.id
-        selectionPhase = .selectingSize
-
+        onPriceConfirmed(pending, pending.text)
         resetPendingPriceState()
     }
 
@@ -617,33 +517,31 @@ struct OCRTextSelectorView: View {
 // MARK: - Preview
 
 private struct OCRTextSelectorPreviewHost: View {
-    @State private var productName = ""
-    @State private var priceText = ""
-    @State private var sizeMode: SizeInputMode = .packageSize
-    @State private var sizeText = ""
-    @State private var unitPriceText = ""
-    @State private var unitPriceBasis: UnitPriceBasis = .cents
-    @State private var selectedUnit: SizeUnit?
-    @State private var selectedSizeObservationID: UUID?
-
-    let observations = createSampleObservations()
+    @State private var viewModel: CaptureFlowViewModel = {
+        let viewModel = CaptureFlowViewModel()
+        viewModel.gfOCRObservations = createSampleObservations()
+        return viewModel
+    }()
 
     var body: some View {
         OCRTextSelectorView(
             image: createSampleImage(),
-            observations: observations,
-            productName: $productName,
-            priceText: $priceText,
-            sizeMode: $sizeMode,
-            sizeText: $sizeText,
-            unitPriceText: $unitPriceText,
-            unitPriceBasis: $unitPriceBasis,
-            selectedUnit: $selectedUnit,
-            selectedSizeObservationID: selectedSizeObservationID,
-            onSizeRowTapped: { observation in
-                sizeText = observation.text
-                selectedSizeObservationID = observation.id
-            },
+            observations: viewModel.gfOCRObservations,
+            productName: viewModel.gfProductName,
+            priceText: viewModel.gfPriceText,
+            sizeMode: $viewModel.gfSizeMode,
+            sizeText: $viewModel.gfSizeText,
+            unitPriceText: $viewModel.gfUnitPriceText,
+            unitPriceBasis: $viewModel.gfUnitPriceBasis,
+            selectedUnit: $viewModel.selectedUnit,
+            phase: viewModel.gfReviewPhase,
+            selectedNameObservationID: viewModel.gfSelectedNameObservationID,
+            selectedPriceObservationID: viewModel.gfSelectedPriceObservationID,
+            selectedSizeObservationID: viewModel.gfSelectedSizeObservationID,
+            onRowTapped: { viewModel.handleReviewTap($0, isGF: true) },
+            onPriceConfirmed: { viewModel.confirmPrice($0, text: $1, isGF: true) },
+            onSkipSize: { viewModel.skipSize(isGF: true) },
+            onClear: { viewModel.resetProductFields(isGF: true) },
             continueTitle: "Continue to Regular Product",
             onContinue: { print("Continue tapped") },
             onRetake: { print("Retake tapped") }

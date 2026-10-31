@@ -19,6 +19,25 @@ enum SizeInputMode: String, CaseIterable {
     case manual = "Manual"
 }
 
+// MARK: - Review Phase
+
+/// Where one product's review is in its name → price → size pass.
+enum ReviewPhase {
+    case selectingName
+    case selectingPrice
+    case selectingSize
+    case complete
+
+    /// 1-based step number for the progress indicator
+    var stepNumber: Int {
+        switch self {
+        case .selectingName: return 1
+        case .selectingPrice: return 2
+        case .selectingSize, .complete: return 3
+        }
+    }
+}
+
 // MARK: - Capture Step
 
 /// One screen of the guided product-pair capture.
@@ -172,6 +191,20 @@ final class CaptureFlowViewModel {
     var gfSelectedSizeObservationID: UUID?
     var nonGFSelectedSizeObservationID: UUID?
 
+    // MARK: - Review Selection
+
+    /// Each product's place in its review. Held here rather than in
+    /// `OCRTextSelectorView` so a scripted take can tap a row and the screen
+    /// follows, exactly as it does for a finger.
+    private(set) var gfReviewPhase: ReviewPhase = .selectingName
+    private(set) var nonGFReviewPhase: ReviewPhase = .selectingName
+
+    /// The rows chosen as name and price, for highlight tracking
+    private(set) var gfSelectedNameObservationID: UUID?
+    private(set) var gfSelectedPriceObservationID: UUID?
+    private(set) var nonGFSelectedNameObservationID: UUID?
+    private(set) var nonGFSelectedPriceObservationID: UUID?
+
     // MARK: - Additional Product Pair Data
 
     var category: String = "None"
@@ -270,6 +303,7 @@ final class CaptureFlowViewModel {
             nonGFUnitPriceBasis = .cents
             nonGFSelectedSizeObservationID = nil
         }
+        resetReview(isGF: isGF)
     }
 
     // MARK: - Scanning
@@ -304,6 +338,7 @@ final class CaptureFlowViewModel {
             } else {
                 // Feature disabled or no rectangles - proceed with full-image OCR
                 gfOCRObservations = await dependencies.extractText(image, nil)
+                resetReview(isGF: true)
                 currentStep = .reviewGF
             }
 
@@ -318,6 +353,7 @@ final class CaptureFlowViewModel {
             } else {
                 // Feature disabled or no rectangles - proceed with full-image OCR
                 nonGFOCRObservations = await dependencies.extractText(image, nil)
+                resetReview(isGF: false)
                 currentStep = .reviewNonGF
             }
 
@@ -357,8 +393,105 @@ final class CaptureFlowViewModel {
             nonGFOCRObservations = observations
             currentStep = .reviewNonGF
         }
+        resetReview(isGF: isGF)
 
         isProcessingOCR = false
+    }
+
+    // MARK: - Review Taps
+
+    func reviewPhase(isGF: Bool) -> ReviewPhase {
+        isGF ? gfReviewPhase : nonGFReviewPhase
+    }
+
+    /// A tap on one of the review's OCR rows, routed by the review's phase:
+    /// the name, then the price, then the size, which can be retapped.
+    ///
+    /// - Returns: the suggested price when the tapped price row has no decimal
+    ///   point (`"1299"` → `"$12.99"`). Nothing is set in that case; the view
+    ///   asks the user, then calls `confirmPrice(_:text:isGF:)` with their
+    ///   choice.
+    @discardableResult
+    func handleReviewTap(_ obs: SelectableTextObservation, isGF: Bool) -> String? {
+        switch reviewPhase(isGF: isGF) {
+        case .selectingName:
+            if isGF {
+                gfProductName = obs.text
+                gfSelectedNameObservationID = obs.id
+                gfReviewPhase = .selectingPrice
+            } else {
+                nonGFProductName = obs.text
+                nonGFSelectedNameObservationID = obs.id
+                nonGFReviewPhase = .selectingPrice
+            }
+            return nil
+
+        case .selectingPrice:
+            if Self.shouldInferDecimal(for: obs.text) {
+                return Self.suggestDecimalPlacement(for: obs.text)
+            }
+            confirmPrice(obs, text: obs.text, isGF: isGF)
+            return nil
+
+        case .selectingSize, .complete:
+            // Stays in phase so a different row can be retapped
+            handleSizeRowTap(obs, isGF: isGF)
+            return nil
+        }
+    }
+
+    /// Sets the price from `obs`, read from `text` — the row's own text, or
+    /// the decimal suggestion the user accepted for it.
+    func confirmPrice(_ obs: SelectableTextObservation, text: String, isGF: Bool) {
+        let price = Self.extractPrice(from: text)
+        if isGF {
+            gfPriceText = price
+            gfSelectedPriceObservationID = obs.id
+            gfReviewPhase = .selectingSize
+        } else {
+            nonGFPriceText = price
+            nonGFSelectedPriceObservationID = obs.id
+            nonGFReviewPhase = .selectingSize
+        }
+    }
+
+    /// Ends the review without a size, which is optional
+    func skipSize(isGF: Bool) {
+        if isGF { gfReviewPhase = .complete } else { nonGFReviewPhase = .complete }
+    }
+
+    /// Back to the start of one product's review, on a fresh scan
+    private func resetReview(isGF: Bool) {
+        if isGF {
+            gfReviewPhase = .selectingName
+            gfSelectedNameObservationID = nil
+            gfSelectedPriceObservationID = nil
+        } else {
+            nonGFReviewPhase = .selectingName
+            nonGFSelectedNameObservationID = nil
+            nonGFSelectedPriceObservationID = nil
+        }
+    }
+
+    /// The first `$d.dd` in `text`, without the `$`, or all of `text` when there is none
+    static func extractPrice(from text: String) -> String {
+        guard let range = text.range(of: #"\$?\d{1,3}\.\d{2}"#, options: .regularExpression) else {
+            return text
+        }
+        return text[range].replacingOccurrences(of: "$", with: "")
+    }
+
+    /// True for three or more digits and nothing else, like `"1299"`
+    static func shouldInferDecimal(for text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespaces).range(of: #"^\d{3,}$"#, options: .regularExpression) != nil
+    }
+
+    /// `"1299"` → `"$12.99"`: a decimal point before the last two digits
+    static func suggestDecimalPlacement(for text: String) -> String {
+        let cleaned = text.trimmingCharacters(in: .whitespaces)
+        guard cleaned.count >= 3 else { return "$\(cleaned)" }
+        let split = cleaned.index(cleaned.endIndex, offsetBy: -2)
+        return "$\(cleaned[..<split]).\(cleaned[split...])"
     }
 
     // MARK: - Size Row Taps

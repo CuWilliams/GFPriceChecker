@@ -68,8 +68,16 @@ final class ReceiptCaptureViewModel {
     var currentStep: ReceiptStep = .selectProducts
 
     /// The pairs on offer for verification. The view keeps this in step with its
-    /// `@Query` of unverified pairs.
+    /// `@Query` of unverified pairs, through `refreshUnverifiedProducts(_:)`.
     var unverifiedProducts: [ProductPair] = []
+
+    /// Follows the view's `@Query`, until the receipt is saved. Saving verifies
+    /// the matched pairs, which drops them from the query, and the sheet would
+    /// otherwise read "Verifying product 0 of 0" as it slides away.
+    func refreshUnverifiedProducts(_ products: [ProductPair]) {
+        guard !didSave else { return }
+        unverifiedProducts = products
+    }
 
     /// Selected product pairs to verify with this receipt
     var selectedProducts: Set<UUID> = []
@@ -79,6 +87,11 @@ final class ReceiptCaptureViewModel {
 
     /// Store confirmed matches: ProductPair.id -> selected receipt line text
     var confirmedMatches: [UUID: String] = [:]
+
+    /// The receipt line tapped for the current product, not yet confirmed.
+    /// Held here rather than in the line selector so a scripted take can tap a
+    /// line and the screen follows.
+    private(set) var selectedReceiptLine: SelectableTextObservation?
 
     /// Set once the receipt has been written to the store — the view dismisses on it
     var didSave = false
@@ -182,16 +195,43 @@ final class ReceiptCaptureViewModel {
 
     // MARK: - Matching
 
+    /// The first receipt line containing a word of three or more letters from
+    /// `product`'s GF name, offered as "Suggested" until a line is tapped.
+    func suggestedReceiptLine(for product: ProductPair) -> SelectableTextObservation? {
+        let searchTerms = product.gfProductName.lowercased()
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count >= 3 }
+
+        return receiptOCRObservations.first { observation in
+            let text = observation.text.lowercased()
+            return searchTerms.contains { text.contains($0) }
+        }
+    }
+
+    func selectReceiptLine(_ observation: SelectableTextObservation) {
+        selectedReceiptLine = observation
+    }
+
+    /// Confirms the tapped line for the current product. Does nothing until a
+    /// line has been tapped, as the disabled Confirm button does nothing.
+    func confirmSelectedLine() {
+        guard let line = selectedReceiptLine, let product = currentProductToVerify else { return }
+        confirmMatch(for: product, withLine: line.text)
+    }
+
     /// Confirms a match and moves to next product
     func confirmMatch(for product: ProductPair, withLine text: String) {
         confirmedMatches[product.id] = text
         currentVerificationIndex += 1
+        selectedReceiptLine = nil
     }
 
     /// Skips current product without matching
     func skipProduct(_ product: ProductPair) {
         // Don't add to confirmedMatches
         currentVerificationIndex += 1
+        selectedReceiptLine = nil
     }
 
     // MARK: - Scanning
@@ -238,6 +278,7 @@ final class ReceiptCaptureViewModel {
             // Reset verification state
             currentVerificationIndex = 0
             confirmedMatches = [:]
+            selectedReceiptLine = nil
 
             isProcessingOCR = false
             currentStep = .reviewMatches

@@ -131,7 +131,8 @@ final class DemoDirector {
         self.context = context
     }
 
-    /// Holds the curtain, lifts it, plays the script, and writes the done file.
+    /// Runs the script's `prepare`, holds the curtain, lifts it, plays the
+    /// script, and writes the done file.
     ///
     /// Called from the App's launch task after the seed, so the hold is
     /// measured from a populated store rather than from launch.
@@ -143,14 +144,18 @@ final class DemoDirector {
         hasStarted = true
         attach(router: router, context: context)
 
-        await wait(Self.curtainSeconds)
-        liftCurtain()
-        await wait(Self.curtainFadeSeconds)
-
         do {
+            // Behind the curtain, like the seed, so a take never shows its setup
+            try await DemoScripts.prepare(scriptName, on: self)
+
+            await wait(Self.curtainSeconds)
+            liftCurtain()
+            await wait(Self.curtainFadeSeconds)
+
             try await DemoScripts.run(scriptName, on: self)
             finish(failure: nil)
         } catch {
+            liftCurtain()
             finish(failure: error)
         }
     }
@@ -170,6 +175,7 @@ final class DemoDirector {
         case notRegistered(String)
         case noDestination(String)
         case unknownScript(String)
+        case notOnScreen(String)
         case notAttached
 
         var description: String {
@@ -178,6 +184,7 @@ final class DemoDirector {
             case .notRegistered(let type): "no \(type) registered"
             case .noDestination(let name): "\"\(name)\" names no screen, or a model the store does not have"
             case .unknownScript(let name): "\"\(name)\" names no script"
+            case .notOnScreen(let what): "nothing on screen reads \"\(what)\""
             case .notAttached: "the director has no router or context yet"
             }
         }
