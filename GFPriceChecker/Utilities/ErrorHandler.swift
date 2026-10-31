@@ -47,6 +47,11 @@ final class ErrorHandler {
         case priceTooHigh(Decimal)
         case priceNegative
         case invalidQuantity(String)
+        /// A numeric size that failed validation; carries the complete message
+        case invalidSize(String)
+        /// A text field over its length limit; carries the complete message
+        case textTooLong(String, max: Int)
+        case invalidEmail
 
         // MARK: Export Errors
         case exportNoData
@@ -110,6 +115,10 @@ final class ErrorHandler {
                 return "Price cannot be negative"
             case .invalidQuantity(let field):
                 return "\(field) must be a whole number between \(Validation.minQuantity) and \(Validation.maxQuantity)"
+            case .invalidSize(let message), .textTooLong(let message, _):
+                return message
+            case .invalidEmail:
+                return "Invalid email address"
 
             // Export Errors
             case .exportNoData:
@@ -190,6 +199,12 @@ final class ErrorHandler {
                 return "Enter a positive price amount."
             case .invalidQuantity:
                 return "Enter how many units you bought (e.g., 2). Leave it at 1 for a single item."
+            case .invalidSize:
+                return "Enter the size printed on the package as a number, such as 450 or 12.5."
+            case .textTooLong(_, let max):
+                return "Shorten it to \(max) characters or fewer."
+            case .invalidEmail:
+                return "Check the address, for example name@example.com."
 
             // Export Errors
             case .exportNoData:
