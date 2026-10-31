@@ -9,7 +9,9 @@ vectors.
 
 **Status:** Stage 1 complete. 1a (#65) fixed audit items 1, 5 and 6 below; 1b (#66) fixed
 items 2, 3 and 4. Item 2's fr-CA example was wrong: an English-only app resolves fr-CA to
-`en_CA`, which writes `.`. Regions such as France and Germany were the ones that broke.
+`en_CA`, which writes `.`, so no Canadian locale hit it. The fixed machine format stays because a
+CSV should not depend on the device locale at all, but the app is Canada-only and non-Canadian
+regions are out of scope for testing.
 This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.
@@ -197,5 +199,4 @@ because the label rename changes what's on screen. Otherwise the two tracks bare
 - `DataBackupRoundTripTests` still passes, including the legacy import. Importing
   `demo-dataset.json` gives the same totals before and after.
 - No reductions over `extendedDifferential` remain in `PDFGeneratorService` or `ExportView`.
-- On a device: export the CSV and PDF with the device's region set to France (fr-CA does not
-  reproduce the bug — see Status), open the CSV in Numbers, and check the renamed labels. Do a TestFlight build after Stage 2, before submitting 1.0.
+- On a device: export the CSV and PDF, open the CSV in Numbers, and check the renamed labels. Do a TestFlight build after Stage 2, before submitting 1.0.
