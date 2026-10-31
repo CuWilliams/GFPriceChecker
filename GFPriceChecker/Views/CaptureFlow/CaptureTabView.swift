@@ -10,14 +10,16 @@ import SwiftUI
 /// Capture tab container that presents the product capture flow as a sheet
 struct CaptureTabView: View {
 
-    // MARK: - State
+    // MARK: - Environment
 
-    /// Controls whether the capture flow sheet is shown
-    @State private var showingCaptureFlow = false
+    /// Holds whether the capture flow sheet is shown
+    @Environment(AppRouter.self) private var router
 
     // MARK: - Body
 
     var body: some View {
+        @Bindable var router = router
+
         NavigationStack {
             VStack(spacing: 24) {
                 Spacer()
@@ -37,7 +39,7 @@ struct CaptureTabView: View {
                     .padding(.horizontal, 40)
 
                 Button {
-                    showingCaptureFlow = true
+                    router.showingCaptureFlow = true
                 } label: {
                     Label("Start New Capture", systemImage: "camera")
                         .font(.headline)
@@ -54,7 +56,7 @@ struct CaptureTabView: View {
             }
             .navigationTitle("Capture")
             .navigationBarTitleDisplayMode(.large)
-            .sheet(isPresented: $showingCaptureFlow) {
+            .sheet(isPresented: $router.showingCaptureFlow) {
                 ProductCaptureFlowView()
             }
         }
@@ -66,5 +68,6 @@ struct CaptureTabView: View {
 
 #Preview {
     CaptureTabView()
+        .environment(AppRouter())
 }
 #endif

@@ -24,6 +24,9 @@ struct GFPriceCheckerApp: App {
     /// Controls whether the onboarding view is presented
     @State private var showOnboarding = false
 
+    /// Which tab, Library screen and sheet the app is on
+    @State private var router = AppRouter()
+
     // MARK: - SwiftData Container Configuration
 
     /// Shared model container for the entire app
@@ -65,6 +68,7 @@ struct GFPriceCheckerApp: App {
             ZStack {
                 // Main app content
                 ContentView()
+                    .environment(router)
                     .sheet(isPresented: $showOnboarding) {
                         OnboardingView(isPresented: $showOnboarding)
                     }
@@ -96,10 +100,13 @@ struct GFPriceCheckerApp: App {
                 }
             }
             #if DEBUG
-            // Stage 2 of the scripted demo pipeline: seeds the store from a
-            // scrubbed dataset when the environment names one, and is inert
-            // on every other launch. See Dev/DemoSeed.swift.
-            .task { await DemoSeed.seedIfRequested(container: sharedModelContainer) }
+            // Stages 2 and 4 of the scripted demo pipeline: seed the store
+            // from a scrubbed dataset, then open a named screen, each only
+            // when the environment asks. See Dev/DemoSeed.swift, Dev/DemoRoute.swift.
+            .task {
+                await DemoSeed.seedIfRequested(container: sharedModelContainer)
+                DemoRoute.applyIfRequested(router: router, context: sharedModelContainer.mainContext)
+            }
             #endif
         }
         .modelContainer(sharedModelContainer)

@@ -32,9 +32,10 @@ struct SummaryDashboardView: View {
 
     // MARK: - State
 
+    /// Holds which toolbar sheet is up
+    @Environment(AppRouter.self) private var router
+
     @State private var viewModel = ReportViewModel()
-    @State private var showingSettings = false
-    @State private var showingExport = false
 
     // MARK: - Computed Properties
 
@@ -63,6 +64,8 @@ struct SummaryDashboardView: View {
     // MARK: - Body
 
     var body: some View {
+        @Bindable var router = router
+
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
@@ -85,7 +88,7 @@ struct SummaryDashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        showingExport = true
+                        router.reportsSheet = .export
                     } label: {
                         Label("Export", systemImage: "square.and.arrow.up")
                     }
@@ -93,17 +96,19 @@ struct SummaryDashboardView: View {
 
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showingSettings = true
+                        router.reportsSheet = .settings
                     } label: {
                         Label("Settings", systemImage: "gear")
                     }
                 }
             }
-            .sheet(isPresented: $showingSettings) {
-                SettingsView()
-            }
-            .sheet(isPresented: $showingExport) {
-                ExportView()
+            .sheet(item: $router.reportsSheet) { sheet in
+                switch sheet {
+                case .export:
+                    ExportView()
+                case .settings:
+                    SettingsView()
+                }
             }
         }
     }
@@ -558,11 +563,13 @@ private struct StatisticCardDecimal: View {
     }
 
     return SummaryDashboardView()
+        .environment(AppRouter())
         .modelContainer(container)
 }
 
 #Preview("Empty State") {
     SummaryDashboardView()
+        .environment(AppRouter())
         .modelContainer(for: [ProductPair.self, Receipt.self], inMemory: true)
 }
 #endif

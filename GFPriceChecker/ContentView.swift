@@ -39,27 +39,35 @@ struct ContentView: View {
     /// ```
     @Environment(\.modelContext) private var modelContext
 
+    /// Which tab is selected, so a script can change it without a tap
+    @Environment(AppRouter.self) private var router
+
     // MARK: - Body
 
     var body: some View {
-        TabView {
+        @Bindable var router = router
+
+        TabView(selection: $router.selectedTab) {
             // Capture Tab - Capture Flow Launcher
             CaptureTabView()
                 .tabItem {
                     Label("Capture", systemImage: "camera")
                 }
+                .tag(AppRouter.Tab.capture)
 
             // Library Tab - Product List View
             ProductPairListView()
                 .tabItem {
                     Label("Library", systemImage: "books.vertical")
                 }
+                .tag(AppRouter.Tab.library)
 
             // Reports Tab - Summary Dashboard
             SummaryDashboardView()
                 .tabItem {
                     Label("Reports", systemImage: "chart.bar")
                 }
+                .tag(AppRouter.Tab.reports)
         }
     }
 }
@@ -69,6 +77,7 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environment(AppRouter())
         .modelContainer(for: [ProductPair.self, Receipt.self], inMemory: true)
 }
 #endif
