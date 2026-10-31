@@ -49,12 +49,7 @@ struct ReportReconciliationTests {
         )
         let context = ModelContext(container)
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let backup = try decoder.decode(
-            DataBackupService.BackupData.self,
-            from: Data(contentsOf: Self.datasetURL)
-        )
+        let backup = try BackupFormat.decode(Data(contentsOf: Self.datasetURL))
 
         var receiptsByID: [UUID: Receipt] = [:]
         for backup in backup.receipts {
@@ -62,7 +57,7 @@ struct ReportReconciliationTests {
                 id: backup.id,
                 purchaseDate: backup.purchaseDate,
                 storeName: backup.storeName,
-                totalAmount: backup.totalAmount.flatMap { Decimal(string: $0) }
+                totalAmount: backup.totalAmount.flatMap(BackupFormat.decimal(from:))
             )
             context.insert(receipt)
             receiptsByID[receipt.id] = receipt
@@ -73,15 +68,15 @@ struct ReportReconciliationTests {
             let receipt = backup.receiptID.flatMap { receiptsByID[$0] }
             let product = ProductPair(
                 gfProductName: backup.gfProductName,
-                gfPrice: try #require(Decimal(string: backup.gfPrice)),
+                gfPrice: try #require(BackupFormat.decimal(from: backup.gfPrice)),
                 gfSize: backup.gfSize,
-                gfSizeValue: backup.gfSizeValue.flatMap { Decimal(string: $0) },
+                gfSizeValue: backup.gfSizeValue.flatMap(BackupFormat.decimal(from:)),
                 nonGFProductName: backup.nonGFProductName,
-                nonGFPrice: try #require(Decimal(string: backup.nonGFPrice)),
+                nonGFPrice: try #require(BackupFormat.decimal(from: backup.nonGFPrice)),
                 nonGFSize: backup.nonGFSize,
-                nonGFSizeValue: backup.nonGFSizeValue.flatMap { Decimal(string: $0) },
+                nonGFSizeValue: backup.nonGFSizeValue.flatMap(BackupFormat.decimal(from:)),
                 sizeUnit: backup.sizeUnit,
-                quantity: backup.quantity ?? 1,
+                quantity: backup.effectiveQuantity,
                 id: backup.id,
                 createdDate: backup.createdDate,
                 category: backup.category,

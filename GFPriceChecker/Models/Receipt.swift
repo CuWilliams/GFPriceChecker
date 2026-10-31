@@ -17,7 +17,7 @@ import SwiftUI
 /// One receipt can be associated with multiple ProductPair objects from the same shopping trip.
 ///
 /// - Important: Every stored property here is hand-duplicated in
-///   `DataBackupService.ReceiptBackup`, and the `productPairs` relationship is flattened to
+///   GFCore's `ReceiptBackup`, and the `productPairs` relationship is flattened to
 ///   an ID list on export and rebuilt by hand on import. None of that is checked by the
 ///   compiler, so a property added here but not there is silently lost on restore.
 ///   `DataBackupRoundTripTests` fails when the two drift apart; follow what that failure

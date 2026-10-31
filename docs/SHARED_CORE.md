@@ -12,7 +12,7 @@ items 2, 3 and 4. Item 2's fr-CA example was wrong: an English-only app resolves
 `en_CA`, which writes `.`, so no Canadian locale hit it. The fixed machine format stays because a
 CSV should not depend on the device locale at all, but the app is Canada-only and non-Canadian
 regions are out of scope for testing.
-Stage 2 is under way: 2a (#67) created `Packages/GFCore` and moved `Pricing` into it. 2b (#68)
+Stage 2 is complete: 2a (#67) created `Packages/GFCore` and moved `Pricing` into it. 2b (#68)
 moved `Reporting` and `CSV`. Every row of the duplication table below is now resolved: the
 dashboard, export preview, CSV, PDF and `Receipt.totalDifferential` all read `ReportTotals`, and
 the PDF prints its grand-total line at last. `ReportReconciliationTests` runs the demo dataset
@@ -35,6 +35,18 @@ words, so "snacks" becomes "snacookies". And the Levenshtein fallback in name ma
 unreachable: the Jaccard branch returns first whenever either name has a word. That fallback
 would also trap on an empty string (`for i in 1...m`), so it needs a guard before anything
 reaches it. All four were moved unchanged, under the fix-first rule.
+2d (#70) moved `Validation` and the `Backup` schema. The rules return a core `ValidationError`
+that says what is wrong, and the app's `AppError.init(_: ValidationError)` keeps every message
+as it was. That includes a gap the new tests pin for a later fix: most messages ride on
+`AppError.invalidProductName`, which appends "cannot be empty", so an oversized note reads
+"Notes are too long (max 1000 characters) cannot be empty". Email validation uses `Regex`,
+and it agrees with the old `NSPredicate` on everything tested except two ICU case-folding
+quirks (`ſ` and the Kelvin sign `K` matching `[A-Z]`), which it now rejects. Date checks
+take `now` and a `Calendar`. `BackupFormat` holds the coders, the `"1.0"` version gate and
+the decimal-string conversions, and `ProductPairBackup.effectiveQuantity` the legacy
+`quantity ?? 1` rule. `BackupFormatTests` decodes both `Tools/Demo` datasets and a
+pre-quantity backup with the core alone, and the demo dataset totals $278.03 and $355.58,
+as before.
 This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.
@@ -126,7 +138,8 @@ cross-platform fixtures anywhere. The closest thing is `Tools/Demo/demo-dataset.
 real backup-format file.
 
 2c (#69) added tests for the parsers, matching, Levenshtein, Jaccard and `rankingScore`, in
-`ReceiptParserTests`, `ProductMatchingTests` and `PriceRankingTests`.
+`ReceiptParserTests`, `ProductMatchingTests` and `PriceRankingTests`. 2d (#70) added
+`ValidationTests`, covering every rule, and `BackupFormatTests`.
 
 ---
 

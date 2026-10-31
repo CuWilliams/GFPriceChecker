@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 
 /// Centralized error handling for the GFPriceChecker app
 ///
@@ -108,7 +109,7 @@ final class ErrorHandler {
             case .priceNegative:
                 return "Price cannot be negative"
             case .invalidQuantity(let field):
-                return "\(field) must be a whole number between \(ValidationRules.minQuantity) and \(ValidationRules.maxQuantity)"
+                return "\(field) must be a whole number between \(Validation.minQuantity) and \(Validation.maxQuantity)"
 
             // Export Errors
             case .exportNoData:
