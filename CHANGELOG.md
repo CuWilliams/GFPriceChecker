@@ -50,6 +50,13 @@ Neither replaces the other.
 ## [Unreleased]
 
 ### Changed
+- **A new app icon.** Bold "GF" letters over a check, in the existing brand blue, white and sky
+  blue: a flat redraw of the wordmark's "GF" and swoosh, which stays as it is on the launch
+  screen, onboarding and the PDF cover. The asset catalog moves to Xcode's single-size format
+  with dark and tinted variants for iOS 18 Home Screens, replacing eleven per-size PNGs with three
+  1024px images. The letters are Manrope ExtraBold converted to outlines, so the font is not
+  bundled; `docs/brand/AppIcon.svg` is the master and `docs/brand/render-app-icon.swift`
+  regenerates the PNGs.
 - **The CSV export matches the spec, and the size-adjusted figure has its proper name**
   ([#66](https://github.com/CuWilliams/GFPriceChecker/issues/66)). The CSV's numbers and dates
   were formatted in the device locale, so a phone with its region set to France or Germany wrote
