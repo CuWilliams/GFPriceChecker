@@ -122,7 +122,7 @@ struct SpecConformanceTests {
         #expect(average == nil)
         #expect(SummaryDashboardView.displayAmount(average) == "—")
         #expect(SummaryDashboardView.displayAmount(Decimal(string: "1.01")!)
-            == Decimal(string: "1.01")!.formatted(.currency(code: "CAD")))
+            == Decimal(string: "1.01")!.formatted(.cad))
     }
 
     /// The PDF used to carry its own copy of the sum, which reported $0.00. Read the text

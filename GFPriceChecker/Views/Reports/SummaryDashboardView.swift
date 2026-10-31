@@ -52,7 +52,7 @@ struct SummaryDashboardView: View {
     ///
     /// PRODUCT_DEFINITION.md §3: a missing comparison is not a zero-dollar comparison.
     static func displayAmount(_ value: Decimal?) -> String {
-        value?.formatted(.currency(code: "CAD")) ?? "—"
+        value?.formatted(.cad) ?? "—"
     }
 
     /// Available years that have data
@@ -133,10 +133,10 @@ struct SummaryDashboardView: View {
 
                     // No size data anywhere means no value, not $0.00
                     if let normalizedTotal = totals.totalNormalizedDifferential {
-                        Text(normalizedTotal, format: .currency(code: "CAD"))
+                        Text(normalizedTotal, format: .cad)
                             .font(.system(size: 48, weight: .bold, design: .rounded))
                             .foregroundStyle(normalizedTotal > 0 ? .green : .secondary)
-                            .accessibilityLabel("Size-adjusted differential total: \(normalizedTotal.formatted(.currency(code: "CAD")))")
+                            .accessibilityLabel("Size-adjusted differential total: \(normalizedTotal.formatted(.cad))")
                             .accessibilityHint("Total adjusted for package size differences")
                     } else {
                         Text("—")
@@ -156,10 +156,10 @@ struct SummaryDashboardView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Text(totals.totalDifferential, format: .currency(code: "CAD"))
+                    Text(totals.totalDifferential, format: .cad)
                         .font(.system(size: 28, weight: .semibold, design: .rounded))
                         .foregroundStyle(totals.totalDifferential > 0 ? .blue : .secondary)
-                        .accessibilityLabel("Price differential for reference: \(totals.totalDifferential.formatted(.currency(code: "CAD")))")
+                        .accessibilityLabel("Price differential for reference: \(totals.totalDifferential.formatted(.cad))")
                 }
 
                 // Excluded products note
@@ -212,7 +212,7 @@ struct SummaryDashboardView: View {
                     icon: "ruler",
                     color: .green
                 )
-                .accessibilityLabel("Average size-adjusted differential: \(avgNormalized.map { $0.formatted(.currency(code: "CAD")) } ?? "not available")")
+                .accessibilityLabel("Average size-adjusted differential: \(avgNormalized.map { $0.formatted(.cad) } ?? "not available")")
                 .accessibilityHint(avgNormalized == nil
                     ? "No products have size data to compare"
                     : "Average size-adjusted differential per item purchased")
@@ -224,7 +224,7 @@ struct SummaryDashboardView: View {
                     icon: "chart.line.uptrend.xyaxis",
                     color: .orange
                 )
-                .accessibilityLabel("Average price differential: \(totals.averageDifferential.formatted(.currency(code: "CAD")))")
+                .accessibilityLabel("Average price differential: \(totals.averageDifferential.formatted(.cad))")
                 .accessibilityHint("Average price differential per unit purchased")
 
                 // Verified Products Card
@@ -306,7 +306,7 @@ struct SummaryDashboardView: View {
             AxisMarks { value in
                 AxisValueLabel {
                     if let number = value.as(Double.self) {
-                        Text(Decimal(number), format: .currency(code: "CAD").precision(.fractionLength(0)))
+                        Text(Decimal(number), format: .cad.precision(.fractionLength(0)))
                     }
                 }
                 AxisGridLine()
@@ -366,7 +366,7 @@ struct SummaryDashboardView: View {
             AxisMarks { value in
                 AxisValueLabel {
                     if let number = value.as(Double.self) {
-                        Text(Decimal(number), format: .currency(code: "CAD").precision(.fractionLength(0)))
+                        Text(Decimal(number), format: .cad.precision(.fractionLength(0)))
                     }
                 }
                 AxisGridLine()

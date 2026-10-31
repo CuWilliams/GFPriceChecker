@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import GFCore
 
 /// Displays a list of all saved product pairs from SwiftData
 ///
@@ -372,10 +373,7 @@ struct ProductPairRow: View {
 
     /// Formats a Decimal as currency
     private func formatCurrency(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "CAD"
-        return formatter.string(from: amount as NSDecimalNumber) ?? "$0.00"
+        amount.formatted(.cad)
     }
 
     /// Returns appropriate color for the differential amount

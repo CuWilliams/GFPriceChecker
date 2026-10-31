@@ -90,6 +90,7 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 │   ├── Pricing/
 │   │   ├── SizeUnit.swift      # SizeUnit, UnitPriceBasis
 │   │   ├── PricingInputs.swift # Every PRODUCT_DEFINITION.md §3 formula, size back-calculation
+│   │   ├── CurrencyFormat.swift  # `.cad`: the CAD currency style, rounded half-up
 │   │   └── SizeTextParser.swift  # Size and unit-price parsing of OCR text
 │   ├── Reporting/
 │   │   ├── ReportRow.swift     # One pair as the reports see it
@@ -437,7 +438,9 @@ and are left as written.
 
 ### Currency Formatting
 - Always use `Decimal` type for prices
-- Format display: `.formatted(.currency(code: "CAD"))`
+- Format display: `.formatted(.cad)` — GFCore's CAD style, rounded half-up (a half cent rounds
+  away from zero, PRODUCT_DEFINITION.md §3). Plain `.currency(code: "CAD")` rounds half-even;
+  don't use it, and give any other fixed-places money format `.toNearestOrAwayFromZero`
 - Never use string interpolation for localized currency
 
 ### Concurrency

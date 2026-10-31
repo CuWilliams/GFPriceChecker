@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import GFCore
 
 /// Detail view for viewing and managing a receipt
 ///
@@ -78,7 +79,7 @@ struct ReceiptDetailView: View {
                 // Total amount
                 if let total = receipt.totalAmount {
                     LabeledContent("Total") {
-                        Text(total, format: .currency(code: "CAD"))
+                        Text(total, format: .cad)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -92,7 +93,7 @@ struct ReceiptDetailView: View {
                 }
 
                 LabeledContent("Package Price Differential Total") {
-                    Text(receipt.totalDifferential, format: .currency(code: "CAD"))
+                    Text(receipt.totalDifferential, format: .cad)
                         .fontWeight(.bold)
                         .foregroundStyle(receipt.totalDifferential > 0 ? .green : .secondary)
                 }
@@ -178,7 +179,7 @@ struct ReceiptDetailView: View {
 
                 // Prices
                 HStack(spacing: 8) {
-                    Text(productPair.gfPrice, format: .currency(code: "CAD"))
+                    Text(productPair.gfPrice, format: .cad)
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -186,7 +187,7 @@ struct ReceiptDetailView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Text(productPair.nonGFPrice, format: .currency(code: "CAD"))
+                    Text(productPair.nonGFPrice, format: .cad)
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
@@ -204,7 +205,7 @@ struct ReceiptDetailView: View {
 
             VStack(alignment: .trailing, spacing: 4) {
                 // Differential for the whole purchase, so the rows add up to the summary total
-                Text(productPair.extendedDifferential, format: .currency(code: "CAD"))
+                Text(productPair.extendedDifferential, format: .cad)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundStyle(productPair.extendedDifferential > 0 ? .green : .secondary)

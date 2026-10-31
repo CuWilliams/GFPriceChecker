@@ -22,15 +22,15 @@ Every case has an `input` and an `expected`; most have a `name` to report on fai
 
 **Decimals are strings**, never JSON numbers, so no parser turns them into floating point.
 
-**An expected decimal matches by its own precision.** Round the actual value half-even to as
+**An expected decimal matches by its own precision.** Round the actual value half-up to as
 many decimal places as the expected string has, then compare by value: `"5.6255555556"` is the
 worked example cut at 10 places, and `"5.63"` is the same figure as displayed. A value that
 terminates is written in full. Trailing zeros do not matter beyond setting the places: `"4.00"`
 matches 4.
 
-**Rounding is half-even** (banker's rounding) wherever the product rounds — display, CSV and
-these comparisons. Several vectors sit exactly on a half cent to pin this: 0.465 is 0.46, and
-3.845 is 3.84.
+**Rounding is half-up**, away from zero, wherever the product rounds — display, CSV and these
+comparisons. Several vectors sit exactly on a half cent to pin this: 0.465 is 0.47, and 3.845 is
+3.85.
 
 **Floats are JSON numbers** — OCR confidences, box coordinates, ranking scores — and match within
 ±0.0001. The product computes them in 32-bit floats.

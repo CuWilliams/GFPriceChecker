@@ -23,7 +23,7 @@
     },
     {
       "name": "§3 worked example, as displayed",
-      "note": "Rounded to the cent, half-even, as every surface shows it",
+      "note": "Rounded to the cent, half-up, as every surface shows it",
       "input": {
         "gfPrice": "7.99",
         "nonGFPrice": "3.99",
@@ -172,8 +172,8 @@
       }
     },
     {
-      "name": "A half cent rounds to even",
-      "note": "Half-even gives 0.46 and 1.40; half-up would give 0.47",
+      "name": "A half cent rounds up",
+      "note": "Half-up gives 0.47 and 1.40; half-even would give 0.46",
       "input": {
         "gfPrice": "1.00",
         "nonGFPrice": "4.28",
@@ -182,7 +182,7 @@
         "quantity": 3
       },
       "expected": {
-        "normalizedDifferential": "0.46",
+        "normalizedDifferential": "0.47",
         "extendedNormalizedDifferential": "1.40"
       }
     },

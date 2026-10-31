@@ -201,8 +201,8 @@ struct ReportReconciliationTests {
         let document = try #require(PDFDocument(url: url))
         let cover = try #require(document.page(at: 0)?.string)
         let text = try #require(document.string)
-        let normalizedText = normalizedTotal.formatted(.currency(code: "CAD"))
-        let packageText = dashboard.totalDifferential.formatted(.currency(code: "CAD"))
+        let normalizedText = normalizedTotal.formatted(.cad)
+        let packageText = dashboard.totalDifferential.formatted(.cad)
 
         #expect(cover.contains(normalizedText))
         #expect(cover.contains(packageText))

@@ -788,7 +788,7 @@ private enum Vectors {
 
     // MARK: Matching
 
-    /// Rounds half-even to the expected string's places, then compares by value
+    /// Rounds half-up to the expected string's places, then compares by value
     ///
     /// An expected value written in full matches exactly; one cut at 10 places, or shown at
     /// 2, matches the actual value rounded the same way.
@@ -805,7 +805,7 @@ private enum Vectors {
             return
         }
         var rounded = Decimal()
-        NSDecimalRound(&rounded, &value, places, .bankers)
+        NSDecimalRound(&rounded, &value, places, .plain)
         #expect(rounded == decimal(expected), "\(comment): \(actual!) rounds to \(rounded)", sourceLocation: sourceLocation)
     }
 

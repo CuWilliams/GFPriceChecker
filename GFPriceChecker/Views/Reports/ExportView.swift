@@ -324,7 +324,7 @@ struct ExportView: View {
                 // Primary: Size-Adjusted Differential Total
                 VStack(spacing: 4) {
                     if let normalizedTotal = exportSummary.totalNormalizedDifferential {
-                        Text(normalizedTotal, format: .currency(code: "CAD"))
+                        Text(normalizedTotal, format: .cad)
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundStyle(.green)
@@ -345,7 +345,7 @@ struct ExportView: View {
 
                 // Secondary: Package Price Differential Total
                 VStack(spacing: 4) {
-                    Text(exportSummary.totalDifferential, format: .currency(code: "CAD"))
+                    Text(exportSummary.totalDifferential, format: .cad)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.blue)

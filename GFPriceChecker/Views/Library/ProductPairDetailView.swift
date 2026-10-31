@@ -441,10 +441,7 @@ struct ProductPairDetailView: View {
 
     /// Formats a Decimal as currency
     private func formatCurrency(_ amount: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "CAD"
-        return formatter.string(from: amount as NSDecimalNumber) ?? "$0.00"
+        amount.formatted(.cad)
     }
 
     /// Formats a Float as percentage

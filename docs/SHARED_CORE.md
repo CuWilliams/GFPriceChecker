@@ -50,9 +50,10 @@ as before.
 Stage 3 is complete (#71). The vectors are in shared-docs under `gfpricechecker/vectors/`,
 with a README of their conventions, and PRODUCT_DEFINITION.md §8 makes them normative.
 `VectorTests` runs every file against the vendored copy, and fails if a file is added that it
-does not run. Writing them settled one more thing the spec had left open: rounding is half-even,
-as iOS's formatters have always done, so $0.465 shows as $0.46. §3 now says so, and several
-vectors sit on a half cent to hold any platform to it. Behaviour pinned only as a known gap,
+does not run. Writing them settled one more thing the spec had left open: rounding. iOS's
+formatters had always rounded half-even, so $0.465 showed as $0.46; the product's rule is now
+half-up, away from zero, so it shows as $0.47. §3 says so, GFCore's `.cad` style and the CSV
+formatter ask for it, and several vectors sit on a half cent to hold any platform to it. Behaviour pinned only as a known gap,
 above, is kept out of the vectors so it does not become a rule. `scripts/sync-vectors.sh`
 updates the copy, and `--check` runs from the tracked `.githooks/pre-push`.
 This document grounds Track F and records the audit that sized it.

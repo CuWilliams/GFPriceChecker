@@ -354,7 +354,7 @@ struct ProductCaptureFlowView: View {
                         Text("Package Price Differential")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(differential.formatted(.currency(code: "CAD")))
+                        Text(differential.formatted(.cad))
                             .font(.title)
                             .fontWeight(.bold)
                             .foregroundStyle(differential >= 0 ? .red : .green)
@@ -371,7 +371,7 @@ struct ProductCaptureFlowView: View {
                         Text("Size-Adjusted Differential")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(normDiff.formatted(.currency(code: "CAD")))
+                        Text(normDiff.formatted(.cad))
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundStyle(normDiff >= 0 ? .orange : .green)
@@ -384,7 +384,7 @@ struct ProductCaptureFlowView: View {
                     .background(Color.blue.opacity(0.08))
                     .cornerRadius(12)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Size-adjusted differential: \(normDiff.formatted(.currency(code: "CAD"))). This accounts for the difference in package sizes.")
+                    .accessibilityLabel("Size-adjusted differential: \(normDiff.formatted(.cad)). This accounts for the difference in package sizes.")
                 }
 
                 // Category
@@ -466,7 +466,7 @@ struct ProductCaptureFlowView: View {
                 .lineLimit(2)
 
             if let price = price {
-                Text(price.formatted(.currency(code: "CAD")))
+                Text(price.formatted(.cad))
                     .font(.headline)
                     .foregroundStyle(priceColor)
             }
