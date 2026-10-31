@@ -60,9 +60,8 @@ struct ValidationRules {
 extension ErrorHandler.AppError {
     /// The app's error, and so its message, for a core validation failure
     ///
-    /// - Note: Every message here is the one `ValidationRules` produced before the rules
-    ///   moved to GFCore. Most ride on `.invalidProductName`, whose description appends
-    ///   " cannot be empty", so they read oddly; see `ValidationMessageTests`.
+    /// - Note: `.invalidProductName` reads "<field> cannot be empty", so it is for an empty
+    ///   name only. Other failures carry a complete message in a case of their own (#82).
     nonisolated init(_ error: ValidationError) {
         switch error {
         case .priceNegative:
@@ -76,31 +75,31 @@ extension ErrorHandler.AppError {
         case .emptyProductName(let field):
             self = .invalidProductName(field)
         case .productNameTooLong(let field, let max):
-            self = .invalidProductName("\(field) is too long (max \(max) characters)")
+            self = .textTooLong("\(field) is too long (max \(max) characters)", max: max)
         case .dateInFuture:
             self = .invalidDate("Date cannot be in the future")
         case .dateBeforeEarliest:
             self = .invalidDate("Date must be after January 1, 2020")
         case .sizeNotANumber(let field):
-            self = .invalidProductName("\(field) must be a number (e.g., 450 or 12.5)")
+            self = .invalidSize("\(field) must be a number (e.g., 450 or 12.5)")
         case .sizeNotPositive(let field):
-            self = .invalidProductName("\(field) must be greater than zero")
+            self = .invalidSize("\(field) must be greater than zero")
         case .sizeTooSmall(let field):
-            self = .invalidProductName("\(field) is too small")
+            self = .invalidSize("\(field) is too small")
         case .sizeTooLarge(let field, let max):
-            self = .invalidProductName("\(field) is unrealistically large (max \(max))")
+            self = .invalidSize("\(field) is unrealistically large (max \(max))")
         case .invalidQuantity(let field):
             self = .invalidQuantity(field)
         case .sizeTextTooLong(let max):
-            self = .invalidProductName("Size is too long (max \(max) characters)")
+            self = .textTooLong("Size is too long (max \(max) characters)", max: max)
         case .notesTooLong(let max):
-            self = .invalidProductName("Notes are too long (max \(max) characters)")
+            self = .textTooLong("Notes are too long (max \(max) characters)", max: max)
         case .categoryTooLong(let max):
-            self = .invalidProductName("Category is too long (max \(max) characters)")
+            self = .textTooLong("Category is too long (max \(max) characters)", max: max)
         case .storeNameTooLong(let max):
-            self = .invalidProductName("Store name is too long (max \(max) characters)")
+            self = .textTooLong("Store name is too long (max \(max) characters)", max: max)
         case .invalidEmail:
-            self = .invalidProductName("Invalid email address")
+            self = .invalidEmail
         }
     }
 }
