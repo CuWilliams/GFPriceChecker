@@ -10,12 +10,6 @@ import GFCore
 import SwiftData
 import UniformTypeIdentifiers
 
-/// Export format options
-enum ExportFormat: String, CaseIterable {
-    case csv = "CSV"
-    case pdf = "PDF"
-}
-
 /// Export view for generating and sharing CSV/PDF reports
 ///
 /// Provides export functionality with:
@@ -40,79 +34,9 @@ struct ExportView: View {
 
     // MARK: - State
 
-    @State private var exportFormat: ExportFormat = .csv
-    @State private var selectedPreset: DateRangePreset = AppSettings.shared.defaultDateRange
-    @State private var customStartDate = Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
-    @State private var customEndDate = Date()
-    @State private var useCustomRange = false
-
-    // PDF-specific state
-    @State private var pdfYear = Calendar.current.component(.year, from: Date())
-    @State private var paperSize: PaperSize = AppSettings.shared.defaultPaperSize
-
-    @State private var isGenerating = false
-    @State private var generatedCSVURL: URL?
-    @State private var errorMessage: String?
-    @State private var showingError = false
-
-    // Unverified products warning
-    @State private var showingUnverifiedWarning = false
-    @State private var unverifiedProductCount = 0
-    @State private var pendingExportAction: ExportAction?
-    @State private var userConfirmedExport = false
-
-    // Document picker state
-    @State private var showingDocumentPicker = false
-
-    // Share sheet state
-    @State private var showingShareSheet = false
-    @State private var shareItems: [Any] = []
-
-    // Export action type for warning flow
-    private enum ExportAction {
-        case saveToFiles
-        case share
-        case email
-    }
-
-    // MARK: - Computed Properties
-
-    /// Buckets years in the device's calendar and time zone, as the dashboard does
-    private let calculator = ReportCalculator(calendar: .current)
-
-    /// Current date range based on preset or custom selection
-    private var currentDateRange: ClosedRange<Date>? {
-        if useCustomRange {
-            return customStartDate...customEndDate
-        } else {
-            return calculator.dateRange(for: selectedPreset, now: Date())
-        }
-    }
-
-    /// Rows within the current date range: what the CSV will contain
-    private var filteredRows: [ReportRow] {
-        ReportCalculator.rows(allProducts.map(\.reportRow), in: currentDateRange)
-    }
-
-    /// Rows reported in the PDF's year: what the PDF will contain
-    private var pdfYearRows: [ReportRow] {
-        calculator.rows(allProducts.map(\.reportRow), inYear: pdfYear)
-    }
-
-    /// Preview of first 10 rows
-    private var previewRows: [ReportRow] {
-        Array(filteredRows.sorted { $0.reportingDate < $1.reportingDate }.prefix(10))
-    }
-
-    /// Totals for the selected export
-    private var exportSummary: ReportTotals {
-        switch exportFormat {
-        case .csv:
-            ReportCalculator.totals(filteredRows)
-        case .pdf:
-            ReportCalculator.totals(pdfYearRows)
-        }
-    }
+    /// All of the export's state and logic lives in `ExportViewModel`;
+    /// this view only draws it.
+    @State private var viewModel = ExportViewModel()
 
     // MARK: - Body
 
@@ -124,12 +48,12 @@ struct ExportView: View {
                     formatSection
 
                     // PDF-specific options
-                    if exportFormat == .pdf {
+                    if viewModel.exportFormat == .pdf {
                         pdfOptionsSection
                     }
 
                     // Date Range Section (CSV only)
-                    if exportFormat == .csv {
+                    if viewModel.exportFormat == .csv {
                         dateRangeSection
                     }
 
@@ -137,7 +61,7 @@ struct ExportView: View {
                     summarySection
 
                     // Preview Section (CSV only)
-                    if exportFormat == .csv {
+                    if viewModel.exportFormat == .csv {
                         previewSection
                     }
 
@@ -155,49 +79,35 @@ struct ExportView: View {
                     }
                 }
             }
-            .alert("Export Error", isPresented: $showingError) {
+            .alert("Export Error", isPresented: $viewModel.showingError) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text(errorMessage ?? "An unknown error occurred")
+                Text(viewModel.errorMessage ?? "An unknown error occurred")
             }
-            .alert("Unverified Products Found", isPresented: $showingUnverifiedWarning) {
+            .alert("Unverified Products Found", isPresented: $viewModel.showingUnverifiedWarning) {
                 Button("Continue Export", role: .none) {
-                    // User confirmed - set flag to trigger export via .onChange()
-                    userConfirmedExport = true
-                }
-                Button("Cancel", role: .cancel) {
-                    pendingExportAction = nil
-                    userConfirmedExport = false
-                }
-            } message: {
-                Text("\(unverifiedProductCount) product(s) lack receipt verification. These will appear in a separate \"Unverified Products\" section. For complete tax documentation, consider obtaining receipts for all products.")
-            }
-            .onChange(of: userConfirmedExport) { oldValue, newValue in
-                // When user confirms the warning, perform the pending export
-                if newValue == true, let action = pendingExportAction {
-                    userConfirmedExport = false // Reset flag
-                    pendingExportAction = nil
-
-                    // Perform export after alert dismisses
                     Task {
                         // Small delay to ensure alert is fully dismissed before presenting share sheet
                         try? await Task.sleep(for: .milliseconds(300))
-
-                        switch action {
-                        case .saveToFiles:
-                            await performSaveToFiles()
-                        case .share:
-                            await performShare()
-                        case .email:
-                            await performEmail()
-                        }
+                        await viewModel.confirmUnverifiedExport()
                     }
                 }
-            }
-            .sheet(isPresented: $showingShareSheet) {
-                if !shareItems.isEmpty {
-                    ShareSheet(items: shareItems)
+                Button("Cancel", role: .cancel) {
+                    viewModel.cancelUnverifiedExport()
                 }
+            } message: {
+                Text("\(viewModel.unverifiedProductCount) product(s) lack receipt verification. These will appear in a separate \"Unverified Products\" section. For complete tax documentation, consider obtaining receipts for all products.")
+            }
+            .sheet(isPresented: $viewModel.showingShareSheet) {
+                if !viewModel.shareItems.isEmpty {
+                    ShareSheet(items: viewModel.shareItems)
+                }
+            }
+            .onChange(of: allProducts, initial: true) { _, products in
+                viewModel.products = products
+            }
+            .onChange(of: allReceipts, initial: true) { _, receipts in
+                viewModel.receipts = receipts
             }
         }
     }
@@ -210,7 +120,7 @@ struct ExportView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Picker("Format", selection: $exportFormat) {
+            Picker("Format", selection: $viewModel.exportFormat) {
                 ForEach(ExportFormat.allCases, id: \.self) { format in
                     Text(format.rawValue).tag(format)
                 }
@@ -233,15 +143,15 @@ struct ExportView: View {
 
             VStack(spacing: 12) {
                 // Year Picker
-                Picker("Tax Year", selection: $pdfYear) {
-                    ForEach(availableYears, id: \.self) { year in
+                Picker("Tax Year", selection: $viewModel.pdfYear) {
+                    ForEach(viewModel.availableYears, id: \.self) { year in
                         Text(String(year)).tag(year)
                     }
                 }
                 .pickerStyle(.menu)
 
                 // Paper Size Picker
-                Picker("Paper Size", selection: $paperSize) {
+                Picker("Paper Size", selection: $viewModel.paperSize) {
                     ForEach(PaperSize.allCases, id: \.self) { size in
                         Text(size.rawValue).tag(size)
                     }
@@ -255,11 +165,6 @@ struct ExportView: View {
         }
     }
 
-    /// Available years from product data
-    private var availableYears: [Int] {
-        calculator.availableYears(allProducts.map(\.reportRow))
-    }
-
     // MARK: - Date Range Section
 
     private var dateRangeSection: some View {
@@ -270,19 +175,29 @@ struct ExportView: View {
 
             VStack(spacing: 12) {
                 // Preset or Custom Toggle
-                Picker("Range Type", selection: $useCustomRange) {
+                Picker("Range Type", selection: $viewModel.useCustomRange) {
                     Text("Preset").tag(false)
                     Text("Custom").tag(true)
                 }
                 .pickerStyle(.segmented)
 
-                if useCustomRange {
-                    // Custom date pickers
-                    DatePicker("Start Date", selection: $customStartDate, displayedComponents: .date)
-                    DatePicker("End Date", selection: $customEndDate, displayedComponents: .date)
+                if viewModel.useCustomRange {
+                    // Custom date pickers, each bounded by the other so the start can't pass the end
+                    DatePicker(
+                        "Start Date",
+                        selection: $viewModel.customStartDate,
+                        in: ...viewModel.customEndDate,
+                        displayedComponents: .date
+                    )
+                    DatePicker(
+                        "End Date",
+                        selection: $viewModel.customEndDate,
+                        in: viewModel.customStartDate...,
+                        displayedComponents: .date
+                    )
                 } else {
                     // Preset picker
-                    Picker("Date Range", selection: $selectedPreset) {
+                    Picker("Date Range", selection: $viewModel.selectedPreset) {
                         ForEach(DateRangePreset.allCases, id: \.self) { preset in
                             Text(preset.rawValue).tag(preset)
                         }
@@ -308,7 +223,7 @@ struct ExportView: View {
             HStack(spacing: 12) {
                 // Product Count
                 VStack(spacing: 4) {
-                    Text("\(exportSummary.count)")
+                    Text("\(viewModel.exportSummary.count)")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundStyle(.blue)
@@ -323,7 +238,7 @@ struct ExportView: View {
 
                 // Primary: Size-Adjusted Differential Total
                 VStack(spacing: 4) {
-                    if let normalizedTotal = exportSummary.totalNormalizedDifferential {
+                    if let normalizedTotal = viewModel.exportSummary.totalNormalizedDifferential {
                         Text(normalizedTotal, format: .cad)
                             .font(.title2)
                             .fontWeight(.bold)
@@ -345,7 +260,7 @@ struct ExportView: View {
 
                 // Secondary: Package Price Differential Total
                 VStack(spacing: 4) {
-                    Text(exportSummary.totalDifferential, format: .cad)
+                    Text(viewModel.exportSummary.totalDifferential, format: .cad)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.blue)
@@ -370,12 +285,12 @@ struct ExportView: View {
                 Text("Preview")
                     .font(.headline)
                 Spacer()
-                Text("First \(min(10, previewRows.count)) rows")
+                Text("First \(min(10, viewModel.previewRows.count)) rows")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            if previewRows.isEmpty {
+            if viewModel.previewRows.isEmpty {
                 emptyPreviewPlaceholder
             } else {
                 csvPreview
@@ -403,7 +318,7 @@ struct ExportView: View {
     /// - Note: Deliberately unbounded in height. A `.frame(maxHeight: 200)` used to cap this,
     ///   but the box only scrolls horizontally, so the eleven rows it holds overflowed a
     ///   200pt window with no way to reach what spilled: the header was sliced through the
-    ///   middle at the top edge and "... and N more rows" at the bottom. `previewRows`
+    ///   middle at the top edge and "... and N more rows" at the bottom. `viewModel.previewRows`
     ///   already bounds the content at ten rows, and the enclosing `ScrollView` scrolls, so
     ///   the cap bought nothing and cost the two lines that frame what the rows mean. Height
     ///   has to stay free for Dynamic Type as well — any fixed cap re-clips at larger sizes.
@@ -418,12 +333,12 @@ struct ExportView: View {
                 Divider()
 
                 // Rows
-                ForEach(previewRows, id: \.id) { row in
+                ForEach(viewModel.previewRows, id: \.id) { row in
                     csvPreviewRow(for: row)
                 }
 
-                if filteredRows.count > 10 {
-                    Text("... and \(filteredRows.count - 10) more rows")
+                if viewModel.filteredRows.count > 10 {
+                    Text("... and \(viewModel.filteredRows.count - 10) more rows")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
@@ -467,220 +382,65 @@ struct ExportView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            // All three end in the share sheet — see `ExportViewModel.export()`
             VStack(spacing: 12) {
                 // Save to Files Button
                 Button {
                     Task {
-                        await generateAndSaveToFiles()
+                        await viewModel.export()
                     }
                 } label: {
                     HStack {
                         Image(systemName: "folder")
                         Text("Save to Files")
                         Spacer()
-                        if isGenerating {
+                        if viewModel.isGenerating {
                             ProgressView()
                         }
                     }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(isGenerating || exportSummary.count == 0)
+                .disabled(!viewModel.canExport)
 
                 // Share Button
                 Button {
                     Task {
-                        await generateAndShare()
+                        await viewModel.export()
                     }
                 } label: {
                     HStack {
                         Image(systemName: "square.and.arrow.up")
                         Text("Share")
                         Spacer()
-                        if isGenerating {
+                        if viewModel.isGenerating {
                             ProgressView()
                         }
                     }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(isGenerating || exportSummary.count == 0)
+                .disabled(!viewModel.canExport)
 
                 // Email Button
                 Button {
                     Task {
-                        await generateAndEmail()
+                        await viewModel.export()
                     }
                 } label: {
                     HStack {
                         Image(systemName: "envelope")
                         Text("Email")
                         Spacer()
-                        if isGenerating {
+                        if viewModel.isGenerating {
                             ProgressView()
                         }
                     }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(isGenerating || exportSummary.count == 0)
+                .disabled(!viewModel.canExport)
             }
-        }
-    }
-
-    // MARK: - Export Actions
-
-    /// Generate export file and save to Files app
-    private func generateAndSaveToFiles() async {
-        // Check for unverified products in PDF export
-        if exportFormat == .pdf {
-            if await checkForUnverifiedProducts() {
-                pendingExportAction = .saveToFiles
-                return
-            }
-        }
-
-        await performSaveToFiles()
-    }
-
-    /// Generate export file and show share sheet
-    private func generateAndShare() async {
-        // Check for unverified products in PDF export
-        if exportFormat == .pdf {
-            if await checkForUnverifiedProducts() {
-                pendingExportAction = .share
-                return
-            }
-        }
-
-        await performShare()
-    }
-
-    /// Generate export file and open email with attachment
-    private func generateAndEmail() async {
-        // Check for unverified products in PDF export
-        if exportFormat == .pdf {
-            if await checkForUnverifiedProducts() {
-                pendingExportAction = .email
-                return
-            }
-        }
-
-        await performEmail()
-    }
-
-    /// Check for unverified products and show warning if found
-    /// Returns true if warning was shown (export should be deferred), false if export should proceed
-    private func checkForUnverifiedProducts() async -> Bool {
-        let unverifiedCount = ReportCalculator.totals(pdfYearRows).unverifiedCount
-        if unverifiedCount > 0 {
-            await MainActor.run {
-                unverifiedProductCount = unverifiedCount
-                showingUnverifiedWarning = true
-            }
-            return true // Warning shown, defer export
-        }
-
-        return false // No warning, proceed with export
-    }
-
-    /// Perform the pending export action after user confirms warning
-    private func performPendingExport() async {
-        guard let action = pendingExportAction else { return }
-        pendingExportAction = nil
-
-        switch action {
-        case .saveToFiles:
-            await performSaveToFiles()
-        case .share:
-            await performShare()
-        case .email:
-            await performEmail()
-        }
-    }
-
-    /// Actually perform save to files (after warning check)
-    private func performSaveToFiles() async {
-        isGenerating = true
-        defer { isGenerating = false }
-
-        do {
-            let fileURL = try await generateExportFile()
-
-            // Present document picker to save file
-            await MainActor.run {
-                showingDocumentPicker = true
-                // Note: Document picker for save is handled via UIDocumentPickerViewController
-                // For now, we'll use share sheet as fallback since SwiftUI doesn't have native file save
-                shareItems = [fileURL]
-                showingShareSheet = true
-            }
-        } catch {
-            errorMessage = "Failed to generate \(exportFormat.rawValue): \(error.localizedDescription)"
-            showingError = true
-        }
-    }
-
-    /// Actually perform share (after warning check)
-    private func performShare() async {
-        isGenerating = true
-        defer { isGenerating = false }
-
-        do {
-            let fileURL = try await generateExportFile()
-
-            await MainActor.run {
-                shareItems = [fileURL]
-                showingShareSheet = true
-            }
-        } catch {
-            errorMessage = "Failed to generate \(exportFormat.rawValue): \(error.localizedDescription)"
-            showingError = true
-        }
-    }
-
-    /// Actually perform email (after warning check)
-    private func performEmail() async {
-        isGenerating = true
-        defer { isGenerating = false }
-
-        do {
-            let fileURL = try await generateExportFile()
-
-            // Note: mailto: URLs cannot attach files directly
-            // We'll use share sheet instead, which allows email with attachment
-            await MainActor.run {
-                shareItems = [fileURL]
-                showingShareSheet = true
-            }
-        } catch {
-            errorMessage = "Failed to generate \(exportFormat.rawValue): \(error.localizedDescription)"
-            showingError = true
-        }
-    }
-
-    /// Generates export file based on selected format
-    private func generateExportFile() async throws -> URL {
-        switch exportFormat {
-        case .csv:
-            return try await CSVExportService.shared.generateCSV(
-                products: allProducts,
-                dateRange: currentDateRange
-            )
-
-        case .pdf:
-            // Filter products and receipts by PDF year
-            let yearProducts = allProducts.filter { calculator.isDate($0.reportingDate, inYear: pdfYear) }
-            let yearReceipts = allReceipts.filter { calculator.isDate($0.purchaseDate, inYear: pdfYear) }
-
-            // Generate PDF (unverified products check already done upstream)
-            return try await PDFGeneratorService.shared.generatePDF(
-                products: yearProducts,
-                receipts: yearReceipts,
-                year: pdfYear,
-                userName: AppSettings.shared.userName,
-                paperSize: paperSize
-            )
         }
     }
 }

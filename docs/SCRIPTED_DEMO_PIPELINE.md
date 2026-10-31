@@ -87,7 +87,7 @@ Resolved in Stage 1 — see §5. The dispatch went *inside* `DocumentScannerView
 behind each of the three call sites, so none of them changed and device behaviour is
 untouched.
 
-### Blocker 2 — there is no ViewModel for a script to drive — **fixed for the capture flow (Stage 3) and receipt verification (#90)**
+### Blocker 2 — there is no ViewModel for a script to drive — **fixed for the capture flow (Stage 3), receipt verification (#90) and export (#91)**
 
 `ViewModels/` held one file, `ReportViewModel.swift`. It is `@Observable` but it is a
 stateless calculator — `selectedYear` plus pure functions over `[ProductPair]`
@@ -114,8 +114,12 @@ the 986-line view holding the app's most intricate logic.
 storage through `Dependencies` and its `ModelContext` as a parameter to `save(into:)`, and
 `ReceiptCaptureViewModelTests` runs a whole verification against canned OCR text. The view
 keeps its `@Query` of unverified pairs and hands it to `unverifiedProducts`. `ExportView` is
-still open and wants its own pass; Stage 5 needs only one flow registrable to prove the
-director works.
+done as well (#91): `ExportViewModel` owns the format, range and PDF choices, the generation
+state and the unverified-products warning, takes CSV and PDF generation and the clock through
+`Dependencies`, and `ExportViewModelTests` drives exports through `export()` and
+`confirmUnverifiedExport()`. The three export buttons share that one path, since all three
+always ended in the share sheet. The extraction also fixed a crash: a custom range picked end
+before start built a reversed `ClosedRange`, which traps.
 
 ### Blocker 3 — navigation is not addressable — **fixed, Stage 4**
 

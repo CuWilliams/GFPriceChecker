@@ -50,6 +50,7 @@ GFPriceChecker/
 ├── ViewModels/
 │   ├── CaptureFlowViewModel.swift  # Product capture flow state and logic
 │   ├── ReceiptCaptureViewModel.swift  # Receipt verification flow state, OCR and save
+│   ├── ExportViewModel.swift       # Export format, range, generation and unverified warning
 │   ├── ReportViewModel.swift       # Dashboard year selection; totals come from GFCore
 │   └── AppRouter.swift             # Selected tab, Library path, each tab's sheet; show(_:)
 ├── Views/
@@ -206,8 +207,10 @@ Button {
 }
 ```
 
-Use it when sheet content depends on state, when an alert button starts async work, or for
-image viewers showing dynamic content. See `ProductPairDetailView.swift`, `ExportView.swift`.
+Use it when sheet content depends on view-local state or for image viewers showing dynamic
+content. See `ProductPairDetailView.swift`. State held in a view model doesn't need it: a task
+reads the object when it runs, so an alert button can call a view model method directly, as
+`ExportView`'s unverified-products warning does.
 
 **`&&` and `||` take autoclosures, so neither side can `await`.**
 
@@ -215,8 +218,6 @@ image viewers showing dynamic content. See `ProductPairDetailView.swift`, `Expor
 if condition && await asyncFunction() { }     // ❌ compiler error
 if condition { if await asyncFunction() { } } // ✅ nest instead
 ```
-
-See `ExportView.swift` (unverified products check).
 
 ---
 
@@ -329,9 +330,10 @@ Ranks price candidates by:
 
 `ProductCaptureFlowView` was 986 lines with ~35 `@State` properties and its handlers as
 private view methods — untestable and undriveable. `ViewModels/CaptureFlowViewModel.swift`
-is the result of lifting that out, and `ReceiptCaptureViewModel.swift` did the same for
-`ReceiptCaptureView`'s 17. Follow the same shape for the one flow still holding its own
-state: `ExportView` (18 `@State`).
+is the result of lifting that out; `ReceiptCaptureViewModel.swift` and
+`ExportViewModel.swift` did the same for `ReceiptCaptureView`'s 17 and `ExportView`'s 18.
+Follow the same shape for any new flow: the view keeps its `@Query` and hands the results to
+the view model in `.onChange(of:initial: true)`, and draws.
 
 **Inject services, don't call singletons.** A `Dependencies` struct of closures standing in
 for `OCRService` and `ImageStorageService` is what lets a test run a whole capture with
