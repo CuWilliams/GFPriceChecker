@@ -63,6 +63,8 @@ struct ProductCaptureFlowView: View {
                 if saved { dismiss() }
             }
         }
+        // So a scripted take can drive this sheet; nothing in a release build
+        .demoRegistered(viewModel)
     }
 
     // MARK: - Step Views
