@@ -110,6 +110,8 @@ struct ExportView: View {
                 viewModel.receipts = receipts
             }
         }
+        // So a scripted take can drive this sheet; nothing in a release build
+        .demoRegistered(viewModel)
     }
 
     // MARK: - Format Section

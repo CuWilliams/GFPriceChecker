@@ -27,6 +27,16 @@ struct GFPriceCheckerApp: App {
     /// Which tab, Library screen and sheet the app is on
     @State private var router = AppRouter()
 
+    // MARK: - Init
+
+    init() {
+        #if DEBUG
+        // GFPC_DEMO_SCRIPT=<name>: the scripted demo takes (Dev/DemoDirector.swift).
+        // Armed before the first body, so the curtain is up from the first frame.
+        DemoDirector.bootstrapIfRequested()
+        #endif
+    }
+
     // MARK: - SwiftData Container Configuration
 
     /// Shared model container for the entire app
@@ -73,6 +83,11 @@ struct GFPriceCheckerApp: App {
                         OnboardingView(isPresented: $showOnboarding)
                     }
                     .onAppear {
+                        #if DEBUG
+                        // A scripted take lifts its own curtain, once any seed has landed
+                        if DemoDirector.current != nil { return }
+                        #endif
+
                         // Dismiss launch screen after delay with smooth transition
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             withAnimation(.easeOut(duration: 0.6)) {
@@ -94,21 +109,42 @@ struct GFPriceCheckerApp: App {
 
                 // Launch screen overlay
                 if showLaunchScreen {
-                    LaunchScreenView()
+                    launchOverlay
                         .transition(.opacity)
                         .zIndex(1)
                 }
             }
             #if DEBUG
-            // Stages 2 and 4 of the scripted demo pipeline: seed the store
-            // from a scrubbed dataset, then open a named screen, each only
-            // when the environment asks. See Dev/DemoSeed.swift, Dev/DemoRoute.swift.
+            // Stages 2, 4 and 5 of the scripted demo pipeline: seed the store
+            // from a scrubbed dataset, open a named screen, then play a script,
+            // each only when the environment asks. See Dev/DemoSeed.swift,
+            // Dev/DemoRoute.swift and Dev/DemoDirector.swift.
             .task {
                 await DemoSeed.seedIfRequested(container: sharedModelContainer)
                 DemoRoute.applyIfRequested(router: router, context: sharedModelContainer.mainContext)
+                await DemoDirector.current?.start(router: router, context: sharedModelContainer.mainContext) {
+                    withAnimation(.easeOut(duration: DemoDirector.curtainFadeSeconds)) {
+                        showLaunchScreen = false
+                    }
+                }
             }
             #endif
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    /// The launch screen, or in a scripted take the flat curtain that stands in
+    /// for it (see `DemoCurtainView` for why it has to be flat)
+    @ViewBuilder
+    private var launchOverlay: some View {
+        #if DEBUG
+        if DemoDirector.current != nil {
+            DemoCurtainView()
+        } else {
+            LaunchScreenView()
+        }
+        #else
+        LaunchScreenView()
+        #endif
     }
 }

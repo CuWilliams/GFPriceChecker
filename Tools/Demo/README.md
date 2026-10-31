@@ -185,10 +185,83 @@ An unknown name, or `product` on an empty store, is a `fatalError` for the same 
 seed is. Terminate first, as with seeding: a running instance keeps its old environment.
 
 The in-app half is [`GFPriceChecker/Dev/DemoRoute.swift`](../../GFPriceChecker/Dev/DemoRoute.swift),
-which hands the name to `AppRouter.show(_:)`. Stage 5's director will call `show(_:)` itself;
-this hook is how a still of any screen is reachable from a shell before then.
+which hands the name to `AppRouter.show(_:)`. Stage 5's director calls `show(_:)` itself;
+this hook stays as the quickest way to put a still of one screen in front of a shell.
 
-## Stages 5-7
+## Stage 5 — play a scripted take
+
+```bash
+Tools/Demo/play.sh tour                 # build, install, seed, play, wait for the end
+Tools/Demo/play.sh tour --still         # stop at the script's still() and screenshot it
+Tools/Demo/play.sh tour --no-build      # reuse what is installed
+```
+
+`GFPC_DEMO_SCRIPT` names a script in
+[`GFPriceChecker/Dev/DemoScripts.swift`](../../GFPriceChecker/Dev/DemoScripts.swift), and
+[`DemoDirector`](../../GFPriceChecker/Dev/DemoDirector.swift) plays it against `AppRouter`
+and the view models: no taps, the same take every run. `tour` is the only script so far. It
+visits each tab, a product and the export sheet, and exists to prove the mechanism; the
+website's storyboards are Stage 6.
+
+`play.sh` seeds from the committed dataset in the same launch unless told `--no-seed` or given
+`--dataset`, so every take starts from the same library. Its files go in
+`$GFPC_DEMO_HOME/takes/` (default `~/GFPCDemoData/takes/`).
+
+What a launch does, in order: seed, apply any `GFPC_DEMO_ROUTE`, hold the curtain
+`curtainSeconds` (1.5 s), lift it, play the script, write the done file.
+
+| Variable | What it does |
+| --- | --- |
+| `GFPC_DEMO_SCRIPT` | The script to play. An unknown name is a `fatalError`. |
+| `GFPC_DEMO_DONE_FILE` | Written when the script ends: `done <script>`, or `failed <script>: <error>`. |
+| `GFPC_DEMO_STILL_FILE` | Puts the run in stills mode. `still()` writes it and holds the screen. |
+| `GFPC_DEMO_STILL_MARK` | Which `still(_:)` mark to stop at. Unset means `tile`. |
+
+`play.sh` exits non-zero if the script fails, if the app stops running (a bad seed's
+`fatalError`, say) or if nothing arrives within three minutes. **A failed script still writes the
+done file.** A take that stopped halfway is still a recording, and Stage 6 must not cut and
+publish it as one.
+
+### The curtain is flat, on purpose
+
+A scripted launch shows `DemoCurtainView`, plain `systemBackground`, instead of
+`LaunchScreenView`. The launch screen's gradient, logo and tagline are light but not flat, and
+`launch_frame.py` finds the start of a take by looking for frames with nothing drawn on them.
+The flat curtain matches the system launch screen, so the two read as one still hold and the
+detector ports with its constants unchanged.
+
+Measured on the first `tour` recording (iPhone 17 Pro, iOS 26.5, light appearance): the system
+launch screen and the curtain hold white from 2.96 s to 7.21 s, with a spread of 2–5 across the
+4×4 grid against `FLAT = 12`. TrendFit's `launch_frame.py` cut at 8.30 s, on the first frame of
+the Capture tab. The seed lands inside that hold, which is why the curtain is held by the
+director rather than by a timer. A timer would lift partway through a 28 MB import.
+
+The curtain's 0.6 s fade did not appear in that recording: the frame after the hold is the
+finished screen. Either the recorder dropped it (README Tier 0: the recorder loses frames under
+load) or it never animated. Either way the cut lands on a fully drawn screen. Look again in
+Stage 6 if a take should open on the fade.
+
+The detector depends on light appearance. `record.sh` sets it; a manual recording has to.
+
+### Writing a script
+
+A script is an `async throws` function in `DemoScripts`, listed in `names`. The primitives:
+
+- `push(_:)` calls `AppRouter.show(_:)` and holds `settleSeconds` so the next step runs on a
+  screen that has arrived. To go from one sheet to another, `push(.tab(…))` first. `show`
+  dismisses and presents in one update, and SwiftUI can drop the presentation.
+- `destination(_:)` resolves `DemoRoute`'s names, so `"product"` is the newest product.
+- `screen(_:)` waits for a sheet's view model to register through `.demoRegistered(viewModel)`.
+  `ProductCaptureFlowView`, `ReceiptCaptureView` and `ExportView` carry the hook.
+  `push` forgets earlier registrations, since every one belongs to a sheet `show` just
+  dismissed.
+- `animate`, `wait`, `waitUntil`, and `still(_:)` / `isCapturing(_:)` for stills.
+
+To drive a capture without a camera, enqueue images on `ScannerImageProvider` before the
+scanner opens. The scanner takes them with no UI drawn.
+
+## Stages 6-7
 
 Not built yet. `record.sh`, `launch_frame.py` and `stills.sh` port from
-`../TrendFitApp_App/Tools/Demo/` when the in-app half exists to drive.
+`../TrendFitApp_App/Tools/Demo/`. `record.sh` should wrap `play.sh`'s launch in
+`simctl io recordVideo` rather than repeat it.
