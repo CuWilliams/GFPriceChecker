@@ -87,7 +87,7 @@ Resolved in Stage 1 — see §5. The dispatch went *inside* `DocumentScannerView
 behind each of the three call sites, so none of them changed and device behaviour is
 untouched.
 
-### Blocker 2 — there is no ViewModel for a script to drive — **fixed for the capture flow, Stage 3**
+### Blocker 2 — there is no ViewModel for a script to drive — **fixed for the capture flow (Stage 3) and receipt verification (#90)**
 
 `ViewModels/` held one file, `ReportViewModel.swift`. It is `@Observable` but it is a
 stateless calculator — `selectedYear` plus pure functions over `[ProductPair]`
@@ -109,8 +109,13 @@ Note the second consequence: the capture flow had **zero test coverage** for exa
 reason. The suite (~894 lines across `GFPriceCheckerTests`) covered services and reporting, not
 the 986-line view holding the app's most intricate logic.
 
-`ProductCaptureFlowView` is done — see §5 Stage 3. The other two rows are not, and each wants
-its own pass; Stage 5 needs only one flow registrable to prove the director works.
+`ProductCaptureFlowView` is done — see §5 Stage 3. `ReceiptCaptureView` is done too (#90):
+`ReceiptCaptureViewModel` owns `ReceiptStep` and the 17 properties, takes its OCR and image
+storage through `Dependencies` and its `ModelContext` as a parameter to `save(into:)`, and
+`ReceiptCaptureViewModelTests` runs a whole verification against canned OCR text. The view
+keeps its `@Query` of unverified pairs and hands it to `unverifiedProducts`. `ExportView` is
+still open and wants its own pass; Stage 5 needs only one flow registrable to prove the
+director works.
 
 ### Blocker 3 — navigation is not addressable — **fixed, Stage 4**
 
