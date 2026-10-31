@@ -148,10 +148,7 @@ struct OnboardingView: View {
             Spacer()
 
             // App logo
-            Image("GFPC_Logo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 240, height: 240)
+            AppLogo(size: 240)
                 .accessibilityHidden(true)
 
             // App name
