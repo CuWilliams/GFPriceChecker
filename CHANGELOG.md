@@ -49,6 +49,12 @@ Neither replaces the other.
 
 ## [Unreleased]
 
+---
+
+## [1.0.0-build.11] - 2026-10-31
+
+Tester notes are in [`docs/RELEASE_NOTES_BUILD_11.md`](docs/RELEASE_NOTES_BUILD_11.md).
+
 ### Changed
 - **A new app icon.** Bold "GF" letters over a check, in the existing brand blue, white and sky
   blue: a flat redraw of the wordmark's "GF" and swoosh, which stays as it is on the launch
@@ -71,6 +77,17 @@ Neither replaces the other.
   `normalizedDifferential`. The PDF's table cells format money from `Decimal`, where they went
   through `Double` and could drop a cent (6.255 printed as 6.25). The column list in shared-docs
   §6 is updated to match.
+- **Money rounds half-up everywhere.** `PRODUCT_DEFINITION.md` §3 makes the rule half-up, away
+  from zero, but iOS's currency formatters round half-even, so $0.465 showed as $0.46. GFCore's
+  `.cad` style replaces every currency format in the views and the PDF, and the CSV's number
+  formatter uses `.halfUp`.
+- **The platform-independent core moved into the `GFCore` package** (Track F,
+  [#67](https://github.com/CuWilliams/GFPriceChecker/issues/67)–[#71](https://github.com/CuWilliams/GFPriceChecker/issues/71)).
+  Pricing, reporting, CSV, receipt parsing, OCR price ranking, validation and the backup schema
+  now live in a Foundation-only local Swift package tested with `swift test`, and the duplicated
+  arithmetic in the app is deleted. `VectorTests` runs shared-docs' cross-platform vectors, and
+  `scripts/sync-vectors.sh --check` guards the vendored copy from the pre-push hook. Apart from
+  the changes listed here, the app behaves as before.
 
 ### Fixed
 - **Receipt totals ignored quantity, and missing size data showed as $0.00**
@@ -97,6 +114,17 @@ Neither replaces the other.
   Support opened `mailto:support@gfpricechecker.app`, an address published nowhere else; the
   README listed `gfpricechecker@gmail.com`. Both now use the one address, which the website moves
   to in the same change.
+- **Validation messages named the wrong problem**
+  ([#82](https://github.com/CuWilliams/GFPriceChecker/issues/82)). Every size, length and email
+  failure rode on `AppError.invalidProductName`, so users saw "GF size must be greater than zero
+  cannot be empty" with the suggestion "Please enter a product name." `invalidSize`,
+  `textTooLong` and `invalidEmail` now carry their own messages and recovery suggestions.
+- **Price and size text with trailing junk was accepted**
+  ([#84](https://github.com/CuWilliams/GFPriceChecker/issues/84)). `Decimal(string:)` reads the
+  longest number at the start and ignores the rest, so "12.99abc" validated as 12.99 and "1,5" as
+  1. GFCore's `PlainDecimal` now requires the whole string to be a plain number (optional leading
+  minus, ASCII digits, at most one point); prices allow at most 2 places. Backup decimals use the
+  same rule, and every existing backup string already matches it.
 
 ### Removed
 - **Console logging of user data in release builds**
@@ -268,7 +296,8 @@ Builds 1-7 predate this changelog. Their development is narrated in
 [`docs/DEVELOPMENT_HISTORY.md`](docs/DEVELOPMENT_HISTORY.md), Phases 1-6 and Sessions 1-27, which
 covers the app from its first commit in December 2025 to the public TestFlight beta in January 2026.
 
-[Unreleased]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.10...HEAD
+[Unreleased]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.11...HEAD
+[1.0.0-build.11]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.10...v1.0.0-build.11
 [1.0.0-build.10]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.9...v1.0.0-build.10
 [1.0.0-build.9]: https://github.com/CuWilliams/GFPriceChecker/compare/v1.0.0-build.8...v1.0.0-build.9
 [1.0.0-build.8]: https://github.com/CuWilliams/GFPriceChecker/releases/tag/v1.0.0-build.8
