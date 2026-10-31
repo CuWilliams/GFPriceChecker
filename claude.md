@@ -105,7 +105,8 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 │   │   ├── PriceRanking.swift  # PriceMatch.rankingScore, thresholds, price regex, name heuristic
 │   │   └── TextOrdering.swift  # Reading order for tap-to-select lists and receipt text
 │   ├── Validation/
-│   │   └── Validation.swift    # Input limits and rules, returning ValidationError
+│   │   ├── Validation.swift    # Input limits and rules, returning ValidationError
+│   │   └── PlainDecimal.swift  # The one strict decimal-text format (typed input and backups)
 │   └── Backup/
 │       ├── BackupSchema.swift  # BackupData and its DTOs: the shared JSON contract (§7)
 │       └── BackupFormat.swift  # Coders, version gate, decimals as strings

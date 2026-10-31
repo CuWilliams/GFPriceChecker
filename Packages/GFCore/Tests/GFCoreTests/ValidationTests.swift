@@ -73,6 +73,31 @@ struct ValidationTests {
         #expect(Validation.validatePriceString("-2", fieldName: "GF price") == .failure(.priceNegative))
     }
 
+    /// Text `Decimal(string:)` would half-read: it stops at the first character it can't use,
+    /// so "1,5" became a price of 1 with nothing on screen saying so (#84)
+    @Test(
+        "A price string that isn't wholly a plain number is invalid, naming the field",
+        arguments: ["12.99abc", "1,5", "1,234.56", "1e3", "5 99", "+5", "12.999", "\u{FF15}.99", ".", "-", "-12.99abc"]
+    )
+    func partlyNumericPriceStringIsInvalid(input: String) {
+        #expect(
+            Validation.validatePriceString(input, fieldName: "GF price")
+                == .failure(.invalidPrice(field: "GF price"))
+        )
+    }
+
+    @Test("A price string needs a digit on only one side of the point",
+          arguments: [(".5", "0.5"), ("5.", "5"), ("6.90", "6.9")])
+    func priceStringWithBarePointIsAccepted(input: String, expected: String) {
+        #expect(Validation.validatePriceString(input) == .success(Self.decimal(expected)))
+    }
+
+    @Test("A minus on an otherwise plain price string reports the price as negative")
+    func negativePlainPriceStringIsNegative() {
+        #expect(Validation.validatePriceString("-0.50", fieldName: "GF price") == .failure(.priceNegative))
+        #expect(Validation.validatePriceString("-.5", fieldName: "GF price") == .failure(.priceNegative))
+    }
+
     // MARK: - Product name
 
     @Test("A product name is returned trimmed")
@@ -165,6 +190,25 @@ struct ValidationTests {
             Validation.validateSizeValue("100000.1", fieldName: "GF size")
                 == .failure(.sizeTooLarge(field: "GF size", max: 100_000))
         )
+    }
+
+    @Test(
+        "A size value that isn't wholly a plain number is not a number",
+        arguments: ["400g", "12.5abc", "1,5", "1e3", "5 99", "+5", "\u{FF15}", ".", "-"]
+    )
+    func partlyNumericSizeValueIsNotANumber(input: String) {
+        #expect(Validation.validateSizeValue(input, fieldName: "GF size") == .failure(.sizeNotANumber(field: "GF size")))
+    }
+
+    @Test("A size value takes a bare point and any number of decimal places",
+          arguments: [(".5", "0.5"), ("5.", "5"), ("1.2345", "1.2345")])
+    func sizeValuePlainFormsAreAccepted(input: String, expected: String) {
+        #expect(Validation.validateSizeValue(input) == .success(Self.decimal(expected)))
+    }
+
+    @Test("A minus on an otherwise plain size value reports it as not positive")
+    func negativePlainSizeValueIsNotPositive() {
+        #expect(Validation.validateSizeValue("-.5", fieldName: "GF size") == .failure(.sizeNotPositive(field: "GF size")))
     }
 
     // MARK: - Quantity

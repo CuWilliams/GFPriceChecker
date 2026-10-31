@@ -65,8 +65,12 @@ public enum BackupFormat {
         "\(decimal)"
     }
 
-    /// A decimal read from a backup string, or `nil` if it isn't one
+    /// A decimal read from a backup string, or `nil` if it isn't wholly a plain decimal
+    ///
+    /// Strict, and not trimmed: a backup is machine-written, and `string(from:)` has only ever
+    /// written `-`, digits and a `.`. Every backup known to exist reads the same as it did
+    /// under `Decimal(string:)`, including both `Tools/Demo` datasets.
     public static func decimal(from string: String) -> Decimal? {
-        Decimal(string: string)
+        PlainDecimal(string)?.value
     }
 }
