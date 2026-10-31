@@ -110,42 +110,15 @@ struct SpecConformanceTests {
 
     // MARK: - Missing Size Data
 
-    @Test("No size data anywhere means no normalized total, not zero")
-    func normalizedTotalIsNilWithoutSizeData() {
-        let result = ReportViewModel.calculateTotalNormalizedDifferential(
-            for: [makePair(quantity: 2, withSizeData: false), makePair(quantity: 1, withSizeData: false)]
-        )
-        #expect(result.total == nil)
-        #expect(result.excludedCount == 2)
-    }
-
-    @Test("An empty product list has no normalized total")
-    func normalizedTotalIsNilWhenEmpty() {
-        let result = ReportViewModel.calculateTotalNormalizedDifferential(for: [])
-        #expect(result.total == nil)
-        #expect(result.excludedCount == 0)
-    }
-
-    /// The other half of the rule: one sized pair is enough for a real total, and the
-    /// sizeless one is excluded rather than counted as zero.
-    @Test("A partly sized list totals only the sized pairs")
-    func normalizedTotalCountsSizedPairsOnly() {
-        // 400 g at $7.99 vs 200 g at $3.49 → (0.019975 − 0.01745) × 400 = $1.01 per unit
-        let result = ReportViewModel.calculateTotalNormalizedDifferential(
-            for: [makePair(quantity: 2), makePair(quantity: 1, withSizeData: false)]
-        )
-        #expect(result.total == Decimal(string: "2.02")!)
-        #expect(result.excludedCount == 1)
-    }
+    // The nil-not-zero totals themselves are pinned in GFCore by `ReportCalculatorTests`.
+    // These check the app's surfaces keep the nil through to what the user sees.
 
     /// The dashboard's average card turned the view model's `nil` into $0.00 (#75), which
     /// reads as "gluten-free costs nothing extra" for a year with no size data.
     @Test("The dashboard shows no average, not $0.00, when nothing has size data")
     func dashboardAverageIsNoValueWithoutSizeData() {
-        let viewModel = ReportViewModel()
-        let average = viewModel.calculateAverageNormalizedDifferential(
-            for: [makePair(quantity: 2, withSizeData: false)]
-        )
+        let average = ReportCalculator.totals([makePair(quantity: 2, withSizeData: false).reportRow])
+            .averageNormalizedDifferential
         #expect(average == nil)
         #expect(SummaryDashboardView.displayAmount(average) == "—")
         #expect(SummaryDashboardView.displayAmount(Decimal(string: "1.01")!)
@@ -153,9 +126,8 @@ struct SpecConformanceTests {
     }
 
     /// The PDF used to carry its own copy of the sum, which reported $0.00. Read the text
-    /// back out to check the cover and the receipt and unverified subtotals all show
-    /// "no value". (`drawGrandTotals` is reachable only from `drawTransactionPages`, which
-    /// nothing calls, so there is no grand-total line to check.)
+    /// back out to check the cover, the receipt and unverified subtotals and the grand
+    /// total all show "no value".
     @Test("The PDF shows no value, not $0.00, when nothing has size data")
     func pdfShowsNoValueWithoutSizeData() async throws {
         let container = try makeContainer()
@@ -192,5 +164,6 @@ struct SpecConformanceTests {
         #expect(text.components(separatedBy: "Size-Adjusted Subtotal: —").count - 1 == 2)
         #expect(!text.contains("Size-Adjusted Subtotal: CA$0.00"))
         #expect(!text.contains("Size-Adjusted Subtotal: $0.00"))
+        #expect(text.contains("Size-Adjusted Differential Total: —"))
     }
 }

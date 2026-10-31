@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import GFCore
 import SwiftData
 import Charts
 
@@ -37,19 +38,14 @@ struct SummaryDashboardView: View {
 
     // MARK: - Computed Properties
 
-    /// Products filtered by selected year
-    private var yearProducts: [ProductPair] {
-        viewModel.filterByYear(products: allProducts)
+    /// Products reported in the selected year
+    private var yearRows: [ReportRow] {
+        viewModel.rowsForSelectedYear(from: allProducts)
     }
 
-    /// Total price differential for selected year
-    private var totalDifferential: Decimal {
-        viewModel.calculateTotalDifferential(for: yearProducts)
-    }
-
-    /// Total normalized (size-adjusted) differential and excluded count for selected year
-    private var normalizedResult: (total: Decimal?, excludedCount: Int) {
-        ReportViewModel.calculateTotalNormalizedDifferential(for: yearProducts)
+    /// Totals, averages and verification counts for the selected year
+    private var totals: ReportTotals {
+        ReportCalculator.totals(yearRows)
     }
 
     /// Text for an amount that may not exist: "—" for `nil`, never $0.00
@@ -136,7 +132,7 @@ struct SummaryDashboardView: View {
                         .accessibilityLabel("Size-adjusted differential total")
 
                     // No size data anywhere means no value, not $0.00
-                    if let normalizedTotal = normalizedResult.total {
+                    if let normalizedTotal = totals.totalNormalizedDifferential {
                         Text(normalizedTotal, format: .currency(code: "CAD"))
                             .font(.system(size: 48, weight: .bold, design: .rounded))
                             .foregroundStyle(normalizedTotal > 0 ? .green : .secondary)
@@ -160,25 +156,25 @@ struct SummaryDashboardView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Text(totalDifferential, format: .currency(code: "CAD"))
+                    Text(totals.totalDifferential, format: .currency(code: "CAD"))
                         .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundStyle(totalDifferential > 0 ? .blue : .secondary)
-                        .accessibilityLabel("Price differential for reference: \(totalDifferential.formatted(.currency(code: "CAD")))")
+                        .foregroundStyle(totals.totalDifferential > 0 ? .blue : .secondary)
+                        .accessibilityLabel("Price differential for reference: \(totals.totalDifferential.formatted(.currency(code: "CAD")))")
                 }
 
                 // Excluded products note
-                if normalizedResult.excludedCount > 0 {
-                    Text("\(normalizedResult.excludedCount) product\(normalizedResult.excludedCount == 1 ? "" : "s") without size data excluded from adjusted total")
+                if totals.normalizedExcludedCount > 0 {
+                    Text("\(totals.normalizedExcludedCount) product\(totals.normalizedExcludedCount == 1 ? "" : "s") without size data excluded from adjusted total")
                         .font(.caption2)
                         .foregroundStyle(.orange)
                         .multilineTextAlignment(.center)
-                        .accessibilityLabel("\(normalizedResult.excludedCount) products without size data are excluded from the adjusted total")
+                        .accessibilityLabel("\(totals.normalizedExcludedCount) products without size data are excluded from the adjusted total")
                 }
 
                 // `String(...)`, not the bare Int: a literal passed to `Text` is a
                 // `LocalizedStringKey`, and interpolating an `Int` into one formats it with
                 // the locale's grouping separator — so the year rendered as "2,026".
-                Text(yearProducts.isEmpty ? "No products for \(String(viewModel.selectedYear))" : "\(yearProducts.count) product\(yearProducts.count == 1 ? "" : "s") tracked")
+                Text(yearRows.isEmpty ? "No products for \(String(viewModel.selectedYear))" : "\(yearRows.count) product\(yearRows.count == 1 ? "" : "s") tracked")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -202,14 +198,14 @@ struct SummaryDashboardView: View {
                 // Total Products Card
                 StatisticCard(
                     title: "Products",
-                    value: "\(yearProducts.count)",
+                    value: "\(yearRows.count)",
                     icon: "basket.fill",
                     color: .blue
                 )
-                .accessibilityLabel("Products: \(yearProducts.count)")
+                .accessibilityLabel("Products: \(yearRows.count)")
 
                 // Average Size-Adjusted Differential Card (primary)
-                let avgNormalized = viewModel.calculateAverageNormalizedDifferential(for: yearProducts)
+                let avgNormalized = totals.averageNormalizedDifferential
                 StatisticCardDecimal(
                     title: "Avg. Size-Adj. Diff",
                     value: avgNormalized,
@@ -224,31 +220,30 @@ struct SummaryDashboardView: View {
                 // Average Price Differential Card
                 StatisticCardDecimal(
                     title: "Avg. Price Diff",
-                    value: viewModel.calculateAverageDifferential(for: yearProducts),
+                    value: totals.averageDifferential,
                     icon: "chart.line.uptrend.xyaxis",
                     color: .orange
                 )
-                .accessibilityLabel("Average price differential: \(viewModel.calculateAverageDifferential(for: yearProducts).formatted(.currency(code: "CAD")))")
+                .accessibilityLabel("Average price differential: \(totals.averageDifferential.formatted(.currency(code: "CAD")))")
                 .accessibilityHint("Average price differential per unit purchased")
 
                 // Verified Products Card
-                let stats = viewModel.verificationStats(products: yearProducts)
                 StatisticCard(
                     title: "Verified",
-                    value: "\(stats.verified) of \(yearProducts.count)",
+                    value: "\(totals.verifiedCount) of \(yearRows.count)",
                     icon: "checkmark.seal.fill",
                     color: .green
                 )
-                .accessibilityLabel("Verified: \(stats.verified) of \(yearProducts.count) products")
+                .accessibilityLabel("Verified: \(totals.verifiedCount) of \(yearRows.count) products")
 
                 // Unverified Products Card
                 StatisticCard(
                     title: "Unverified",
-                    value: "\(stats.unverified)",
+                    value: "\(totals.unverifiedCount)",
                     icon: "exclamationmark.triangle.fill",
-                    color: stats.unverified > 0 ? .yellow : .secondary
+                    color: totals.unverifiedCount > 0 ? .yellow : .secondary
                 )
-                .accessibilityLabel("Unverified: \(stats.unverified) products")
+                .accessibilityLabel("Unverified: \(totals.unverifiedCount) products")
             }
         }
     }
@@ -261,7 +256,7 @@ struct SummaryDashboardView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if yearProducts.isEmpty {
+            if yearRows.isEmpty {
                 emptyChartPlaceholder(message: "No monthly data for \(viewModel.selectedYear)")
             } else {
                 monthlyChart
@@ -270,16 +265,18 @@ struct SummaryDashboardView: View {
     }
 
     private var monthlyChart: some View {
-        let priceSummary = viewModel.monthlySummary(products: yearProducts)
-        let normalizedSummary = viewModel.monthlyNormalizedSummary(products: yearProducts)
+        let months = viewModel.calculator.byMonth(yearRows)
 
-        // Build flat array for dual-series chart
+        // Build flat array for dual-series chart. A month with no size data has no
+        // size-adjusted bar rather than a $0 one.
         var chartItems: [MonthlyChartItem] = []
-        for item in priceSummary {
-            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Package Price Diff"))
+        for month in months {
+            chartItems.append(MonthlyChartItem(month: month.key, amount: month.totals.totalDifferential, series: "Package Price Diff"))
         }
-        for item in normalizedSummary {
-            chartItems.append(MonthlyChartItem(month: item.month, amount: item.total, series: "Size-Adjusted Diff"))
+        for month in months {
+            if let normTotal = month.totals.totalNormalizedDifferential {
+                chartItems.append(MonthlyChartItem(month: month.key, amount: normTotal, series: "Size-Adjusted Diff"))
+            }
         }
 
         return Chart(chartItems) { item in
@@ -332,7 +329,7 @@ struct SummaryDashboardView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if yearProducts.isEmpty {
+            if yearRows.isEmpty {
                 emptyChartPlaceholder(message: "No category data for \(viewModel.selectedYear)")
             } else {
                 categoryChart
@@ -341,15 +338,14 @@ struct SummaryDashboardView: View {
     }
 
     private var categoryChart: some View {
-        let topCategories = viewModel.topCategories(products: yearProducts, limit: 5)
-        let normalizedByCategory = viewModel.groupByCategoryNormalized(products: yearProducts)
+        let topCategories = ReportCalculator.byCategory(yearRows).prefix(5)
 
         // Build flat array for dual-series chart (top 5 categories by price differential)
         var chartItems: [CategoryChartItem] = []
         for item in topCategories {
-            chartItems.append(CategoryChartItem(category: item.category, amount: item.total, series: "Package Price Diff"))
-            if let normTotal = normalizedByCategory[item.category] {
-                chartItems.append(CategoryChartItem(category: item.category, amount: normTotal, series: "Size-Adjusted Diff"))
+            chartItems.append(CategoryChartItem(category: item.key, amount: item.totals.totalDifferential, series: "Package Price Diff"))
+            if let normTotal = item.totals.totalNormalizedDifferential {
+                chartItems.append(CategoryChartItem(category: item.key, amount: normTotal, series: "Size-Adjusted Diff"))
             }
         }
 

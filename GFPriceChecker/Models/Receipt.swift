@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import SwiftData
 import UIKit
 import SwiftUI
@@ -68,11 +69,9 @@ final class Receipt {
     ///
     /// Extended, so a pair bought in multiples contributes its whole purchase amount — the
     /// per-unit `differential` would under-report any receipt with a quantity above 1.
-    /// - Returns: Sum of all product pairs' `extendedDifferential`
+    /// - Returns: Sum of all product pairs' `extendedDifferential`, from `ReportCalculator`
     var totalDifferential: Decimal {
-        productPairs.reduce(Decimal.zero) { sum, pair in
-            sum + pair.extendedDifferential
-        }
+        ReportCalculator.totals(productPairs.map(\.reportRow)).totalDifferential
     }
 
     // MARK: - Initialization

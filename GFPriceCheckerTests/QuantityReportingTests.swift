@@ -21,9 +21,10 @@ import Testing
 /// who bought three loaves sees one loaf's premium in their records.
 ///
 /// So these tests deliberately use a quantity of 3 and assert exact totals rather than
-/// "greater than zero". Every aggregation the dashboard and the exports depend on is
-/// covered, because the failure mode is a single overlooked `reduce`. The per-pair
-/// arithmetic itself is tested in GFCore, by `PricingInputsTests`.
+/// "greater than zero". The arithmetic itself lives in GFCore and is tested there:
+/// `PricingInputsTests` for one pair, `ReportCalculatorTests` for the totals and groupings,
+/// and `CSVExporterTests` for the CSV columns. What stays here is the app's edge — the
+/// services handing `ProductPair`s to the core, and the PDF's parallel column arrays.
 ///
 /// Run serially: the CSV and PDF services are `@MainActor` singletons that write files
 /// into the shared temporary directory under a date-derived filename.
@@ -65,7 +66,7 @@ struct QuantityReportingTests {
     ///   - quantity: Units purchased.
     ///   - withSizeData: When false the size values are omitted, so `normalizedDifferential`
     ///     is nil and the pair is excluded from every normalized aggregation.
-    ///   - category: Category used by the grouping tests.
+    ///   - category: Category recorded on the pair.
     ///   - createdDate: Drives `reportingDate` when there is no receipt.
     private func makePair(
         quantity: Int,
@@ -89,153 +90,13 @@ struct QuantityReportingTests {
         )
     }
 
-    /// A date in a fixed month, so the monthly grouping tests are not sensitive to today.
+    /// A fixed date, so the PDF's tax year is not sensitive to today.
     private func date(year: Int, month: Int, day: Int) throws -> Date {
         let components = DateComponents(year: year, month: month, day: day, hour: 12)
         return try #require(Calendar.current.date(from: components))
     }
 
-    /// First instant of the month containing `date`, which is how `groupByMonth` keys its
-    /// dictionary.
-    private func monthStart(of date: Date) throws -> Date {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.year, .month], from: date)
-        return try #require(calendar.date(from: components))
-    }
-
-    // MARK: - ReportViewModel Aggregations
-
-    @Test("Dashboard totals sum extended differentials")
-    func reportTotalsUseExtendedAmounts() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-        let viewModel = ReportViewModel()
-
-        let pair = makePair(quantity: 3)
-        context.insert(pair)
-
-        #expect(viewModel.calculateTotalDifferential(for: [pair]) == Decimal(string: "13.50")!)
-
-        let normalized = ReportViewModel.calculateTotalNormalizedDifferential(for: [pair])
-        #expect(normalized.total == Decimal(string: "3.03")!)
-        #expect(normalized.excludedCount == 0)
-    }
-
-    @Test("Averages divide by units purchased, not by pair count")
-    func averagesDivideByUnitCount() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-        let viewModel = ReportViewModel()
-
-        // Three pairs, nine units, every unit carrying the same $4.50 premium. The average
-        // premium per item is therefore $4.50. Dividing by pair count instead would give
-        // $13.50 — the discrepancy is what this test exists to catch.
-        let pairs = [
-            makePair(quantity: 3),
-            makePair(quantity: 1),
-            makePair(quantity: 5, withSizeData: false)
-        ]
-        pairs.forEach { context.insert($0) }
-
-        #expect(viewModel.calculateTotalDifferential(for: pairs) == Decimal(string: "40.50")!)
-        #expect(viewModel.calculateAverageDifferential(for: pairs) == Decimal(string: "4.50")!)
-
-        // The sizeless pair contributes to neither the normalized total nor its denominator,
-        // so the normalized average stays $1.01 across the four eligible units.
-        let normalized = ReportViewModel.calculateTotalNormalizedDifferential(for: pairs)
-        #expect(normalized.total == Decimal(string: "4.04")!)
-        #expect(normalized.excludedCount == 1)
-        #expect(viewModel.calculateAverageNormalizedDifferential(for: pairs) == Self.perUnitNormalized)
-    }
-
-    @Test("Category grouping reflects quantity")
-    func categoryGroupingUsesExtendedAmounts() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-        let viewModel = ReportViewModel()
-
-        let bread = makePair(quantity: 3, category: "Bread")
-        let pasta = makePair(quantity: 1, category: "Pasta")
-        context.insert(bread)
-        context.insert(pasta)
-
-        let totals = viewModel.groupByCategory(products: [bread, pasta])
-        #expect(totals["Bread"] == Decimal(string: "13.50")!)
-        #expect(totals["Pasta"] == Decimal(string: "4.50")!)
-
-        let normalizedTotals = viewModel.groupByCategoryNormalized(products: [bread, pasta])
-        #expect(normalizedTotals["Bread"] == Decimal(string: "3.03")!)
-        #expect(normalizedTotals["Pasta"] == Self.perUnitNormalized)
-    }
-
-    @Test("Monthly grouping reflects quantity")
-    func monthlyGroupingUsesExtendedAmounts() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-        let viewModel = ReportViewModel()
-
-        let march = try date(year: 2025, month: 3, day: 10)
-        let april = try date(year: 2025, month: 4, day: 2)
-
-        let marchKey = try monthStart(of: march)
-        let aprilKey = try monthStart(of: april)
-
-        let marchPair = makePair(quantity: 3, createdDate: march)
-        let aprilPair = makePair(quantity: 1, createdDate: april)
-        context.insert(marchPair)
-        context.insert(aprilPair)
-
-        let totals = viewModel.groupByMonth(products: [marchPair, aprilPair])
-        #expect(totals[marchKey] == Decimal(string: "13.50")!)
-        #expect(totals[aprilKey] == Decimal(string: "4.50")!)
-
-        let normalizedTotals = viewModel.groupByMonthNormalized(products: [marchPair, aprilPair])
-        #expect(normalizedTotals[marchKey] == Decimal(string: "3.03")!)
-        #expect(normalizedTotals[aprilKey] == Self.perUnitNormalized)
-    }
-
     // MARK: - CSV Export
-
-    @Test("CSV carries a Qty column and extended differentials that reconcile")
-    func csvExportIncludesQuantityAndExtendedColumns() async throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-
-        let pair = makePair(quantity: 3)
-        context.insert(pair)
-
-        let url = try await CSVExportService.shared.generateCSV(products: [pair])
-        defer { try? FileManager.default.removeItem(at: url) }
-
-        let contents = try String(contentsOf: url, encoding: .utf8)
-            .replacingOccurrences(of: "\u{FEFF}", with: "") // strip the Excel BOM
-        let lines = contents.components(separatedBy: "\n").filter { !$0.isEmpty }
-        #expect(lines.count == 2)
-
-        // `buildCSVHeader` and `buildCSVRow` are positional arrays kept in sync by hand.
-        // A field added to one and not the other shifts every later column silently, so
-        // check the counts match before trusting any lookup by name.
-        let headers = try #require(lines.first).components(separatedBy: ",")
-        let fields = try #require(lines.last).components(separatedBy: ",")
-        #expect(headers.count == fields.count)
-
-        func field(_ column: String) throws -> String {
-            let index = try #require(headers.firstIndex(of: column))
-            return fields[index]
-        }
-
-        let quantity = try field("Quantity")
-        let packageDiff = try field("Package Price Differential")
-        let extendedPackageDiff = try field("Extended Package Differential")
-        let sizeAdjustedDiff = try field("Size-Adjusted Differential")
-        let extendedSizeAdjustedDiff = try field("Extended Size-Adjusted Differential")
-
-        #expect(quantity == "3")
-        #expect(packageDiff == "4.50")
-        #expect(extendedPackageDiff == "13.50")
-        #expect(sizeAdjustedDiff == "1.01")
-        #expect(extendedSizeAdjustedDiff == "3.03")
-    }
 
     @Test("CSV summary total is the extended amount")
     func csvSummaryUsesExtendedAmounts() throws {
@@ -247,7 +108,9 @@ struct QuantityReportingTests {
 
         let summary = CSVExportService.shared.calculateExportSummary(products: [pair])
         #expect(summary.count == 1)
+        #expect(summary.unitCount == 3)
         #expect(summary.totalDifferential == Decimal(string: "13.50")!)
+        #expect(summary.totalNormalizedDifferential == Decimal(string: "3.03")!)
     }
 
     // MARK: - PDF Export

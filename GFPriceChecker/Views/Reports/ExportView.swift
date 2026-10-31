@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import GFCore
 import SwiftData
 import UniformTypeIdentifiers
 
@@ -76,46 +77,41 @@ struct ExportView: View {
 
     // MARK: - Computed Properties
 
+    /// Buckets years in the device's calendar and time zone, as the dashboard does
+    private let calculator = ReportCalculator(calendar: .current)
+
     /// Current date range based on preset or custom selection
     private var currentDateRange: ClosedRange<Date>? {
         if useCustomRange {
             return customStartDate...customEndDate
         } else {
-            return selectedPreset.dateRange()
+            return calculator.dateRange(for: selectedPreset, now: Date())
         }
     }
 
-    /// Products filtered by current date range
-    private var filteredProducts: [ProductPair] {
-        guard let range = currentDateRange else { return allProducts }
-
-        return allProducts.filter { product in
-            range.contains(product.reportingDate)
-        }
+    /// Rows within the current date range: what the CSV will contain
+    private var filteredRows: [ReportRow] {
+        ReportCalculator.rows(allProducts.map(\.reportRow), in: currentDateRange)
     }
 
-    /// Preview of first 10 products
-    private var previewProducts: [ProductPair] {
-        Array(filteredProducts.sorted { $0.reportingDate < $1.reportingDate }.prefix(10))
+    /// Rows reported in the PDF's year: what the PDF will contain
+    private var pdfYearRows: [ReportRow] {
+        calculator.rows(allProducts.map(\.reportRow), inYear: pdfYear)
     }
 
-    /// Export summary statistics
-    private var exportSummary: (count: Int, normalizedDifferential: Decimal?, packagePriceDifferential: Decimal) {
-        let productsToExport: [ProductPair]
+    /// Preview of first 10 rows
+    private var previewRows: [ReportRow] {
+        Array(filteredRows.sorted { $0.reportingDate < $1.reportingDate }.prefix(10))
+    }
 
+    /// Totals for the selected export
+    private var exportSummary: ReportTotals {
         switch exportFormat {
         case .csv:
-            productsToExport = filteredProducts
+            ReportCalculator.totals(filteredRows)
         case .pdf:
-            let calendar = Calendar.current
-            productsToExport = allProducts.filter { product in
-                calendar.component(.year, from: product.reportingDate) == pdfYear
-            }
+            ReportCalculator.totals(pdfYearRows)
         }
-
-        let packageTotal = productsToExport.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
-        let normalizedTotal = ReportViewModel.calculateTotalNormalizedDifferential(for: productsToExport).total
-        return (count: productsToExport.count, normalizedDifferential: normalizedTotal, packagePriceDifferential: packageTotal)
     }
 
     // MARK: - Body
@@ -261,9 +257,7 @@ struct ExportView: View {
 
     /// Available years from product data
     private var availableYears: [Int] {
-        let calendar = Calendar.current
-        let years = Set(allProducts.map { calendar.component(.year, from: $0.reportingDate) })
-        return years.sorted(by: >)
+        calculator.availableYears(allProducts.map(\.reportRow))
     }
 
     // MARK: - Date Range Section
@@ -329,7 +323,7 @@ struct ExportView: View {
 
                 // Primary: Size-Adjusted Differential Total
                 VStack(spacing: 4) {
-                    if let normalizedTotal = exportSummary.normalizedDifferential {
+                    if let normalizedTotal = exportSummary.totalNormalizedDifferential {
                         Text(normalizedTotal, format: .currency(code: "CAD"))
                             .font(.title2)
                             .fontWeight(.bold)
@@ -351,7 +345,7 @@ struct ExportView: View {
 
                 // Secondary: Package Price Differential Total
                 VStack(spacing: 4) {
-                    Text(exportSummary.packagePriceDifferential, format: .currency(code: "CAD"))
+                    Text(exportSummary.totalDifferential, format: .currency(code: "CAD"))
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.blue)
@@ -376,12 +370,12 @@ struct ExportView: View {
                 Text("Preview")
                     .font(.headline)
                 Spacer()
-                Text("First \(min(10, previewProducts.count)) rows")
+                Text("First \(min(10, previewRows.count)) rows")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            if previewProducts.isEmpty {
+            if previewRows.isEmpty {
                 emptyPreviewPlaceholder
             } else {
                 csvPreview
@@ -409,7 +403,7 @@ struct ExportView: View {
     /// - Note: Deliberately unbounded in height. A `.frame(maxHeight: 200)` used to cap this,
     ///   but the box only scrolls horizontally, so the eleven rows it holds overflowed a
     ///   200pt window with no way to reach what spilled: the header was sliced through the
-    ///   middle at the top edge and "... and N more rows" at the bottom. `previewProducts`
+    ///   middle at the top edge and "... and N more rows" at the bottom. `previewRows`
     ///   already bounds the content at ten rows, and the enclosing `ScrollView` scrolls, so
     ///   the cap bought nothing and cost the two lines that frame what the rows mean. Height
     ///   has to stay free for Dynamic Type as well — any fixed cap re-clips at larger sizes.
@@ -424,12 +418,12 @@ struct ExportView: View {
                 Divider()
 
                 // Rows
-                ForEach(previewProducts, id: \.id) { product in
-                    csvPreviewRow(for: product)
+                ForEach(previewRows, id: \.id) { row in
+                    csvPreviewRow(for: row)
                 }
 
-                if filteredProducts.count > 10 {
-                    Text("... and \(filteredProducts.count - 10) more rows")
+                if filteredRows.count > 10 {
+                    Text("... and \(filteredRows.count - 10) more rows")
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .padding(.top, 4)
@@ -442,25 +436,25 @@ struct ExportView: View {
         .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
     }
 
-    private func csvPreviewRow(for product: ProductPair) -> some View {
+    private func csvPreviewRow(for row: ReportRow) -> some View {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
 
-        let row = [
-            dateFormatter.string(from: product.reportingDate),
-            String(product.quantity),
-            product.gfProductName,
-            String(describing: product.gfPrice),
-            product.nonGFProductName,
-            String(describing: product.nonGFPrice),
-            String(describing: product.differential),
-            String(describing: product.extendedDifferential),
-            product.category ?? "Uncategorized",
-            product.receipt?.storeName ?? "",
-            product.verified ? "Yes" : "No"
+        let line = [
+            dateFormatter.string(from: row.reportingDate),
+            String(row.pricing.quantity),
+            row.gfProductName,
+            String(describing: row.pricing.gfPrice),
+            row.nonGFProductName,
+            String(describing: row.pricing.nonGFPrice),
+            String(describing: row.pricing.differential),
+            String(describing: row.pricing.extendedDifferential),
+            row.categoryName,
+            row.storeName ?? "",
+            row.verified ? "Yes" : "No"
         ].joined(separator: ",")
 
-        return Text(row)
+        return Text(line)
             .font(.system(.caption2, design: .monospaced))
             .lineLimit(1)
     }
@@ -578,14 +572,7 @@ struct ExportView: View {
     /// Check for unverified products and show warning if found
     /// Returns true if warning was shown (export should be deferred), false if export should proceed
     private func checkForUnverifiedProducts() async -> Bool {
-        // Filter products by PDF year
-        let calendar = Calendar.current
-        let yearProducts = allProducts.filter { product in
-            calendar.component(.year, from: product.reportingDate) == pdfYear
-        }
-
-        // Check for unverified products
-        let unverifiedCount = yearProducts.filter { !$0.verified }.count
+        let unverifiedCount = ReportCalculator.totals(pdfYearRows).unverifiedCount
         if unverifiedCount > 0 {
             await MainActor.run {
                 unverifiedProductCount = unverifiedCount
@@ -682,16 +669,9 @@ struct ExportView: View {
             )
 
         case .pdf:
-            // Filter products by PDF year
-            let calendar = Calendar.current
-            let yearProducts = allProducts.filter { product in
-                calendar.component(.year, from: product.reportingDate) == pdfYear
-            }
-
-            // Filter receipts by PDF year
-            let yearReceipts = allReceipts.filter { receipt in
-                calendar.component(.year, from: receipt.purchaseDate) == pdfYear
-            }
+            // Filter products and receipts by PDF year
+            let yearProducts = allProducts.filter { calculator.isDate($0.reportingDate, inYear: pdfYear) }
+            let yearReceipts = allReceipts.filter { calculator.isDate($0.purchaseDate, inYear: pdfYear) }
 
             // Generate PDF (unverified products check already done upstream)
             return try await PDFGeneratorService.shared.generatePDF(

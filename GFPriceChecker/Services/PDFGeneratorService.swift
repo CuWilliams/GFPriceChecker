@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import UIKit
 import PDFKit
 
@@ -102,8 +103,8 @@ final class PDFGeneratorService {
         // Generate PDF data
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect, format: format)
 
-        let simpleTotalDiff = calculateTotalDifferential(products: sortedProducts)
-        let normalizedResult = ReportViewModel.calculateTotalNormalizedDifferential(for: sortedProducts)
+        // One set of totals for the cover and the grand-total line, so the two agree
+        let totals = ReportCalculator.totals(sortedProducts.map(\.reportRow))
 
         let data = renderer.pdfData { context in
             // Page 1: Cover Page
@@ -114,9 +115,9 @@ final class PDFGeneratorService {
                 contentRect: contentRect,
                 year: year,
                 userName: userName,
-                totalDifferential: simpleTotalDiff,
-                normalizedTotal: normalizedResult.total,
-                normalizedExcluded: normalizedResult.excludedCount,
+                totalDifferential: totals.totalDifferential,
+                normalizedTotal: totals.totalNormalizedDifferential,
+                normalizedExcluded: totals.normalizedExcludedCount,
                 productCount: sortedProducts.count,
                 receiptCount: receiptsWithProducts.count
             )
@@ -144,6 +145,7 @@ final class PDFGeneratorService {
                 receiptsWithProducts: receiptsWithProducts,
                 productsByReceipt: productsByReceipt,
                 receiptImages: receiptImages,
+                grandTotals: totals,
                 startingPageNumber: 3
             )
         }
@@ -415,22 +417,8 @@ final class PDFGeneratorService {
         heading.draw(at: CGPoint(x: contentRect.minX, y: y), withAttributes: headingAttrs)
         y += 30
 
-        // Group by category — both simple and normalized differentials
-        var categoryTotals: [String: Decimal] = [:]
-        var categoryNormalized: [String: Decimal] = [:]
-        var categoryCounts: [String: Int] = [:]
-
-        for product in products {
-            let category = product.category ?? "Uncategorized"
-            categoryTotals[category, default: 0] += product.extendedDifferential
-            categoryCounts[category, default: 0] += 1
-            if let nd = product.extendedNormalizedDifferential {
-                categoryNormalized[category, default: 0] += nd
-            }
-        }
-
-        // Sort by price differential (descending)
-        let sortedCategories = categoryTotals.sorted { $0.value > $1.value }
+        // Sorted by price differential (descending)
+        let categories = ReportCalculator.byCategory(products.map(\.reportRow))
 
         // Draw table with both metrics
         y = drawTable(
@@ -438,13 +426,12 @@ final class PDFGeneratorService {
             contentRect: contentRect,
             yPosition: y,
             headers: ["Category", "Count", "Size-Adj. Diff", "Package Price Diff"],
-            rows: sortedCategories.map { category, total in
-                let adjTotal = categoryNormalized[category]?.formatted(.currency(code: "CAD")) ?? "—"
-                return [
-                    category,
-                    String(categoryCounts[category] ?? 0),
-                    adjTotal,
-                    total.formatted(.currency(code: "CAD"))
+            rows: categories.map { group in
+                [
+                    group.key,
+                    String(group.totals.count),
+                    group.totals.totalNormalizedDifferential?.formatted(.currency(code: "CAD")) ?? "—",
+                    group.totals.totalDifferential.formatted(.currency(code: "CAD"))
                 ]
             },
             columnWidths: [160, 60, 110, 110]
@@ -470,25 +457,8 @@ final class PDFGeneratorService {
         heading.draw(at: CGPoint(x: contentRect.minX, y: y), withAttributes: headingAttrs)
         y += 30
 
-        // Group by month — both simple and normalized differentials
-        let calendar = Calendar.current
-        var monthlyTotals: [Date: Decimal] = [:]
-        var monthlyNormalized: [Date: Decimal] = [:]
-        var monthlyCounts: [Date: Int] = [:]
-
-        for product in products {
-            let components = calendar.dateComponents([.year, .month], from: product.reportingDate)
-            guard let monthStart = calendar.date(from: components) else { continue }
-
-            monthlyTotals[monthStart, default: 0] += product.extendedDifferential
-            monthlyCounts[monthStart, default: 0] += 1
-            if let nd = product.extendedNormalizedDifferential {
-                monthlyNormalized[monthStart, default: 0] += nd
-            }
-        }
-
-        // Sort by date
-        let sortedMonths = monthlyTotals.sorted { $0.key < $1.key }
+        // Sorted by date, in the device's calendar like the dashboard
+        let months = ReportCalculator(calendar: .current).byMonth(products.map(\.reportRow))
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MMMM yyyy"
@@ -499,13 +469,12 @@ final class PDFGeneratorService {
             contentRect: contentRect,
             yPosition: y,
             headers: ["Month", "Count", "Size-Adj. Diff", "Package Price Diff"],
-            rows: sortedMonths.map { month, total in
-                let adjTotal = monthlyNormalized[month]?.formatted(.currency(code: "CAD")) ?? "—"
-                return [
-                    dateFormatter.string(from: month),
-                    String(monthlyCounts[month] ?? 0),
-                    adjTotal,
-                    total.formatted(.currency(code: "CAD"))
+            rows: months.map { group in
+                [
+                    dateFormatter.string(from: group.key),
+                    String(group.totals.count),
+                    group.totals.totalNormalizedDifferential?.formatted(.currency(code: "CAD")) ?? "—",
+                    group.totals.totalDifferential.formatted(.currency(code: "CAD"))
                 ]
             },
             columnWidths: [160, 60, 110, 110]
@@ -531,8 +500,9 @@ final class PDFGeneratorService {
         heading.draw(at: CGPoint(x: contentRect.minX, y: y), withAttributes: headingAttrs)
         y += 30
 
-        let verified = products.filter { $0.verified }.count
-        let unverified = products.count - verified
+        let totals = ReportCalculator.totals(products.map(\.reportRow))
+        let verified = totals.verifiedCount
+        let unverified = totals.unverifiedCount
 
         // Draw table
         y = drawTable(
@@ -563,6 +533,7 @@ final class PDFGeneratorService {
         receiptsWithProducts: [Receipt],
         productsByReceipt: [String: [ProductPair]],
         receiptImages: [String: UIImage],
+        grandTotals: ReportTotals,
         startingPageNumber: Int
     ) {
         var pageNumber = startingPageNumber
@@ -640,8 +611,10 @@ final class PDFGeneratorService {
                 yPosition += 10
 
                 // Receipt subtotals — both adjusted and simple
-                let (adjSubtotal, adjExcluded) = ReportViewModel.calculateTotalNormalizedDifferential(for: sortedProducts)
-                let priceSubtotal = sortedProducts.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
+                let receiptTotals = ReportCalculator.totals(sortedProducts.map(\.reportRow))
+                let adjSubtotal = receiptTotals.totalNormalizedDifferential
+                let adjExcluded = receiptTotals.normalizedExcludedCount
+                let priceSubtotal = receiptTotals.totalDifferential
 
                 let adjSubtotalText = "Size-Adjusted Subtotal: \(adjSubtotal?.formatted(.currency(code: "CAD")) ?? "—")"
                 let adjSubtotalAttrs: [NSAttributedString.Key: Any] = [
@@ -749,8 +722,10 @@ final class PDFGeneratorService {
             yPosition += 10
 
             // Unverified subtotals — both adjusted and simple
-            let (unvAdjSubtotal, unvAdjExcluded) = ReportViewModel.calculateTotalNormalizedDifferential(for: unverifiedProducts)
-            let unverifiedSubtotal = unverifiedProducts.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
+            let unverifiedTotals = ReportCalculator.totals(unverifiedProducts.map(\.reportRow))
+            let unvAdjSubtotal = unverifiedTotals.totalNormalizedDifferential
+            let unvAdjExcluded = unverifiedTotals.normalizedExcludedCount
+            let unverifiedSubtotal = unverifiedTotals.totalDifferential
 
             let unvAdjSubtotalText = "Size-Adjusted Subtotal: \(unvAdjSubtotal?.formatted(.currency(code: "CAD")) ?? "—")"
             let unvAdjSubtotalAttrs: [NSAttributedString.Key: Any] = [
@@ -783,6 +758,25 @@ final class PDFGeneratorService {
 
             yPosition += 8
         }
+
+        // MARK: - Grand Totals
+
+        // The cover's figures again, under the line items they sum
+        let grandTotalsHeight: CGFloat = 60
+        if yPosition + grandTotalsHeight > contentRect.maxY {
+            drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: nil)
+            context.beginPage()
+            pageNumber += 1
+            yPosition = contentRect.minY
+        }
+        yPosition += 10
+        yPosition = drawGrandTotals(
+            context: context.cgContext,
+            contentRect: contentRect,
+            yPosition: yPosition,
+            normalizedTotal: grandTotals.totalNormalizedDifferential,
+            priceTotal: grandTotals.totalDifferential
+        )
 
         // Draw final footer
         drawFooter(context: context.cgContext, pageRect: pageRect, pageNumber: pageNumber, totalPages: pageNumber)
@@ -928,122 +922,6 @@ final class PDFGeneratorService {
         yPosition += captionHeight + 20
     }
 
-    private func drawTransactionPages(
-        context: UIGraphicsPDFRendererContext,
-        pageRect: CGRect,
-        contentRect: CGRect,
-        products: [ProductPair],
-        startingPageNumber: Int
-    ) {
-        var pageNumber = startingPageNumber
-        var yPosition = contentRect.minY
-        var isFirstPage = true
-
-        // Group products by category for subtotals
-        var currentCategory: String?
-        var categorySubtotal: Decimal = 0
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-
-        for (index, product) in products.enumerated() {
-            let category = product.category ?? "Uncategorized"
-
-            // Check if we need a new page
-            if yPosition + 60 > contentRect.maxY {
-                // Draw footer on current page
-                drawFooter(
-                    context: context.cgContext,
-                    pageRect: pageRect,
-                    pageNumber: pageNumber,
-                    totalPages: nil
-                )
-
-                // Start new page
-                context.beginPage()
-                pageNumber += 1
-                yPosition = contentRect.minY
-                isFirstPage = false
-            }
-
-            // Page title on first page only
-            if isFirstPage {
-                let title = "Detailed Transaction List"
-                let titleAttrs: [NSAttributedString.Key: Any] = [
-                    .font: titleFont,
-                    .foregroundColor: primaryColor
-                ]
-                title.draw(at: CGPoint(x: contentRect.minX, y: yPosition), withAttributes: titleAttrs)
-                yPosition += 40
-
-                // Table headers
-                yPosition = drawTransactionHeader(
-                    context: context.cgContext,
-                    contentRect: contentRect,
-                    yPosition: yPosition
-                )
-
-                isFirstPage = false
-            }
-
-            // Check for category change (draw subtotal)
-            if let prevCategory = currentCategory, prevCategory != category {
-                yPosition = drawCategorySubtotal(
-                    context: context.cgContext,
-                    contentRect: contentRect,
-                    yPosition: yPosition,
-                    category: prevCategory,
-                    subtotal: categorySubtotal
-                )
-                categorySubtotal = 0
-            }
-
-            currentCategory = category
-            categorySubtotal += product.extendedDifferential
-
-            // Draw transaction row
-            yPosition = drawTransactionRow(
-                context: context.cgContext,
-                contentRect: contentRect,
-                yPosition: yPosition,
-                product: product,
-                dateFormatter: dateFormatter,
-                isAlternate: index % 2 == 0
-            )
-        }
-
-        // Draw final category subtotal
-        if let category = currentCategory {
-            yPosition = drawCategorySubtotal(
-                context: context.cgContext,
-                contentRect: contentRect,
-                yPosition: yPosition,
-                category: category,
-                subtotal: categorySubtotal
-            )
-        }
-
-        // Grand totals — both adjusted and simple
-        yPosition += 10
-        let grandPriceTotal = calculateTotalDifferential(products: products)
-        let grandNormalizedResult = ReportViewModel.calculateTotalNormalizedDifferential(for: products)
-        yPosition = drawGrandTotals(
-            context: context.cgContext,
-            contentRect: contentRect,
-            yPosition: yPosition,
-            normalizedTotal: grandNormalizedResult.total,
-            priceTotal: grandPriceTotal
-        )
-
-        // Footer on last page
-        drawFooter(
-            context: context.cgContext,
-            pageRect: pageRect,
-            pageNumber: pageNumber,
-            totalPages: pageNumber
-        )
-    }
-
     // MARK: - Transaction Table Layout
 
     /// Column titles for the transaction table
@@ -1165,29 +1043,6 @@ final class PDFGeneratorService {
         context.stroke(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: rowHeight))
 
         return y + rowHeight
-    }
-
-    private func drawCategorySubtotal(
-        context: CGContext,
-        contentRect: CGRect,
-        yPosition: CGFloat,
-        category: String,
-        subtotal: Decimal
-    ) -> CGFloat {
-        let y = yPosition + 5
-        let subtotalText = "\(category) Subtotal: \(subtotal.formatted(.currency(code: "CAD")))"
-        let subtotalAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
-            .foregroundColor: secondaryColor
-        ]
-
-        let textSize = subtotalText.size(withAttributes: subtotalAttrs)
-        subtotalText.draw(
-            at: CGPoint(x: contentRect.maxX - textSize.width - 10, y: y),
-            withAttributes: subtotalAttrs
-        )
-
-        return y + 20
     }
 
     private func drawGrandTotals(
@@ -1329,15 +1184,6 @@ final class PDFGeneratorService {
         )
     }
 
-    // MARK: - Helpers
-
-    /// Sums the package differentials for a report section
-    ///
-    /// Extended, so a pair bought in multiples contributes its whole purchase amount and the
-    /// section subtotals reconcile against the transaction rows.
-    private func calculateTotalDifferential(products: [ProductPair]) -> Decimal {
-        products.reduce(Decimal.zero) { $0 + $1.extendedDifferential }
-    }
 }
 
 // MARK: - String Extension
