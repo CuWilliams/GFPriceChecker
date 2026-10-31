@@ -45,6 +45,15 @@ struct SubstituteScannerView: View {
     /// picker is drawn — showing one for a frame would land in a recording.
     @State private var isSupplyingProgrammatically: Bool
 
+    /// The queued image, shown while the sheet is up. A recording otherwise
+    /// shows a blank white sheet rising and falling for every scan, where on a
+    /// device the viewer would see the camera on the tag.
+    @State private var suppliedImage: UIImage?
+
+    /// How long the queued image holds once the sheet is up, so a viewer sees
+    /// what was scanned before the sheet goes.
+    private static let suppliedImageSeconds: Double = 1.0
+
     init(completion: @escaping (UIImage?) -> Void) {
         self.completion = completion
         #if DEBUG
@@ -59,7 +68,16 @@ struct SubstituteScannerView: View {
     var body: some View {
         Group {
             if isSupplyingProgrammatically {
-                Color.clear
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    if let suppliedImage {
+                        Image(uiImage: suppliedImage)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(24)
+                            .accessibilityHidden(true)
+                    }
+                }
             } else {
                 picker
             }
@@ -67,6 +85,8 @@ struct SubstituteScannerView: View {
         .task {
             #if DEBUG
             if let supplied = ScannerImageProvider.takeNext() {
+                suppliedImage = supplied
+                try? await Task.sleep(for: .seconds(Self.suppliedImageSeconds))
                 finish(with: supplied)
             }
             #endif

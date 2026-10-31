@@ -18,9 +18,12 @@
 # is found by looking for the flat white curtain, which dark appearance turns
 # black. A dark take needs launch_frame.py's LIGHT test inverted first.
 #
-# --keep leaves <script>.raw.mov and <script>.timing beside the take; --recut
-# re-runs only the cut on those, so the lead-in can be tuned without another
-# recording.
+# Beside the take goes <script>.captions.json, the captions the storyboard
+# showed, timed against the take: what composite.py burns into the site video.
+#
+# --keep leaves <script>.raw.mov, <script>.timing and <script>.cues.json beside
+# the take; --recut re-runs only the cut on those, so the lead-in can be tuned
+# without another recording.
 #
 # Each take ends with a freezedetect report. A scripted hold reads as a freeze
 # too, so it is a list to read against the storyboard, not a pass/fail: see
@@ -63,12 +66,14 @@ RAW="$OUT_DIR/$SCRIPT_NAME.raw.mov"
 TIMING="$OUT_DIR/$SCRIPT_NAME.timing"
 DONE_FILE="$OUT_DIR/$SCRIPT_NAME.done"
 LOG="$OUT_DIR/$SCRIPT_NAME.log"
+CUES="$OUT_DIR/$SCRIPT_NAME.cues.json"
 FINAL="$OUT_DIR/$SCRIPT_NAME.mp4"
+CAPTIONS="$OUT_DIR/$SCRIPT_NAME.captions.json"
 
 now() { python3 -c 'import time; print(time.time())'; }
 
 if (( ! RECUT )); then
-    rm -f "$RAW" "$TIMING" "$DONE_FILE" "$LOG"
+    rm -f "$RAW" "$TIMING" "$DONE_FILE" "$LOG" "$CUES"
     [[ -n "$DATASET" ]] && verify_dataset "$DATASET"
 
     UDID=$(resolve_udid "$DEVICE")
@@ -96,7 +101,7 @@ if (( ! RECUT )); then
     sleep 2
 
     echo "==> Recording $SCRIPT_NAME"
-    launch_script "$UDID" "$SCRIPT_NAME" "$DONE_FILE" "$DATASET"
+    launch_script "$UDID" "$SCRIPT_NAME" "$DONE_FILE" "$DATASET" "CAPTIONS_FILE=$CUES"
 
     # A seeded launch restores 78 pairs and their images before the curtain
     # lifts, so this allows more than play.sh's 180 s.
@@ -124,7 +129,7 @@ fi
 
 # MARK: - Trim and transcode
 
-[[ -f "$RAW" && -f "$TIMING" ]] || { echo "Nothing to cut: $RAW or $TIMING is missing" >&2; exit 1; }
+[[ -f "$RAW" && -f "$TIMING" && -f "$CUES" ]] || { echo "Nothing to cut: $RAW, $TIMING or $CUES is missing" >&2; exit 1; }
 source "$TIMING"
 
 # The recorder writes a frame only when the screen changes, so its timeline
@@ -152,9 +157,22 @@ ffmpeg -v error -y -ss "$TRIM_START" -i "$RAW" \
     -c:v libx264 -preset slow -crf 20 -pix_fmt yuv420p \
     -movflags +faststart -an "$FINAL"
 
-(( KEEP_RAW )) || rm -f "$RAW" "$TIMING" "$LOG"
+# The director timed its captions from the curtain lifting, which is the
+# frame the cut lands on unless GFPC_DEMO_LEAD_IN moved it.
+python3 - "$CUES" "$CAPTIONS" "$LEAD_IN" <<'PY'
+import json, sys
+cues_path, captions_path, lead_in = sys.argv[1], sys.argv[2], float(sys.argv[3])
+data = json.load(open(cues_path))
+for cue in data["cues"]:
+    cue["start"] = round(cue["start"] - lead_in, 3)
+    cue["end"] = round(cue["end"] - lead_in, 3)
+json.dump(data, open(captions_path, "w"), indent=2)
+PY
+
+(( KEEP_RAW )) || rm -f "$RAW" "$TIMING" "$LOG" "$CUES"
 
 echo "Take: $FINAL  (launch at ${LAUNCH_AT}s, cut from ${TRIM_START}s, tail +${TAIL_PAD}s)"
+echo "Captions: $CAPTIONS"
 ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration -of csv=p=0 "$FINAL"
 
 # MARK: - Freezes

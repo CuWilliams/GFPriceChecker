@@ -256,6 +256,7 @@ A script is an `async throws` function in `DemoScripts`, listed in `names`. The 
   `push` forgets earlier registrations, since every one belongs to a sheet `show` just
   dismissed.
 - `animate`, `wait`, `waitUntil`, and `still(_:)` / `isCapturing(_:)` for stills.
+- `caption(_:)` for the words burned into the site video (Stage 7).
 
 To drive a capture without a camera, enqueue images on `ScannerImageProvider` before the
 scanner opens. The scanner takes them with no UI drawn.
@@ -305,6 +306,9 @@ the recorder starts. `record.sh` notes the wall-clock time at spawn and at stop,
    it. `tpad` clones the last frame out to the stop time.
 4. **Size.** 1170 wide, H.264 CRF 20, `yuv420p`, `+faststart`, no audio. Stage 7 composites
    these portrait takes into the site's frame.
+5. **Captions.** The director writes `<script>.cues.json`, timed from the curtain lifting.
+   `record.sh` shifts those cues by the lead-in, so they are timed against the take, and
+   writes them beside it as `<script>.captions.json`.
 
 A script that fails still writes its done file. `record.sh` then stops, keeps the raw
 recording to look at, and cuts nothing.
@@ -326,8 +330,9 @@ Measured on iPhone 17 Pro, iOS 26.5: `price-tracking` twice in a row, 31.3 s and
 with only scripted holds. `receipt-management` 27.5 s and `reporting-exporting` 13.9 s, both
 clean.
 
-Still to be dealt with in Stage 7: each scan shows the substitute scanner's sheet as a blank
-white sheet for about 2 s.
+Each scan used to show the substitute scanner's sheet as a blank white sheet for about 2 s.
+The scanner now draws the image it was handed, on black, for a second before passing it on.
+On camera that looks like a scan landing.
 
 ### Stills
 
@@ -337,3 +342,52 @@ The carousel shows each screenshot whole at 1206×2622, so nothing is cropped. E
 quantised to 256 colours, at about half the size of the site's current RGB files, and the RMSE
 is printed beside it. The three came in at 0.004–0.006. Copy a still over its namesake in the
 site repo.
+
+## Stage 7 — composite the site's videos
+
+```bash
+Tools/Demo/site.sh                      # record all three takes, then composite them
+Tools/Demo/site.sh price-tracking       # one
+Tools/Demo/site.sh --composite-only     # re-composite the takes already recorded
+Tools/Demo/composite.py all             # the compositing step on its own
+```
+
+The videos and their `.vtt` files land in `$GFPC_DEMO_HOME/site/`, named as the site serves
+them from `assets/video/`. Copying them across is the website's step.
+
+### Captions
+
+The storyboard sets the captions. A script calls `d.caption("…")` where the words belong, and
+the director times each caption from when it is shown to when the next one replaces it.
+Retiming a scene moves its captions with it, and there is no separate list to fall out of step.
+`caption(nil)` clears the caption.
+
+A caption replaced before it can be read is **held**: the script waits out the rest of its
+reading time, `max(1.5, 1.0 + 0.3 × words)` seconds. The storyboard then never needs tuning
+for a fast action. The director holds the last caption the same way before it finishes.
+`composite.py` warns about any caption still shorter than its reading time.
+
+Caption wording follows the shared content conventions: *product pair*, *regular
+equivalent*, *size-adjusted differential*, *records*. Make no claims about what a tax
+authority accepts.
+
+### The frame
+
+`composite.py` uses the standard library and ffmpeg (Homebrew's, which has libfreetype):
+
+- **1920×1080, H.264 High, 60 fps, CRF 22, `+faststart`.** This is the spec of the
+  hand-recorded videos. Theirs ran at 59.94 fps, but the takes are 60.
+- **The take sits centred at full height, less 20 px top and bottom,** with the iPhone 17
+  Pro's screen corners masked in. Everything else is black.
+- **Each caption is a `--primary-blue` (`#0000FF`) card with white SF text** in the left
+  panel, wrapped at 24 characters, fading over 0.2 s. White on that blue is 8.6:1. The font
+  is the file `/System/Library/Fonts/SFNS.ttf`, not a fontconfig name. fontconfig falls back
+  to another face without saying so.
+- **Audio is a silent stereo AAC track.** The hand-recorded videos carry one, and it is
+  silent in all three: measured at -91 dB throughout. They were never narrated, so the
+  captions carry the words. That answers the plan's audio question.
+- **A `.vtt` of the same captions** is written beside each video, for a `<track>` if the
+  site wants one (gfpricechecker.github.io#20).
+
+`composite.py` fails if a video reaches 50 MB. The first set came in at 2.0, 1.4 and 1.0 MB,
+at 38.9, 32.9 and 20.6 s. The hand-recorded videos ran 4–52 MB.

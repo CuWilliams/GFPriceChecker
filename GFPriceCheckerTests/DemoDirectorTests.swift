@@ -103,6 +103,85 @@ struct DemoDirectorTests {
         #expect(FileManager.default.fileExists(atPath: path))
     }
 
+    // MARK: - Captions
+
+    /// A clock the test moves by hand
+    final class Clock {
+        var now = Date(timeIntervalSinceReferenceDate: 0)
+        func advance(_ seconds: Double) { now = now.addingTimeInterval(seconds) }
+    }
+
+    static func captioned(_ clock: Clock, file: String? = nil) -> DemoDirector {
+        DemoDirector(scriptName: "tour", doneFilePath: nil, stillFilePath: nil, stillMark: nil,
+                     stillHoldSeconds: 0, captionsFilePath: file, clock: { clock.now })
+    }
+
+    @Test("Reading time is a second plus 0.3 s a word, and never under 1.5 s")
+    func readingSeconds() {
+        #expect(DemoDirector.readingSeconds(for: "Hi") == 1.5)
+        #expect(DemoDirector.readingSeconds(for: "one two three four five six seven eight nine ten") == 4.0)
+    }
+
+    @Test("A caption runs from when it is shown to the next, timed from the curtain lifting")
+    func captionsAreTimedFromTheLift() async {
+        let clock = Clock()
+        let director = Self.captioned(clock)
+        clock.advance(10)          // the seed, behind the curtain
+        director.curtainLifted()
+
+        clock.advance(1)
+        await director.caption("Capturing a product pair")
+        clock.advance(5)
+        await director.caption("Scan the tag")
+        clock.advance(2)
+        await director.caption(nil)
+        clock.advance(3)
+        await director.caption("Saved")
+
+        #expect(director.cues == [
+            .init(start: 1, end: 6, text: "Capturing a product pair"),
+            .init(start: 6, end: 8, text: "Scan the tag"),
+        ])
+    }
+
+    /// The script moves on as fast as its action does; the caption waits for
+    /// its reader. Its end is read off the director's clock, which the test
+    /// holds still, so what shows the wait is the time it took.
+    @Test("A caption replaced before it can be read is held for the rest of its reading time")
+    func captionsAreNotCutShort() async {
+        let clock = Clock()
+        let director = Self.captioned(clock)
+        director.curtainLifted()
+
+        await director.caption("Hi")                    // needs 1.5 s
+        clock.advance(1.2)
+        let started = ContinuousClock.now
+        await director.caption("Next")
+        #expect(ContinuousClock.now - started >= .milliseconds(250))
+
+        clock.advance(1.5)
+        let unheld = ContinuousClock.now
+        await director.caption(nil)
+        #expect(ContinuousClock.now - unheld < .milliseconds(250))
+    }
+
+    @Test("finish closes the caption still up and writes the captions file")
+    func finishWritesCaptions() async throws {
+        let path = try Self.scratchPath("tour.cues.json")
+        let clock = Clock()
+        let director = Self.captioned(clock, file: path)
+        director.curtainLifted()
+        await director.caption("Exporting your records")
+        clock.advance(4)
+
+        director.finish(failure: nil)
+
+        struct File: Decodable { let script: String; let cues: [DemoDirector.Cue] }
+        let file = try JSONDecoder().decode(File.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+        #expect(file.script == "tour")
+        #expect(file.cues == [.init(start: 0, end: 4, text: "Exporting your records")])
+    }
+
     // MARK: - Registration
 
     @Test("screen(_:) returns the registered view model")
