@@ -37,9 +37,10 @@ would also trap on an empty string (`for i in 1...m`), so it needs a guard befor
 reaches it. All four were moved unchanged, under the fix-first rule.
 2d (#70) moved `Validation` and the `Backup` schema. The rules return a core `ValidationError`
 that says what is wrong, and the app's `AppError.init(_: ValidationError)` keeps every message
-as it was. That includes a gap the new tests pin for a later fix: most messages ride on
-`AppError.invalidProductName`, which appends "cannot be empty", so an oversized note reads
-"Notes are too long (max 1000 characters) cannot be empty". Email validation uses `Regex`,
+as it was. That included a gap the new tests pinned for a later fix: most messages rode on
+`AppError.invalidProductName`, which appends "cannot be empty", so an oversized note read
+"Notes are too long (max 1000 characters) cannot be empty". #82 fixed it: `invalidSize`,
+`textTooLong` and `invalidEmail` now carry their own messages. Email validation uses `Regex`,
 and it agrees with the old `NSPredicate` on everything tested except two ICU case-folding
 quirks (`ſ` and the Kelvin sign `K` matching `[A-Z]`), which it now rejects. Date checks
 take `now` and a `Calendar`. `BackupFormat` holds the coders, the `"1.0"` version gate and
