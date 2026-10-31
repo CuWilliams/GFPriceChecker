@@ -19,7 +19,7 @@ Paste the "What to Test" section below into TestFlight when you upload.
 - **No size data now reads "—", not $0.00.** When none of the products in a period have package
   sizes, the size-adjusted total on the Tax Summary and in the PDF used to read $0.00, which says
   gluten-free costs nothing extra. It now shows "—", meaning there is nothing to compare. The
-  Export screen already did this.
+  Export screen already did this, and the Tax Summary's average card now does too.
 
 ### Exports, and a clearer name for the headline figure
 
@@ -50,7 +50,8 @@ Paste the "What to Test" section below into TestFlight when you upload.
    has a quantity above 1. The product rows should add up to the Package Price Differential Total.
 2. **Try a year with no sizes.** On the Tax Summary, pick a year where none of your products have
    package sizes, or make a test pair without sizes in an otherwise empty year. The size-adjusted
-   total should read "—", not $0.00. An export PDF for that year should say the same.
+   total and the average card beside it should both read "—", not $0.00. An export PDF for that
+   year should say the same.
 3. **Look for the new name.** Open a product pair that has sizes, the Tax Summary, and the Export
    screen. Each should say "Size-Adjusted Differential" where it used to say "Unit Price
    Differential", with the same amounts as before.
