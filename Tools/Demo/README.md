@@ -163,7 +163,32 @@ A bad path, a malformed dataset or a version the importer rejects is a `fatalErr
 log line. A take recorded against a store that half-seeded still looks like a take, and the
 wrong numbers do not become obvious until somebody watches the finished video.
 
-## Stages 3-7
+## Stage 4 — open a named screen
+
+```bash
+xcrun simctl terminate booted com.cuwilliams66.GFPriceChecker
+SIMCTL_CHILD_GFPC_DEMO_ROUTE=export xcrun simctl launch booted com.cuwilliams66.GFPriceChecker
+```
+
+`GFPC_DEMO_ROUTE` opens the app on one screen, after any seeding in the same launch. The
+names are `AppRouter.Destination`'s cases:
+
+| Name | Screen |
+| --- | --- |
+| `capture`, `library`, `reports` | That tab, nothing pushed or presented |
+| `captureFlow` | The product capture sheet |
+| `manualEntry`, `receiptCapture` | The Library's Add-menu sheets |
+| `export`, `settings` | The Reports toolbar sheets |
+| `product`, `receipt` | The newest of each, pushed in the Library |
+
+An unknown name, or `product` on an empty store, is a `fatalError` for the same reason a bad
+seed is. Terminate first, as with seeding: a running instance keeps its old environment.
+
+The in-app half is [`GFPriceChecker/Dev/DemoRoute.swift`](../../GFPriceChecker/Dev/DemoRoute.swift),
+which hands the name to `AppRouter.show(_:)`. Stage 5's director will call `show(_:)` itself;
+this hook is how a still of any screen is reachable from a shell before then.
+
+## Stages 5-7
 
 Not built yet. `record.sh`, `launch_frame.py` and `stills.sh` port from
 `../TrendFitApp_App/Tools/Demo/` when the in-app half exists to drive.

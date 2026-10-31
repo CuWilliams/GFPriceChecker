@@ -49,7 +49,8 @@ GFPriceChecker/
 │   └── Receipt.swift           # Receipt verification model
 ├── ViewModels/
 │   ├── CaptureFlowViewModel.swift  # Product capture flow state and logic
-│   └── ReportViewModel.swift       # Dashboard year selection; totals come from GFCore
+│   ├── ReportViewModel.swift       # Dashboard year selection; totals come from GFCore
+│   └── AppRouter.swift             # Selected tab, Library path, each tab's sheet; show(_:)
 ├── Views/
 │   ├── Library/                # Product browsing and management
 │   │   ├── ProductPairListView.swift

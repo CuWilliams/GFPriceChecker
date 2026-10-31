@@ -20,6 +20,9 @@ struct ProductPairListView: View {
     /// SwiftData model context for database operations
     @Environment(\.modelContext) private var modelContext
 
+    /// Holds the navigation path and which Add sheet is up
+    @Environment(AppRouter.self) private var router
+
     // MARK: - Query
 
     /// All product pairs sorted by creation date (newest first)
@@ -30,12 +33,6 @@ struct ProductPairListView: View {
     private var productPairs: [ProductPair]
 
     // MARK: - State
-
-    /// Controls the visibility of the manual entry sheet
-    @State private var showingManualEntry = false
-
-    /// Controls the visibility of the receipt capture sheet
-    @State private var showingReceiptCapture = false
 
     /// Current filter selection
     @State private var filterSelection: ProductFilter = .all
@@ -59,7 +56,9 @@ struct ProductPairListView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+
+        NavigationStack(path: $router.libraryPath) {
             Group {
                 if productPairs.isEmpty {
                     emptyStateView
@@ -90,7 +89,7 @@ struct ProductPairListView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button {
-                            showingManualEntry = true
+                            router.librarySheet = .manualEntry
                         } label: {
                             Label("Manual Entry", systemImage: "square.and.pencil")
                         }
@@ -98,7 +97,7 @@ struct ProductPairListView: View {
                         .accessibilityHint("Opens form to enter product information")
 
                         Button {
-                            showingReceiptCapture = true
+                            router.librarySheet = .receiptCapture
                         } label: {
                             Label("Verify with Receipt", systemImage: "doc.text.viewfinder")
                         }
@@ -111,11 +110,21 @@ struct ProductPairListView: View {
                     .accessibilityHint("Choose how to add a new product")
                 }
             }
-            .sheet(isPresented: $showingManualEntry) {
-                ManualProductEntryView()
+            .navigationDestination(for: AppRouter.LibraryRoute.self) { route in
+                switch route {
+                case .product(let productPair):
+                    ProductPairDetailView(productPair: productPair)
+                case .receipt(let receipt):
+                    ReceiptDetailView(receipt: receipt)
+                }
             }
-            .sheet(isPresented: $showingReceiptCapture) {
-                ReceiptCaptureView()
+            .sheet(item: $router.librarySheet) { sheet in
+                switch sheet {
+                case .manualEntry:
+                    ManualProductEntryView()
+                case .receiptCapture:
+                    ReceiptCaptureView()
+                }
             }
         }
     }
@@ -176,13 +185,16 @@ struct ProductPairListView: View {
     private var productListView: some View {
         List {
             ForEach(filteredProducts) { productPair in
-                NavigationLink(destination: ProductPairDetailView(productPair: productPair)) {
+                NavigationLink(value: AppRouter.LibraryRoute.product(productPair)) {
                     ProductPairRow(productPair: productPair)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     // Show receipt link for verified products
                     if productPair.verified, let receipt = productPair.receipt {
-                        NavigationLink(destination: ReceiptDetailView(receipt: receipt)) {
+                        // Pushes onto the router's path, as the row's own link does
+                        Button {
+                            router.libraryPath.append(.receipt(receipt))
+                        } label: {
                             Label("Receipt", systemImage: "doc.text")
                         }
                         .tint(.blue)
@@ -436,11 +448,13 @@ struct ProductPairRow: View {
     container.mainContext.insert(product3)
 
     return ProductPairListView()
+        .environment(AppRouter())
         .modelContainer(container)
 }
 
 #Preview("Empty State") {
     ProductPairListView()
+        .environment(AppRouter())
         .modelContainer(for: ProductPair.self, inMemory: true)
 }
 #endif
