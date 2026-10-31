@@ -40,6 +40,11 @@ Paste the "What to Test" section below into TestFlight when you upload.
 
 ---
 
+### A new app icon
+
+- **The icon is redrawn** as bold "GF" letters over a check, on the same blue. If your Home
+  Screen is set to Dark or Tinted, it now has a proper dark and tinted version too.
+
 ## What to Test
 
 1. **Check a receipt with a multi-quantity item.** Open a verified receipt where one of the pairs
@@ -55,5 +60,7 @@ Paste the "What to Test" section below into TestFlight when you upload.
    up under its heading, that unit prices look sensible (a loaf of bread should be a dollar or two
    per 100 g, not $0.02), and that the Unit Price Basis column is filled in for pairs with sizes.
 5. **Export a PDF** and compare a few rows of the transaction table against the totals.
+6. **Look at the icon** on your Home Screen, then switch it to Dark and to Tinted (long-press the
+   Home Screen, tap Edit, then Customize). It should be clear and centred in all three.
 
 Nothing in this build changes your existing data, and backups from earlier builds import normally.
