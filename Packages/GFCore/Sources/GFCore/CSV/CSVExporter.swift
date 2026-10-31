@@ -129,7 +129,7 @@ public enum CSVExporter {
         formatDecimal(price, fractionDigits: 2)
     }
 
-    /// Formats a decimal with a fixed number of places, `.` as the separator and no grouping
+    /// Formats a decimal with a fixed number of places, rounded half-up, `.` as the separator and no grouping
     private static func formatDecimal(_ value: Decimal, fractionDigits: Int) -> String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -137,6 +137,7 @@ public enum CSVExporter {
         formatter.usesGroupingSeparator = false
         formatter.minimumFractionDigits = fractionDigits
         formatter.maximumFractionDigits = fractionDigits
+        formatter.roundingMode = .halfUp // PRODUCT_DEFINITION.md §3: half a cent rounds away from zero
 
         return formatter.string(from: value as NSDecimalNumber) ?? ""
     }

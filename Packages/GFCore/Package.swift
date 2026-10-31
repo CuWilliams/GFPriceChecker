@@ -19,6 +19,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "GFCore"),
-        .testTarget(name: "GFCoreTests", dependencies: ["GFCore"])
+        .testTarget(
+            name: "GFCoreTests",
+            dependencies: ["GFCore"],
+            // The cross-platform vectors, vendored from shared-docs by scripts/sync-vectors.sh
+            resources: [.copy("Vectors")]
+        )
     ]
 )

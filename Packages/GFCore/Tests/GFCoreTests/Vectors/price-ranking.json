@@ -1,0 +1,876 @@
+{
+  "about": "Shelf-tag OCR: price candidates and their ranking, the product name, and reading order of recognised text. Boxes are normalized with a bottom-left origin, as Vision reports them",
+  "prices": [
+    {
+      "name": "The shelf price outranks the unit price beneath it",
+      "input": [
+        {
+          "text": "Gluten Free White Bread",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.8,
+            "width": 0.5,
+            "height": 0.05
+          }
+        },
+        {
+          "text": "$7.49",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.12
+          }
+        },
+        {
+          "text": "$1.87/100g",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.2,
+            "width": 0.5,
+            "height": 0.03
+          }
+        }
+      ],
+      "expected": [
+        {
+          "amount": "7.49",
+          "hasPrefix": true,
+          "fontSize": 0.12,
+          "verticalPosition": 0.56,
+          "rankingScore": 0.763,
+          "quality": "high"
+        },
+        {
+          "amount": "1.87",
+          "hasPrefix": true,
+          "fontSize": 0.03,
+          "verticalPosition": 0.215,
+          "rankingScore": 0.3595,
+          "quality": "high"
+        }
+      ]
+    },
+    {
+      "name": "A price without $ is a candidate, without the bonus",
+      "input": [
+        {
+          "text": "3.99",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": [
+        {
+          "amount": "3.99",
+          "hasPrefix": false,
+          "fontSize": 0.05,
+          "verticalPosition": 0.525,
+          "rankingScore": 0.41917,
+          "quality": "high"
+        }
+      ]
+    },
+    {
+      "name": "Every price in one observation, $ first",
+      "input": [
+        {
+          "text": "2 for $5.00 or 2.79 each",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": [
+        {
+          "amount": "5.00",
+          "hasPrefix": true,
+          "fontSize": 0.05,
+          "verticalPosition": 0.525,
+          "rankingScore": 0.51917,
+          "quality": "high"
+        },
+        {
+          "amount": "2.79",
+          "hasPrefix": false,
+          "fontSize": 0.05,
+          "verticalPosition": 0.525,
+          "rankingScore": 0.41917,
+          "quality": "high"
+        }
+      ]
+    },
+    {
+      "name": "Confidence 0.5 is kept, and is low quality",
+      "input": [
+        {
+          "text": "$9.99",
+          "confidence": 0.5,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": [
+        {
+          "amount": "9.99",
+          "hasPrefix": true,
+          "fontSize": 0.05,
+          "verticalPosition": 0.525,
+          "rankingScore": 0.47417,
+          "quality": "low"
+        }
+      ]
+    },
+    {
+      "name": "Confidence under 0.5 is ignored",
+      "input": [
+        {
+          "text": "$9.99",
+          "confidence": 0.49,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": []
+    },
+    {
+      "name": "Font size counts up to 0.15 and no further",
+      "input": [
+        {
+          "text": "$4.99",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.4,
+            "width": 0.5,
+            "height": 0.3
+          }
+        }
+      ],
+      "expected": [
+        {
+          "amount": "4.99",
+          "hasPrefix": true,
+          "fontSize": 0.3,
+          "verticalPosition": 0.55,
+          "rankingScore": 0.86,
+          "quality": "high"
+        }
+      ]
+    },
+    {
+      "name": "Not a price: 1299",
+      "input": [
+        {
+          "text": "1299",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": []
+    },
+    {
+      "name": "Not a price: $12",
+      "input": [
+        {
+          "text": "$12",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": []
+    },
+    {
+      "name": "Not a price: 12.9",
+      "input": [
+        {
+          "text": "12.9",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": []
+    }
+  ],
+  "priceQuality": [
+    {
+      "input": 0.85,
+      "expected": "high"
+    },
+    {
+      "input": 0.849,
+      "expected": "medium"
+    },
+    {
+      "input": 0.6,
+      "expected": "medium"
+    },
+    {
+      "input": 0.599,
+      "expected": "low"
+    }
+  ],
+  "productName": [
+    {
+      "name": "The longest confident line in the top 30%",
+      "input": [
+        {
+          "text": "PC",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.9,
+            "width": 0.5,
+            "height": 0.05
+          }
+        },
+        {
+          "text": "Gluten Free Bread",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.8,
+            "width": 0.5,
+            "height": 0.05
+          }
+        },
+        {
+          "text": "Gluten Free Bread Sliced White Loaf",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.5,
+            "width": 0.5,
+            "height": 0.05
+          }
+        },
+        {
+          "text": "Gluten Free Bread Sliced",
+          "confidence": 0.69,
+          "box": {
+            "x": 0.1,
+            "y": 0.85,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": "Gluten Free Bread"
+    },
+    {
+      "name": "The top region is judged by the box's origin: 0.7 and up",
+      "input": [
+        {
+          "text": "Rice Penne",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.72,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": "Rice Penne"
+    },
+    {
+      "name": "A box starting below 0.7 is out, whatever its height",
+      "input": [
+        {
+          "text": "Rice Penne",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.69,
+            "width": 0.5,
+            "height": 0.1
+          }
+        }
+      ],
+      "expected": null
+    },
+    {
+      "name": "Equal lengths: the more confident wins",
+      "input": [
+        {
+          "text": "Rice Penne",
+          "confidence": 0.8,
+          "box": {
+            "x": 0.1,
+            "y": 0.9,
+            "width": 0.5,
+            "height": 0.05
+          }
+        },
+        {
+          "text": "Corn Penne",
+          "confidence": 0.9,
+          "box": {
+            "x": 0.1,
+            "y": 0.8,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": "Corn Penne"
+    },
+    {
+      "name": "Names are trimmed",
+      "input": [
+        {
+          "text": "  Oats \n",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.9,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": "Oats"
+    },
+    {
+      "name": "Under three characters is not a name",
+      "input": [
+        {
+          "text": " GF ",
+          "confidence": 0.95,
+          "box": {
+            "x": 0.1,
+            "y": 0.9,
+            "width": 0.5,
+            "height": 0.05
+          }
+        }
+      ],
+      "expected": null
+    }
+  ],
+  "selectableText": [
+    {
+      "name": "Sorted by the box's centre, top first",
+      "input": {
+        "observations": [
+          {
+            "text": "short",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.52,
+              "width": 0.5,
+              "height": 0.02
+            }
+          },
+          {
+            "text": "tall",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.5,
+              "width": 0.5,
+              "height": 0.1
+            }
+          }
+        ],
+        "region": null
+      },
+      "expected": [
+        "tall",
+        "short"
+      ]
+    },
+    {
+      "name": "Trimmed; empty and unconfident lines dropped",
+      "input": {
+        "observations": [
+          {
+            "text": "  Gluten Free  ",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.9,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "   ",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.8,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "$7.49",
+            "confidence": 0.3,
+            "box": {
+              "x": 0.1,
+              "y": 0.7,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "400 g",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.6,
+              "width": 0.5,
+              "height": 0.05
+            }
+          }
+        ],
+        "region": null
+      },
+      "expected": [
+        "Gluten Free",
+        "400 g"
+      ]
+    },
+    {
+      "name": "A region keeps text that overlaps it, not text that only touches it",
+      "input": {
+        "observations": [
+          {
+            "text": "inside",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.7,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "straddling",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.48,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "touching",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.25,
+              "width": 0.5,
+              "height": 0.25
+            }
+          },
+          {
+            "text": "outside",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.5,
+              "height": 0.05
+            }
+          }
+        ],
+        "region": {
+          "x": 0,
+          "y": 0.5,
+          "width": 1,
+          "height": 0.5
+        }
+      },
+      "expected": [
+        "inside",
+        "straddling"
+      ]
+    }
+  ],
+  "receiptText": [
+    {
+      "name": "Sorted by the box's origin, top first",
+      "input": {
+        "observations": [
+          {
+            "text": "tall",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.5,
+              "width": 0.5,
+              "height": 0.1
+            }
+          },
+          {
+            "text": "short",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.52,
+              "width": 0.5,
+              "height": 0.02
+            }
+          }
+        ],
+        "region": null
+      },
+      "expected": "short\ntall"
+    },
+    {
+      "name": "One trimmed line per confident observation",
+      "input": {
+        "observations": [
+          {
+            "text": "TOTAL 19.96",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.1,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": " LOBLAWS ",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.9,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "smudge",
+            "confidence": 0.2,
+            "box": {
+              "x": 0.1,
+              "y": 0.6,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.55,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "GF BREAD 5.99",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.5,
+              "width": 0.5,
+              "height": 0.05
+            }
+          }
+        ],
+        "region": null
+      },
+      "expected": "LOBLAWS\nGF BREAD 5.99\nTOTAL 19.96"
+    },
+    {
+      "name": "Top region: origin 0.75 and up",
+      "input": {
+        "observations": [
+          {
+            "text": "header",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.75,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "item",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.74,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "low item",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.25,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "footer",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.24,
+              "width": 0.5,
+              "height": 0.05
+            }
+          }
+        ],
+        "region": "top"
+      },
+      "expected": "header"
+    },
+    {
+      "name": "Middle region: 0.25 up to 0.75",
+      "input": {
+        "observations": [
+          {
+            "text": "header",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.75,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "item",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.74,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "low item",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.25,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "footer",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.24,
+              "width": 0.5,
+              "height": 0.05
+            }
+          }
+        ],
+        "region": "middle"
+      },
+      "expected": "item\nlow item"
+    },
+    {
+      "name": "Bottom region: under 0.25",
+      "input": {
+        "observations": [
+          {
+            "text": "header",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.75,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "item",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.74,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "low item",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.25,
+              "width": 0.5,
+              "height": 0.05
+            }
+          },
+          {
+            "text": "footer",
+            "confidence": 0.95,
+            "box": {
+              "x": 0.1,
+              "y": 0.24,
+              "width": 0.5,
+              "height": 0.05
+            }
+          }
+        ],
+        "region": "bottom"
+      },
+      "expected": "footer"
+    }
+  ],
+  "intersects": [
+    {
+      "name": "Overlapping",
+      "input": {
+        "a": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "b": {
+          "x": 0.5,
+          "y": 0.5,
+          "width": 1,
+          "height": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "Contained",
+      "input": {
+        "a": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "b": {
+          "x": 0.2,
+          "y": 0.2,
+          "width": 0.1,
+          "height": 0.1
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "A zero-size rectangle inside",
+      "input": {
+        "a": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "b": {
+          "x": 0.5,
+          "y": 0.5,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "Negative width is measured from its far edge",
+      "input": {
+        "a": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "b": {
+          "x": 1.5,
+          "y": 0,
+          "width": -1,
+          "height": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "A shared edge is not an intersection",
+      "input": {
+        "a": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "b": {
+          "x": 1,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "A shared corner is not an intersection",
+      "input": {
+        "a": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "b": {
+          "x": 1,
+          "y": 1,
+          "width": 1,
+          "height": 1
+        }
+      },
+      "expected": false
+    }
+  ]
+}

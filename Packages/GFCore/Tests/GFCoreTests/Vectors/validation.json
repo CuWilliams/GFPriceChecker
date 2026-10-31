@@ -1,0 +1,842 @@
+{
+  "about": "Input limits and rules. A success carries the validated value (trimmed text, parsed number); a failure names its error case and that case's values",
+  "limits": {
+    "minPrice": "0.01",
+    "maxPrice": "10000.00",
+    "minSizeValue": "0.001",
+    "maxSizeValue": "100000",
+    "minQuantity": 1,
+    "maxQuantity": 999,
+    "minProductNameLength": 1,
+    "maxProductNameLength": 200,
+    "maxSizeTextLength": 50,
+    "maxNotesLength": 1000,
+    "maxCategoryLength": 50,
+    "maxStoreNameLength": 100,
+    "earliestValidDate": "1 January 2020, midnight in the user's time zone"
+  },
+  "price": [
+    {
+      "input": "0.01",
+      "expected": {
+        "ok": "0.01"
+      }
+    },
+    {
+      "input": "5.99",
+      "expected": {
+        "ok": "5.99"
+      }
+    },
+    {
+      "input": "10000.00",
+      "expected": {
+        "ok": "10000.00"
+      }
+    },
+    {
+      "input": "-1",
+      "expected": {
+        "error": "priceNegative"
+      }
+    },
+    {
+      "input": "0",
+      "expected": {
+        "error": "invalidPrice",
+        "field": "Price"
+      }
+    },
+    {
+      "input": "0.009",
+      "expected": {
+        "error": "invalidPrice",
+        "field": "Price"
+      }
+    },
+    {
+      "input": "10000.01",
+      "expected": {
+        "error": "priceTooHigh",
+        "value": "10000.01"
+      }
+    }
+  ],
+  "priceString": [
+    {
+      "input": {
+        "text": "  6.99 ",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "ok": "6.99"
+      }
+    },
+    {
+      "input": {
+        "text": "",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "emptyRequiredField",
+        "field": "GF Price"
+      }
+    },
+    {
+      "input": {
+        "text": "   ",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "emptyRequiredField",
+        "field": "GF Price"
+      }
+    },
+    {
+      "input": {
+        "text": "abc",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      }
+    },
+    {
+      "input": {
+        "text": "$6.99",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "GF Price"
+      }
+    },
+    {
+      "input": {
+        "text": "0",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "invalidPrice",
+        "field": "Price"
+      }
+    },
+    {
+      "input": {
+        "text": "-2",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "priceNegative"
+      }
+    },
+    {
+      "input": {
+        "text": "20000",
+        "fieldName": "GF Price"
+      },
+      "expected": {
+        "error": "priceTooHigh",
+        "value": "20000"
+      }
+    }
+  ],
+  "productName": [
+    {
+      "input": {
+        "text": "  GF Bread\n",
+        "fieldName": "Product name"
+      },
+      "expected": {
+        "ok": "GF Bread"
+      }
+    },
+    {
+      "input": {
+        "text": "",
+        "fieldName": "Gluten-free product name"
+      },
+      "expected": {
+        "error": "emptyProductName",
+        "field": "Gluten-free product name"
+      }
+    },
+    {
+      "input": {
+        "text": " \n\t ",
+        "fieldName": "Product name"
+      },
+      "expected": {
+        "error": "emptyProductName",
+        "field": "Product name"
+      }
+    },
+    {
+      "input": {
+        "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fieldName": "Product name"
+      },
+      "expected": {
+        "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "input": {
+        "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "fieldName": "Product name"
+      },
+      "expected": {
+        "error": "productNameTooLong",
+        "field": "Product name",
+        "max": 200
+      }
+    },
+    {
+      "name": "Length counts characters as a reader sees them, not code points",
+      "input": {
+        "text": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "fieldName": "Product name"
+      },
+      "expected": {
+        "ok": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+      }
+    }
+  ],
+  "date": [
+    {
+      "name": "Now is accepted",
+      "input": {
+        "date": "2026-06-15T16:00:00Z",
+        "now": "2026-06-15T16:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "ok": "2026-06-15T16:00:00Z"
+      }
+    },
+    {
+      "name": "One second after now is in the future",
+      "input": {
+        "date": "2026-06-15T16:00:01Z",
+        "now": "2026-06-15T16:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "error": "dateInFuture"
+      }
+    },
+    {
+      "name": "Midnight on 1 January 2020 in Toronto is accepted",
+      "input": {
+        "date": "2020-01-01T05:00:00Z",
+        "now": "2026-06-15T16:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "ok": "2020-01-01T05:00:00Z"
+      }
+    },
+    {
+      "name": "One second earlier is too early",
+      "input": {
+        "date": "2020-01-01T04:59:59Z",
+        "now": "2026-06-15T16:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "error": "dateBeforeEarliest"
+      }
+    },
+    {
+      "name": "The same instant is too early in Vancouver",
+      "input": {
+        "date": "2020-01-01T05:00:00Z",
+        "now": "2026-06-15T16:00:00Z",
+        "timeZone": "America/Vancouver"
+      },
+      "expected": {
+        "error": "dateBeforeEarliest"
+      }
+    },
+    {
+      "name": "Midnight on 1 January 2020 in Vancouver",
+      "input": {
+        "date": "2020-01-01T08:00:00Z",
+        "now": "2026-06-15T16:00:00Z",
+        "timeZone": "America/Vancouver"
+      },
+      "expected": {
+        "ok": "2020-01-01T08:00:00Z"
+      }
+    }
+  ],
+  "sizeValue": [
+    {
+      "input": {
+        "text": "",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": {
+        "text": "   ",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": {
+        "text": "0.001",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": "0.001"
+      }
+    },
+    {
+      "input": {
+        "text": "400",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": "400"
+      }
+    },
+    {
+      "input": {
+        "text": " 1.5 ",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": "1.5"
+      }
+    },
+    {
+      "input": {
+        "text": "100000",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "ok": "100000"
+      }
+    },
+    {
+      "input": {
+        "text": "abc",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotANumber",
+        "field": "GF size"
+      }
+    },
+    {
+      "input": {
+        "text": "0",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotPositive",
+        "field": "GF size"
+      }
+    },
+    {
+      "input": {
+        "text": "-5",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeNotPositive",
+        "field": "GF size"
+      }
+    },
+    {
+      "input": {
+        "text": "0.0009",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeTooSmall",
+        "field": "GF size"
+      }
+    },
+    {
+      "input": {
+        "text": "100000.01",
+        "fieldName": "GF size"
+      },
+      "expected": {
+        "error": "sizeTooLarge",
+        "field": "GF size",
+        "max": "100000"
+      }
+    }
+  ],
+  "quantity": [
+    {
+      "input": {
+        "text": "",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "ok": 1
+      }
+    },
+    {
+      "input": {
+        "text": "   ",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "ok": 1
+      }
+    },
+    {
+      "input": {
+        "text": "1",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "ok": 1
+      }
+    },
+    {
+      "input": {
+        "text": "12",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "ok": 12
+      }
+    },
+    {
+      "input": {
+        "text": "999",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "ok": 999
+      }
+    },
+    {
+      "input": {
+        "text": " 3 ",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "ok": 3
+      }
+    },
+    {
+      "input": {
+        "text": "0",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "error": "invalidQuantity",
+        "field": "Quantity"
+      }
+    },
+    {
+      "input": {
+        "text": "-1",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "error": "invalidQuantity",
+        "field": "Quantity"
+      }
+    },
+    {
+      "input": {
+        "text": "1000",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "error": "invalidQuantity",
+        "field": "Quantity"
+      }
+    },
+    {
+      "input": {
+        "text": "2.5",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "error": "invalidQuantity",
+        "field": "Quantity"
+      }
+    },
+    {
+      "input": {
+        "text": "two",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "error": "invalidQuantity",
+        "field": "Quantity"
+      }
+    },
+    {
+      "input": {
+        "text": "3 loaves",
+        "fieldName": "Quantity"
+      },
+      "expected": {
+        "error": "invalidQuantity",
+        "field": "Quantity"
+      }
+    }
+  ],
+  "size": [
+    {
+      "input": null,
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  \n ",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  Bread \n",
+      "expected": {
+        "ok": "Bread"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "error": "sizeTextTooLong",
+        "max": 50
+      }
+    }
+  ],
+  "notes": [
+    {
+      "input": null,
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  \n ",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  Bread \n",
+      "expected": {
+        "ok": "Bread"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "error": "notesTooLong",
+        "max": 1000
+      }
+    }
+  ],
+  "category": [
+    {
+      "input": null,
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  \n ",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  Bread \n",
+      "expected": {
+        "ok": "Bread"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "error": "categoryTooLong",
+        "max": 50
+      }
+    }
+  ],
+  "storeName": [
+    {
+      "input": null,
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  \n ",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "  Bread \n",
+      "expected": {
+        "ok": "Bread"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": {
+        "error": "storeNameTooLong",
+        "max": 100
+      }
+    }
+  ],
+  "email": [
+    {
+      "input": null,
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "   ",
+      "expected": {
+        "ok": null
+      }
+    },
+    {
+      "input": "a@b.co",
+      "expected": {
+        "ok": "a@b.co"
+      }
+    },
+    {
+      "input": "user.name+tag@example.ca",
+      "expected": {
+        "ok": "user.name+tag@example.ca"
+      }
+    },
+    {
+      "input": "First_Last%1@Mail-Host.Example.COM",
+      "expected": {
+        "ok": "First_Last%1@Mail-Host.Example.COM"
+      }
+    },
+    {
+      "input": " me@x.org\n",
+      "expected": {
+        "ok": "me@x.org"
+      }
+    },
+    {
+      "input": "plainaddress",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    },
+    {
+      "input": "a@b",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    },
+    {
+      "input": "a@b.c",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    },
+    {
+      "input": "@example.com",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    },
+    {
+      "input": "a b@example.com",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    },
+    {
+      "input": "a@example.com x",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    },
+    {
+      "input": "a@@example.com",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    },
+    {
+      "input": "a@example.c0m",
+      "expected": {
+        "error": "invalidEmail"
+      }
+    }
+  ],
+  "productPair": [
+    {
+      "name": "A valid pair",
+      "input": {
+        "gfProductName": "GF Bread",
+        "gfPrice": "6.99",
+        "nonGFProductName": "Bread",
+        "nonGFPrice": "3.49",
+        "category": "Bread",
+        "notes": null
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "name": "The GF name is checked first",
+      "input": {
+        "gfProductName": " ",
+        "gfPrice": "-1",
+        "nonGFProductName": "",
+        "nonGFPrice": "0"
+      },
+      "expected": {
+        "error": "emptyProductName",
+        "field": "Gluten-free product name"
+      }
+    },
+    {
+      "name": "Then the GF price",
+      "input": {
+        "gfProductName": "GF Bread",
+        "gfPrice": "-1",
+        "nonGFProductName": "",
+        "nonGFPrice": "3.49"
+      },
+      "expected": {
+        "error": "priceNegative"
+      }
+    },
+    {
+      "name": "Then the regular name",
+      "input": {
+        "gfProductName": "GF Bread",
+        "gfPrice": "6.99",
+        "nonGFProductName": "",
+        "nonGFPrice": "0"
+      },
+      "expected": {
+        "error": "emptyProductName",
+        "field": "Regular product name"
+      }
+    },
+    {
+      "name": "Then the regular price",
+      "input": {
+        "gfProductName": "GF Bread",
+        "gfPrice": "6.99",
+        "nonGFProductName": "Bread",
+        "nonGFPrice": "20000",
+        "category": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected": {
+        "error": "priceTooHigh",
+        "value": "20000"
+      }
+    },
+    {
+      "name": "Then the category",
+      "input": {
+        "gfProductName": "GF Bread",
+        "gfPrice": "6.99",
+        "nonGFProductName": "Bread",
+        "nonGFPrice": "3.49",
+        "category": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "notes": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected": {
+        "error": "categoryTooLong",
+        "max": 50
+      }
+    },
+    {
+      "name": "Then the notes",
+      "input": {
+        "gfProductName": "GF Bread",
+        "gfPrice": "6.99",
+        "nonGFProductName": "Bread",
+        "nonGFPrice": "3.49",
+        "notes": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected": {
+        "error": "notesTooLong",
+        "max": 1000
+      }
+    }
+  ]
+}

@@ -90,6 +90,7 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 │   ├── Pricing/
 │   │   ├── SizeUnit.swift      # SizeUnit, UnitPriceBasis
 │   │   ├── PricingInputs.swift # Every PRODUCT_DEFINITION.md §3 formula, size back-calculation
+│   │   ├── CurrencyFormat.swift  # `.cad`: the CAD currency style, rounded half-up
 │   │   └── SizeTextParser.swift  # Size and unit-price parsing of OCR text
 │   ├── Reporting/
 │   │   ├── ReportRow.swift     # One pair as the reports see it
@@ -109,6 +110,11 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 │       ├── BackupSchema.swift  # BackupData and its DTOs: the shared JSON contract (§7)
 │       └── BackupFormat.swift  # Coders, version gate, decimals as strings
 └── Tests/GFCoreTests/          # Swift Testing, run with `swift test` on macOS
+    ├── VectorTests.swift       # Runs every cross-platform vector file
+    └── Vectors/                # Vendored from shared-docs; never edit here
+
+scripts/sync-vectors.sh         # Vendors the vectors from shared-docs; --check fails on drift
+.githooks/pre-push              # Runs sync-vectors.sh --check
 ```
 
 ### GFCore and its boundary rule
@@ -432,7 +438,9 @@ and are left as written.
 
 ### Currency Formatting
 - Always use `Decimal` type for prices
-- Format display: `.formatted(.currency(code: "CAD"))`
+- Format display: `.formatted(.cad)` — GFCore's CAD style, rounded half-up (a half cent rounds
+  away from zero, PRODUCT_DEFINITION.md §3). Plain `.currency(code: "CAD")` rounds half-even;
+  don't use it, and give any other fixed-places money format `.toNearestOrAwayFromZero`
 - Never use string interpolation for localized currency
 
 ### Concurrency
@@ -467,6 +475,22 @@ cd Packages/GFCore && swift test
 
 The pure arithmetic and parsing tests live there. Tests that need SwiftData, UIKit or Vision
 stay in `GFPriceCheckerTests`.
+
+**The cross-platform test vectors are normative and live in shared-docs**, under
+[`gfpricechecker/vectors/`](https://github.com/CuWilliams/shared-docs/tree/main/gfpricechecker/vectors).
+Every implementation must pass them. `VectorTests` runs the copy vendored at
+`Packages/GFCore/Tests/GFCoreTests/Vectors/`, so never edit that copy; change a vector in
+shared-docs, then bring it across:
+
+```bash
+scripts/sync-vectors.sh           # copy shared-docs' vectors over the vendored copy
+scripts/sync-vectors.sh --check   # exit 1 if they differ (2 if shared-docs is missing)
+git config core.hooksPath .githooks   # once per clone: pre-push runs --check
+```
+
+The script expects shared-docs cloned next to this repo; set `SHARED_DOCS` to point elsewhere.
+A behaviour change that moves a vector's expected value is a product change: it goes through
+shared-docs first. Known gaps pinned by a "Known gap" test stay out of the vectors.
 
 Working invocation for the app (scheme resolves from local `xcuserdata`; no shared scheme is
 committed):

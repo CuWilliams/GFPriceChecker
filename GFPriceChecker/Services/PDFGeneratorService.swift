@@ -257,7 +257,7 @@ final class PDFGeneratorService {
         yPosition += 80
 
         // Primary: Size-Adjusted Differential Total — "—" when no product has size data
-        let normalizedText = normalizedTotal?.formatted(.currency(code: "CAD")) ?? "—"
+        let normalizedText = normalizedTotal?.formatted(.cad) ?? "—"
         let normalizedAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 40, weight: .bold),
             .foregroundColor: accentColor
@@ -282,7 +282,7 @@ final class PDFGeneratorService {
         yPosition += 28
 
         // Secondary: Package Price Differential
-        let totalText = totalDifferential.formatted(.currency(code: "CAD"))
+        let totalText = totalDifferential.formatted(.cad)
         let totalAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 26, weight: .semibold),
             .foregroundColor: primaryColor
@@ -430,8 +430,8 @@ final class PDFGeneratorService {
                 [
                     group.key,
                     String(group.totals.count),
-                    group.totals.totalNormalizedDifferential?.formatted(.currency(code: "CAD")) ?? "—",
-                    group.totals.totalDifferential.formatted(.currency(code: "CAD"))
+                    group.totals.totalNormalizedDifferential?.formatted(.cad) ?? "—",
+                    group.totals.totalDifferential.formatted(.cad)
                 ]
             },
             columnWidths: [160, 60, 110, 110]
@@ -473,8 +473,8 @@ final class PDFGeneratorService {
                 [
                     dateFormatter.string(from: group.key),
                     String(group.totals.count),
-                    group.totals.totalNormalizedDifferential?.formatted(.currency(code: "CAD")) ?? "—",
-                    group.totals.totalDifferential.formatted(.currency(code: "CAD"))
+                    group.totals.totalNormalizedDifferential?.formatted(.cad) ?? "—",
+                    group.totals.totalDifferential.formatted(.cad)
                 ]
             },
             columnWidths: [160, 60, 110, 110]
@@ -616,7 +616,7 @@ final class PDFGeneratorService {
                 let adjExcluded = receiptTotals.normalizedExcludedCount
                 let priceSubtotal = receiptTotals.totalDifferential
 
-                let adjSubtotalText = "Size-Adjusted Subtotal: \(adjSubtotal?.formatted(.currency(code: "CAD")) ?? "—")"
+                let adjSubtotalText = "Size-Adjusted Subtotal: \(adjSubtotal?.formatted(.cad) ?? "—")"
                 let adjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                     .foregroundColor: accentColor
@@ -625,7 +625,7 @@ final class PDFGeneratorService {
                 adjSubtotalText.draw(at: CGPoint(x: contentRect.maxX - adjSubtotalSize.width - 10, y: yPosition), withAttributes: adjSubtotalAttrs)
                 yPosition += 16
 
-                let priceSubtotalText = "Price Subtotal: \(priceSubtotal.formatted(.currency(code: "CAD")))"
+                let priceSubtotalText = "Price Subtotal: \(priceSubtotal.formatted(.cad))"
                 let priceSubtotalAttrs: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 10, weight: .regular),
                     .foregroundColor: secondaryColor
@@ -727,7 +727,7 @@ final class PDFGeneratorService {
             let unvAdjExcluded = unverifiedTotals.normalizedExcludedCount
             let unverifiedSubtotal = unverifiedTotals.totalDifferential
 
-            let unvAdjSubtotalText = "Size-Adjusted Subtotal: \(unvAdjSubtotal?.formatted(.currency(code: "CAD")) ?? "—")"
+            let unvAdjSubtotalText = "Size-Adjusted Subtotal: \(unvAdjSubtotal?.formatted(.cad) ?? "—")"
             let unvAdjSubtotalAttrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
                 .foregroundColor: UIColor.systemOrange
@@ -736,7 +736,7 @@ final class PDFGeneratorService {
             unvAdjSubtotalText.draw(at: CGPoint(x: contentRect.maxX - unvAdjSubtotalSize.width - 10, y: yPosition), withAttributes: unvAdjSubtotalAttrs)
             yPosition += 16
 
-            let unvPriceSubtotalText = "Price Subtotal: \(unverifiedSubtotal.formatted(.currency(code: "CAD")))"
+            let unvPriceSubtotalText = "Price Subtotal: \(unverifiedSubtotal.formatted(.cad))"
             let unvPriceSubtotalAttrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 10, weight: .regular),
                 .foregroundColor: secondaryColor
@@ -941,8 +941,9 @@ final class PDFGeneratorService {
 
     /// Formats money for a table cell — two places, no symbol, straight from `Decimal`.
     /// Never through `Double`: 6.255 is stored there as 6.25499…, which loses a cent.
+    /// Rounded half-up, like `.cad`: 6.745 is 6.75.
     private func formatAmount(_ value: Decimal) -> String {
-        value.formatted(.number.precision(.fractionLength(2)))
+        value.formatted(.number.precision(.fractionLength(2)).rounded(rule: .toNearestOrAwayFromZero))
     }
 
     private func drawTransactionHeader(
@@ -1059,7 +1060,7 @@ final class PDFGeneratorService {
         context.fill(CGRect(x: contentRect.minX, y: y, width: contentRect.width, height: 48))
 
         // Row 1: Size-Adjusted Differential Total (primary)
-        let adjTotalText = "Size-Adjusted Differential Total: \(normalizedTotal?.formatted(.currency(code: "CAD")) ?? "—")"
+        let adjTotalText = "Size-Adjusted Differential Total: \(normalizedTotal?.formatted(.cad) ?? "—")"
         let adjTotalAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 13, weight: .bold),
             .foregroundColor: accentColor
@@ -1072,7 +1073,7 @@ final class PDFGeneratorService {
         y += 24
 
         // Row 2: Price Differential Grand Total (for reference)
-        let priceTotalText = "Package Price Differential Total (For Reference): \(priceTotal.formatted(.currency(code: "CAD")))"
+        let priceTotalText = "Package Price Differential Total (For Reference): \(priceTotal.formatted(.cad))"
         let priceTotalAttrs: [NSAttributedString.Key: Any] = [
             .font: UIFont.systemFont(ofSize: 11, weight: .semibold),
             .foregroundColor: primaryColor
