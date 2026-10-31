@@ -49,7 +49,7 @@ GFPriceChecker/
 │   └── Receipt.swift           # Receipt verification model
 ├── ViewModels/
 │   ├── CaptureFlowViewModel.swift  # Product capture flow state and logic
-│   └── ReportViewModel.swift       # Tax report calculations
+│   └── ReportViewModel.swift       # Dashboard year selection; totals come from GFCore
 ├── Views/
 │   ├── Library/                # Product browsing and management
 │   │   ├── ProductPairListView.swift
@@ -88,10 +88,16 @@ GFPriceChecker/
 Packages/GFCore/                # Local Swift package: the platform-independent core
 ├── Package.swift               # swift-tools 6.0, iOS 18 / macOS 15
 ├── Sources/GFCore/
-│   └── Pricing/
-│       ├── SizeUnit.swift      # SizeUnit, UnitPriceBasis
-│       ├── PricingInputs.swift # Every PRODUCT_DEFINITION.md §3 formula, size back-calculation
-│       └── SizeTextParser.swift  # Size and unit-price parsing of OCR text
+│   ├── Pricing/
+│   │   ├── SizeUnit.swift      # SizeUnit, UnitPriceBasis
+│   │   ├── PricingInputs.swift # Every PRODUCT_DEFINITION.md §3 formula, size back-calculation
+│   │   └── SizeTextParser.swift  # Size and unit-price parsing of OCR text
+│   ├── Reporting/
+│   │   ├── ReportRow.swift     # One pair as the reports see it
+│   │   ├── ReportCalculator.swift  # ReportTotals, year/range filters, category and month groups
+│   │   └── DateRangePreset.swift   # Export date-range presets (raw values are persisted)
+│   └── CSV/
+│       └── CSVExporter.swift   # Columns, machine number/date formats, escaping
 └── Tests/GFCoreTests/          # Swift Testing, run with `swift test` on macOS
 ```
 
@@ -100,7 +106,8 @@ Packages/GFCore/                # Local Swift package: the platform-independent 
 `Packages/GFCore` is where the app's arithmetic and other platform-independent behaviour live,
 so they can be tested without a simulator and shared with a future Android app. It is added to
 the Xcode project as an `XCLocalSwiftPackageReference` and linked to the app target. Track F
-(`docs/SHARED_CORE.md`) moves the rest in area by area; today it holds `Pricing`.
+(`docs/SHARED_CORE.md`) moves the rest in area by area; today it holds `Pricing`, `Reporting`
+and `CSV`.
 
 **Boundary rule: GFCore imports Foundation only.** No SwiftUI, UIKit, SwiftData, Vision,
 PDFKit, CoreGraphics or `NSPredicate`. Anything that needs one of those stays in the app, and
@@ -132,6 +139,9 @@ Stores gluten-free and regular product comparison data.
   `differential`, the unit prices, `normalizedDifferential` and the `extended*` figures all
   forward to it; the model has no arithmetic of its own
 - `reportingDate: Date` (computed: receipt?.purchaseDate ?? createdDate)
+- `reportRow: ReportRow` (computed): the pair as GFCore's `ReportCalculator` and
+  `CSVExporter` see it. Every total, grouping and CSV line — dashboard, export preview, CSV,
+  PDF cover, subtotals and grand total — is computed over these, so they cannot disagree
 
 **Design Decisions:**
 - **Decimal for currency:** Avoids floating-point errors (critical for tax calculations)

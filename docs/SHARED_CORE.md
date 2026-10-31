@@ -12,9 +12,14 @@ items 2, 3 and 4. Item 2's fr-CA example was wrong: an English-only app resolves
 `en_CA`, which writes `.`, so no Canadian locale hit it. The fixed machine format stays because a
 CSV should not depend on the device locale at all, but the app is Canada-only and non-Canadian
 regions are out of scope for testing.
-Stage 2 is under way: 2a (#67) created `Packages/GFCore` and moved `Pricing` into it. The
-"Differential formulas" row in the duplication table below is resolved, since `ProductPair` and
-`CaptureFlowViewModel` both forward to `PricingInputs`.
+Stage 2 is under way: 2a (#67) created `Packages/GFCore` and moved `Pricing` into it. 2b (#68)
+moved `Reporting` and `CSV`. Every row of the duplication table below is now resolved: the
+dashboard, export preview, CSV, PDF and `Receipt.totalDifferential` all read `ReportTotals`, and
+the PDF prints its grand-total line at last. `ReportReconciliationTests` runs the demo dataset
+through each surface and checks they agree. It found one gap the spec doesn't settle: the CSV
+rounds each row's size-adjusted figure to the cent, so on the demo dataset that column sums to a
+cent under the total the PDF and dashboard show. The test bounds the drift at half a cent per
+row until PRODUCT_DEFINITION.md says which figure a total should be.
 This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.
@@ -84,6 +89,9 @@ copying, has no production callers and no tests. Wiring it up belongs to #36 and
 brings it under test.
 
 ### Duplicated arithmetic
+
+All resolved in 2b (#68), except the last row, resolved in 2a (#67). The locations are as
+found by the audit, before either.
 
 | Computation | Locations |
 |---|---|

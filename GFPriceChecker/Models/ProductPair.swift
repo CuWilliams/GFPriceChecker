@@ -165,6 +165,36 @@ final class ProductPair {
         gfSizeValue != nil && nonGFSizeValue != nil && sizeUnit != nil
     }
 
+    /// Effective date for reporting purposes
+    ///
+    /// Uses receipt purchase date if available (verified products),
+    /// otherwise falls back to product creation date.
+    /// This ensures accurate tax year assignment.
+    var reportingDate: Date {
+        receipt?.purchaseDate ?? createdDate
+    }
+
+    /// The pair as the reports and exports see it
+    ///
+    /// `ReportCalculator` and `CSVExporter` do every total, grouping and CSV line over
+    /// these, so none of that needs a `ModelContainer` to test.
+    var reportRow: ReportRow {
+        ReportRow(
+            id: id,
+            reportingDate: reportingDate,
+            pricing: pricing,
+            gfProductName: gfProductName,
+            gfSize: gfSize,
+            nonGFProductName: nonGFProductName,
+            nonGFSize: nonGFSize,
+            sizeUnit: sizeUnit,
+            category: category,
+            verified: verified,
+            storeName: receipt?.storeName,
+            notes: notes
+        )
+    }
+
     // MARK: - Initialization
 
     /// Creates a new product pair with the specified values
