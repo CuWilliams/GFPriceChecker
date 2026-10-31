@@ -101,10 +101,12 @@ enum DemoScripts {
     /// differential.
     private static func priceTracking(_ d: DemoDirector) async throws {
         // The Capture tab, as the app opens
+        await d.caption("Capturing a product pair: a gluten-free product and its regular equivalent")
         await d.wait(1.0)
 
         await d.push(.captureFlow)
         let capture = try await d.screen(CaptureFlowViewModel.self)
+        await d.caption("Start by scanning the gluten-free product's shelf tag")
         await d.wait(1.5)
 
         ScannerImageProvider.enqueue(
@@ -112,14 +114,21 @@ enum DemoScripts {
             SampleScanImages.shelfTag(SampleScanImages.regularBread)
         )
         capture.startCapture()
-        try await review(capture, isGF: true, name: "Gluten Free", price: "7.49", size: "400", on: d)
+        try await review(capture, isGF: true, name: "Gluten Free", price: "7.49", size: "400", on: d) {
+            await d.caption("Tap the name, the price and the size the scan read")
+        }
 
+        await d.caption("Then scan the regular equivalent's tag")
         d.animate { capture.continueFromReview(isGF: true) }
-        try await review(capture, isGF: false, name: "White Sandwich", price: "3.29", size: "570", on: d)
+        try await review(capture, isGF: false, name: "White Sandwich", price: "3.29", size: "570", on: d) {
+            await d.caption("And pick its name, price and size the same way")
+        }
 
         d.animate { capture.continueFromReview(isGF: false) }
+        await d.caption("Both products side by side. The size-adjusted differential compares them by unit price")
         await d.wait(1.5)
         d.animate { capture.category = "Bread" }
+        await d.caption("Choose a category, and save")
         await d.wait(2.0)
         await d.still()
 
@@ -129,23 +138,29 @@ enum DemoScripts {
         await d.wait(1.0)
 
         await d.push(.tab(.library))
+        await d.caption("The pair is in your Library")
         await d.wait(1.5)
         await d.push(try d.destination("product"))
+        await d.caption("Ready to be verified against a receipt")
         await d.wait(2.5)
     }
 
     /// Waits for one product's scan to be read, then taps its name, price and
     /// size rows in turn. Each row is found by what it reads, so a scan that
     /// reads differently fails the take rather than picking the wrong row.
+    ///
+    /// `onRead` runs once the review screen is up, before the first tap: the
+    /// place for its caption.
     private static func review(_ capture: CaptureFlowViewModel, isGF: Bool,
                                name: String, price: String, size: String,
-                               on d: DemoDirector) async throws {
+                               on d: DemoDirector, onRead: () async -> Void) async throws {
         let step: CaptureStep = isGF ? .reviewGF : .reviewNonGF
         try await d.waitUntil("the \(isGF ? "GF" : "regular") scan to be read") {
             capture.currentStep == step && !capture.isProcessingOCR
         }
         // The scanner's sheet is still going down
         await d.wait(1.5)
+        await onRead()
 
         let rows = isGF ? capture.gfOCRObservations : capture.nonGFOCRObservations
         for text in [name, price, size] {
@@ -205,11 +220,13 @@ enum DemoScripts {
     ///
     /// Still: the matching screen with the first pair's line selected.
     private static func receiptManagement(_ d: DemoDirector) async throws {
+        await d.caption("Verifying product pairs against a receipt")
         await d.wait(1.0)
 
         await d.push(.receiptCapture)
         let receipt = try await d.screen(ReceiptCaptureViewModel.self)
         try await d.waitUntil("the unverified pairs") { receipt.unverifiedProducts.count == 2 }
+        await d.caption("Pick the pairs you bought on this receipt")
         await d.wait(1.5)
 
         for product in receipt.unverifiedProducts.sorted(by: { $0.createdDate < $1.createdDate }) {
@@ -219,6 +236,7 @@ enum DemoScripts {
         await d.wait(0.8)
         let verified = receipt.productsToVerify
 
+        await d.caption("Then scan the receipt")
         d.animate { receipt.continueToScan() }
         await d.wait(1.5)
 
@@ -227,6 +245,7 @@ enum DemoScripts {
         try await d.waitUntil("the receipt to be read") {
             receipt.currentStep == .reviewMatches && !receipt.isProcessingOCR
         }
+        await d.caption("For each product, the app suggests the receipt line it was bought on")
         await d.wait(1.5)
 
         var first = true
@@ -239,10 +258,12 @@ enum DemoScripts {
             d.animate(.easeInOut(duration: 0.3)) { receipt.selectReceiptLine(line) }
             await d.wait(1.5)
             if first { await d.still() }
+            if first { await d.caption("Select the line, and confirm it") }
             first = false
             d.animate { receipt.confirmSelectedLine() }
             await d.wait(1.5)
         }
+        await d.caption("Save, and every pair on the receipt is verified")
         await d.wait(1.0)
 
         // Saving dismisses the sheet
@@ -257,6 +278,7 @@ enum DemoScripts {
         await d.push(.tab(.library))
         await d.wait(1.5)
         await d.push(.receipt(saved))
+        await d.caption("The receipt is kept with its image and the products it verifies")
         await d.wait(3.0)
     }
 
@@ -281,18 +303,25 @@ enum DemoScripts {
     ///
     /// Still: the dashboard.
     private static func reportingExporting(_ d: DemoDirector) async throws {
+        await d.caption("Exporting your records")
         await d.wait(1.0)
 
         await d.push(.tab(.reports))
+        await d.caption("Reports totals the year's size-adjusted differential")
         await d.wait(3.0)
         await d.still()
+        await d.caption("By month and by category, with how many pairs are verified")
+        await d.wait(1.0)
 
         await d.push(.export)
         let export = try await d.screen(ExportViewModel.self)
+        await d.caption("Export a CSV spreadsheet, or a PDF report")
         await d.wait(2.0)
         d.animate { export.exportFormat = .pdf }
+        await d.caption("The PDF includes each receipt's image")
         await d.wait(2.0)
 
+        await d.caption("Save it to Files, or share it with your accountant")
         await export.export()
         // The seeded library is all verified, so this is not expected; but a
         // dataset with unverified pairs would otherwise stop the take here.

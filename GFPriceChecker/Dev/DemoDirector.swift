@@ -52,6 +52,12 @@ final class DemoDirector {
 
     /// Which `still(_:)` mark a stills run stops at. Unset means `tileMark`.
     static let stillMarkVariable = "GFPC_DEMO_STILL_MARK"
+
+    /// Host path the take's captions are written to when the script ends, as
+    /// JSON: `{"script": …, "cues": [{"start", "end", "text"}]}`, in seconds
+    /// from the curtain lifting. `Tools/Demo/composite.py` burns them into the
+    /// site video. Written beside the done file, success or not.
+    static let captionsFileVariable = "GFPC_DEMO_CAPTIONS_FILE"
     /// `nonisolated` because `still(_:)` takes it as a default argument, which
     /// is evaluated in the caller's isolation.
     nonisolated static let tileMark = "tile"
@@ -77,18 +83,24 @@ final class DemoDirector {
     private let stillFilePath: String?
     private let stillMark: String
     private let stillHoldSeconds: Double
+    private let captionsFilePath: String?
+    private let clock: () -> Date
 
-    /// - Parameter stillHoldSeconds: how long `still()` holds once it has
-    ///   written the still file. Long enough to outlast any screenshot, short
-    ///   enough that a shell that died mid-run leaves nothing going for long.
-    ///   Tests pass 0.
+    /// - Parameters:
+    ///   - stillHoldSeconds: how long `still()` holds once it has written the
+    ///     still file. Long enough to outlast any screenshot, short enough that
+    ///     a shell that died mid-run leaves nothing going for long. Tests pass 0.
+    ///   - clock: what captions are timed by. Tests pass one they move by hand.
     init(scriptName: String, doneFilePath: String?, stillFilePath: String?,
-         stillMark: String?, stillHoldSeconds: Double = 600) {
+         stillMark: String?, stillHoldSeconds: Double = 600,
+         captionsFilePath: String? = nil, clock: @escaping () -> Date = Date.init) {
         self.scriptName = scriptName
         self.doneFilePath = doneFilePath
         self.stillFilePath = stillFilePath
         self.stillMark = stillMark.flatMap { $0.isEmpty ? nil : $0 } ?? Self.tileMark
         self.stillHoldSeconds = stillHoldSeconds
+        self.captionsFilePath = captionsFilePath
+        self.clock = clock
     }
 
     /// Arms the director when the environment names a script. Called from
@@ -113,7 +125,8 @@ final class DemoDirector {
             scriptName: name,
             doneFilePath: env[doneFileVariable],
             stillFilePath: env[stillFileVariable],
-            stillMark: env[stillMarkVariable]
+            stillMark: env[stillMarkVariable],
+            captionsFilePath: env[captionsFileVariable]
         )
         print("🎬 Demo director armed for '\(name)'")
     }
@@ -150,9 +163,12 @@ final class DemoDirector {
 
             await wait(Self.curtainSeconds)
             liftCurtain()
+            curtainLifted()
             await wait(Self.curtainFadeSeconds)
 
             try await DemoScripts.run(scriptName, on: self)
+            // The last caption has no next one to hold it, so the take does
+            await caption(nil)
             finish(failure: nil)
         } catch {
             liftCurtain()
@@ -252,6 +268,75 @@ final class DemoDirector {
         withAnimation(animation, body)
     }
 
+    // MARK: - Captions
+
+    /// One caption as the site video shows it, in seconds from the curtain
+    /// lifting: the frame a take is cut on.
+    struct Cue: Codable, Equatable {
+        let start: Double
+        let end: Double
+        let text: String
+    }
+
+    /// The captions closed so far, in order.
+    private(set) var cues: [Cue] = []
+    private var openCue: (start: Double, text: String)?
+    private var liftedAt: Date?
+
+    /// Starts the captions' clock. `start` calls it as the curtain lifts.
+    func curtainLifted() {
+        liftedAt = clock()
+    }
+
+    /// How long a caption needs on screen to be read: a second to notice it,
+    /// plus 0.3 s a word (200 words a minute), and never under 1.5 s.
+    /// `composite.py` holds every cue to the same figure.
+    nonisolated static func readingSeconds(for text: String) -> Double {
+        let words = text.split(whereSeparator: \.isWhitespace).count
+        return max(1.5, 1.0 + 0.3 * Double(words))
+    }
+
+    /// Shows `text` as the take's caption from now until the next caption, or
+    /// clears it when `nil`.
+    ///
+    /// The caption on screen is never cut short. If it has been up for less
+    /// than its `readingSeconds`, this waits out the rest first, so a script
+    /// can change captions as fast as its action moves and still produce one
+    /// a viewer can read. The take gets longer instead.
+    ///
+    /// The text lives here, in the storyboard, and its timing is the take's
+    /// own, so retiming a scene moves its captions with it.
+    func caption(_ text: String?) async {
+        if let open = openCue {
+            let shown = elapsed() - open.start
+            let needed = Self.readingSeconds(for: open.text)
+            if shown < needed { await wait(needed - shown) }
+            closeCaption()
+        }
+        if let text, !text.isEmpty {
+            openCue = (elapsed(), text)
+        }
+    }
+
+    private func elapsed() -> Double {
+        clock().timeIntervalSince(liftedAt ?? clock())
+    }
+
+    private func closeCaption() {
+        guard let open = openCue else { return }
+        cues.append(Cue(start: open.start, end: elapsed(), text: open.text))
+        openCue = nil
+    }
+
+    private func writeCaptions() {
+        guard let captionsFilePath else { return }
+        struct File: Encodable { let script: String; let cues: [Cue] }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(File(script: scriptName, cues: cues)) else { return }
+        FileManager.default.createFile(atPath: captionsFilePath, contents: data)
+    }
+
     // MARK: - Stills and the end
 
     /// The frame this script's still is cut from, at `mark`.
@@ -277,7 +362,12 @@ final class DemoDirector {
     /// the shell reports the failure rather than timing out on it — a take
     /// that stopped halfway is still a recording, and would otherwise be cut
     /// and published as one.
+    ///
+    /// The captions file goes first, closing whatever caption is still up at
+    /// the take's last frame, so it is there by the time the shell sees done.
     func finish(failure: (any Error)?) {
+        closeCaption()
+        writeCaptions()
         let line = failure.map { "failed \(scriptName): \($0)" } ?? "done \(scriptName)"
         print("🎬 DEMO SCRIPT \(line)")
         guard let doneFilePath else { return }
