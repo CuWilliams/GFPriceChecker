@@ -184,13 +184,14 @@ struct ReportReconciliationTests {
         // Prices are whole cents, so the package column sums to the total exactly
         #expect(try columnSum("Extended Package Differential") == dashboard.totalDifferential)
 
-        // Each size-adjusted figure is rounded to the cent on its own row, so the column
-        // can drift from the unrounded total by up to half a cent per row. On this dataset
-        // it lands a cent under. PRODUCT_DEFINITION.md doesn't yet say which one a total
-        // should be; until it does, hold the drift to the rounding bound.
+        // A total rounds the final sum, not the rows (PRODUCT_DEFINITION.md §3). The CSV
+        // rounds each size-adjusted row to the cent, so its column drifts from the total by
+        // up to half a cent per row. On this dataset the drift is real — the column sums to
+        // $355.57 against a $355.58 total — so a total built from rounded rows fails here.
         let sizedRows = Decimal(dashboard.count - dashboard.normalizedExcludedCount)
         let drift = try columnSum("Extended Size-Adjusted Differential") - normalizedTotal
         #expect(abs(drift) <= sizedRows * Decimal(string: "0.005")!)
+        #expect(drift != 0, "The demo dataset should tell a rounded sum from a sum of rounded rows")
 
         // The PDF: the cover and the grand-total line under the transactions
         let url = try await PDFGeneratorService.shared.generatePDF(

@@ -16,10 +16,11 @@ Stage 2 is under way: 2a (#67) created `Packages/GFCore` and moved `Pricing` int
 moved `Reporting` and `CSV`. Every row of the duplication table below is now resolved: the
 dashboard, export preview, CSV, PDF and `Receipt.totalDifferential` all read `ReportTotals`, and
 the PDF prints its grand-total line at last. `ReportReconciliationTests` runs the demo dataset
-through each surface and checks they agree. It found one gap the spec doesn't settle: the CSV
-rounds each row's size-adjusted figure to the cent, so on the demo dataset that column sums to a
-cent under the total the PDF and dashboard show. The test bounds the drift at half a cent per
-row until PRODUCT_DEFINITION.md says which figure a total should be.
+through each surface and checks they agree. It found one gap the spec didn't settle: the CSV
+rounds each row's size-adjusted figure to the cent, so on the demo dataset that column sums to
+$355.57 against the $355.58 the PDF and dashboard show. Resolved: a total rounds the final sum,
+not the rows, which is what `ReportTotals` already does. PRODUCT_DEFINITION.md §3 now says so,
+and the test pins it.
 This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.
