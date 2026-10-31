@@ -15,6 +15,12 @@ app provides:
 - Receipt verification, so every tracked product has a real purchase behind it
 - PDF and CSV exports of a year's records
 
+**Canada only.** The app exists for Canadian tax rules, ships in English only, and formats money as
+CAD. Don't plan, test or write tester instructions for other countries' regions or locales. Build
+11's notes asked testers to set their phone to France, which was wasted effort. Write
+machine-readable output, such as CSV numbers, in a fixed format anyway, because that is about the
+file, not the user.
+
 **Current Status:** Public TestFlight beta since January 2026. 1.0 App Store submission is the
 current milestone — see issue #49 and the issues it is blocked by.
 
