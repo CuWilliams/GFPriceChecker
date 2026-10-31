@@ -144,7 +144,7 @@ struct QuantityReportingTests {
         context.insert(triple)
 
         // Buying three loaves does not change the price per gram. If any of these ever
-        // start tracking quantity, the PDF's Unit Price Diff column becomes nonsense.
+        // start tracking quantity, every unit price shown or exported becomes nonsense.
         #expect(triple.gfUnitPrice == single.gfUnitPrice)
         #expect(triple.regularUnitPrice == single.regularUnitPrice)
         #expect(triple.unitPriceDifferential == single.unitPriceDifferential)
@@ -290,14 +290,14 @@ struct QuantityReportingTests {
         let quantity = try field("Quantity")
         let packageDiff = try field("Package Price Differential")
         let extendedPackageDiff = try field("Extended Package Differential")
-        let unitDiff = try field("Unit Price Differential")
-        let extendedUnitDiff = try field("Extended Unit Price Differential")
+        let sizeAdjustedDiff = try field("Size-Adjusted Differential")
+        let extendedSizeAdjustedDiff = try field("Extended Size-Adjusted Differential")
 
         #expect(quantity == "3")
         #expect(packageDiff == "4.50")
         #expect(extendedPackageDiff == "13.50")
-        #expect(unitDiff == "1.01")
-        #expect(extendedUnitDiff == "3.03")
+        #expect(sizeAdjustedDiff == "1.01")
+        #expect(extendedSizeAdjustedDiff == "3.03")
     }
 
     @Test("CSV summary total is the extended amount")

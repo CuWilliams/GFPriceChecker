@@ -443,8 +443,8 @@ struct CaptureFlowViewModelTests {
         #expect(flow.packagePriceDifferential == Decimal(string: "3.20"))
     }
 
-    @Test("The unit differential normalizes for package size")
-    func unitDifferential() {
+    @Test("The size-adjusted differential normalizes for package size")
+    func normalizedDifferential() {
         let (flow, _) = makeFlow()
         // GF: $6.00 for 500 g → $0.012/g.  Regular: $4.00 for 1000 g → $0.004/g.
         // Difference $0.008/g over the 500 g GF package → $4.00.
@@ -453,18 +453,18 @@ struct CaptureFlowViewModelTests {
         flow.nonGFPriceText = "4.00"
         flow.nonGFSizeText = "1000"
 
-        #expect(flow.unitPriceDifferential == Decimal(4))
+        #expect(flow.normalizedDifferential == Decimal(4))
     }
 
-    @Test("The unit differential is unavailable until both sizes are known")
-    func unitDifferentialNeedsBothSizes() {
+    @Test("The size-adjusted differential is unavailable until both sizes are known")
+    func normalizedDifferentialNeedsBothSizes() {
         let (flow, _) = makeFlow()
         flow.gfPriceText = "6.00"
         flow.gfSizeText = "500"
         flow.nonGFPriceText = "4.00"
 
         #expect(flow.packagePriceDifferential != nil)
-        #expect(flow.unitPriceDifferential == nil)
+        #expect(flow.normalizedDifferential == nil)
     }
 
     @Test("A stored unit is only recorded when both sizes are known")

@@ -14,6 +14,10 @@ import Foundation
 /// - Proper CSV escaping for special characters
 /// - Date format: YYYY-MM-DD
 /// - Price format: decimal with 2 places, no currency symbol
+/// - Unit prices: 4 places, per 100 g for grams and per unit otherwise (spec §4), with the
+///   basis in its own column
+/// - Numbers and dates in `en_US_POSIX`, whatever the device locale: a region such as France
+///   writes `7,99`, which a CSV reader splits into two fields
 /// - Boolean values as Yes/No
 @MainActor
 final class CSVExportService {
@@ -48,9 +52,7 @@ final class CSVExportService {
         csvContent += buildCSVRows(for: sortedProducts)
 
         // Generate unique filename
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let dateString = dateFormatter.string(from: Date())
+        let dateString = formatDate(Date())
         let filename = "GFPriceChecker_Export_\(dateString).csv"
 
         // Save to temporary directory
@@ -94,12 +96,13 @@ final class CSVExportService {
             "Non-GF Size",
             "Non-GF Size (num)",
             "Size Unit",
+            "Unit Price Basis",
             "GF Unit Price",
             "Regular Unit Price",
             "Package Price Differential",
-            "Unit Price Differential",
+            "Size-Adjusted Differential",
             "Extended Package Differential",
-            "Extended Unit Price Differential",
+            "Extended Size-Adjusted Differential",
             "Category",
             "Store",
             "Receipt Verified",
@@ -118,6 +121,8 @@ final class CSVExportService {
 
     /// Builds a single CSV row for a product
     private func buildCSVRow(for product: ProductPair) -> String {
+        // Unit prices are only meaningful with a unit to state them against
+        let unit = product.resolvedSizeUnit
         let fields = [
             formatDate(product.reportingDate),
             String(product.quantity),
@@ -130,8 +135,9 @@ final class CSVExportService {
             escapeField(product.nonGFSize ?? ""),
             formatOptionalDecimal(product.nonGFSizeValue),
             escapeField(product.sizeUnit ?? ""),
-            formatOptionalDecimal(product.gfUnitPrice),
-            formatOptionalDecimal(product.regularUnitPrice),
+            unit.map { escapeField($0.unitPriceLabel) } ?? "",
+            formatUnitPrice(product.gfUnitPrice, unit: unit),
+            formatUnitPrice(product.regularUnitPrice, unit: unit),
             formatPrice(product.differential),
             formatOptionalDecimal(product.normalizedDifferential),
             formatPrice(product.extendedDifferential),
@@ -151,22 +157,36 @@ final class CSVExportService {
         return formatPrice(value)
     }
 
+    /// Formats a unit price at the spec §4 scale — $/100 g for grams, $/unit otherwise —
+    /// to 4 places, since $/mL rounds to nothing at 2. Empty without a unit to scale by.
+    private func formatUnitPrice(_ value: Decimal?, unit: SizeUnit?) -> String {
+        guard let value, let unit else { return "" }
+        return formatDecimal(value * unit.unitPriceScaleFactor, fractionDigits: 4)
+    }
+
     /// Formats a date as YYYY-MM-DD
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX") // Gregorian calendar, Latin digits
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
     }
 
     /// Formats a price as decimal with 2 places, no currency symbol
     private func formatPrice(_ price: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        formatter.groupingSeparator = "" // No thousands separator for CSV
+        formatDecimal(price, fractionDigits: 2)
+    }
 
-        return formatter.string(from: price as NSDecimalNumber) ?? "0.00"
+    /// Formats a decimal with a fixed number of places, `.` as the separator and no grouping
+    private func formatDecimal(_ value: Decimal, fractionDigits: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = fractionDigits
+        formatter.maximumFractionDigits = fractionDigits
+
+        return formatter.string(from: value as NSDecimalNumber) ?? ""
     }
 
     /// Formats a boolean as Yes/No
@@ -186,11 +206,11 @@ final class CSVExportService {
             return ""
         }
 
-        // Check if escaping is needed
-        let needsEscaping = field.contains(",") ||
-                           field.contains("\"") ||
-                           field.contains("\n") ||
-                           field.contains("\r")
+        // Check if escaping is needed. Scan scalars, not Characters: Swift treats "\r\n" as
+        // one Character, so `contains("\n")` misses a Windows line break entirely.
+        let needsEscaping = field.unicodeScalars.contains { scalar in
+            scalar == "," || scalar == "\"" || scalar == "\n" || scalar == "\r"
+        }
 
         if needsEscaping {
             // Escape existing quotes by doubling them

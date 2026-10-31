@@ -364,7 +364,7 @@ Two things worth carrying into Stage 5:
   evaluated in the *caller's* isolation, and `.live` is main-actor isolated.
 - **The finalize screen no longer re-derives the differential.** It and `save` both went
   through the same unit-price back-calculation, written out twice; it is now
-  `gfSizeValue` / `unitPriceDifferential` on the view model, so a preview that disagrees with
+  `gfSizeValue` / `normalizedDifferential` on the view model, so a preview that disagrees with
   what gets saved is no longer possible.
 
 ### Stage 4 — addressable navigation
