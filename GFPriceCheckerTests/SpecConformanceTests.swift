@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import PDFKit
 import SwiftData
 import Testing

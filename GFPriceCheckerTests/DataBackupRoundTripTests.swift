@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import SwiftData
 import Testing
 @testable import GFPriceChecker

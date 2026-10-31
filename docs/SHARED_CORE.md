@@ -12,6 +12,9 @@ items 2, 3 and 4. Item 2's fr-CA example was wrong: an English-only app resolves
 `en_CA`, which writes `.`, so no Canadian locale hit it. The fixed machine format stays because a
 CSV should not depend on the device locale at all, but the app is Canada-only and non-Canadian
 regions are out of scope for testing.
+Stage 2 is under way: 2a (#67) created `Packages/GFCore` and moved `Pricing` into it. The
+"Differential formulas" row in the duplication table below is resolved, since `ProductPair` and
+`CaptureFlowViewModel` both forward to `PricingInputs`.
 This document grounds Track F and records the audit that sized it.
 The issues under the **Shared Core (GFCore)** milestone track progress, and this document
 explains the reasoning behind them.

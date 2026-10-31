@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 
 /// Service for generating CSV exports
 ///

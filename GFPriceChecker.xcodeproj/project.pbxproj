@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		82C0FE012F10000000000001 /* GFCore in Frameworks */ = {isa = PBXBuildFile; productRef = 82C0FE022F10000000000001 /* GFCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		825601DF2F005467009B5949 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				82C0FE012F10000000000001 /* GFCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = GFPriceChecker;
 			packageProductDependencies = (
+				82C0FE022F10000000000001 /* GFCore */,
 			);
 			productName = GFPriceChecker;
 			productReference = 825601CF2F005464009B5949 /* GFPriceChecker.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = 825601C62F005464009B5949;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				82C0FE032F10000000000001 /* XCLocalSwiftPackageReference "Packages/GFCore" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 825601D02F005464009B5949 /* Products */;
 			projectDirPath = "";
@@ -590,6 +599,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		82C0FE032F10000000000001 /* XCLocalSwiftPackageReference "Packages/GFCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/GFCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		82C0FE022F10000000000001 /* GFCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GFCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 825601C72F005464009B5949 /* Project object */;
 }

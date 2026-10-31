@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import GFCore
 import SwiftData
 import Testing
 @testable import GFPriceChecker
@@ -21,7 +22,8 @@ import Testing
 ///
 /// So these tests deliberately use a quantity of 3 and assert exact totals rather than
 /// "greater than zero". Every aggregation the dashboard and the exports depend on is
-/// covered, because the failure mode is a single overlooked `reduce`.
+/// covered, because the failure mode is a single overlooked `reduce`. The per-pair
+/// arithmetic itself is tested in GFCore, by `PricingInputsTests`.
 ///
 /// Run serially: the CSV and PDF services are `@MainActor` singletons that write files
 /// into the shared temporary directory under a date-derived filename.
@@ -99,71 +101,6 @@ struct QuantityReportingTests {
         let calendar = Calendar.current
         let components = calendar.dateComponents([.year, .month], from: date)
         return try #require(calendar.date(from: components))
-    }
-
-    // MARK: - Model Arithmetic
-
-    @Test("Extended differentials scale with quantity, per-unit ones do not")
-    func extendedDifferentialsScaleWithQuantity() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-
-        let pair = makePair(quantity: 3)
-        context.insert(pair)
-
-        // Per-unit figures are what the detail view shows, and must ignore quantity.
-        #expect(pair.differential == Self.perUnitDifferential)
-        #expect(pair.normalizedDifferential == Self.perUnitNormalized)
-
-        // Extended figures are what the reports and exports total.
-        #expect(pair.extendedDifferential == Decimal(string: "13.50")!)
-        #expect(pair.extendedNormalizedDifferential == Decimal(string: "3.03")!)
-    }
-
-    @Test("A single-unit purchase leaves the extended figures equal to the per-unit ones")
-    func quantityOneIsIdentity() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-
-        let pair = makePair(quantity: 1)
-        context.insert(pair)
-
-        #expect(pair.quantity == 1)
-        #expect(pair.extendedDifferential == pair.differential)
-        #expect(pair.extendedNormalizedDifferential == pair.normalizedDifferential)
-    }
-
-    @Test("Unit prices are rates and never scale with quantity")
-    func ratesDoNotScaleWithQuantity() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-
-        let single = makePair(quantity: 1)
-        let triple = makePair(quantity: 3)
-        context.insert(single)
-        context.insert(triple)
-
-        // Buying three loaves does not change the price per gram. If any of these ever
-        // start tracking quantity, every unit price shown or exported becomes nonsense.
-        #expect(triple.gfUnitPrice == single.gfUnitPrice)
-        #expect(triple.regularUnitPrice == single.regularUnitPrice)
-        #expect(triple.unitPriceDifferential == single.unitPriceDifferential)
-        #expect(triple.unitPriceDifferential == Decimal(string: "0.002525")!)
-    }
-
-    @Test("Extended normalized differential stays nil when size data is incomplete")
-    func extendedNormalizedIsNilWithoutSizeData() throws {
-        let container = try makeContainer()
-        let context = ModelContext(container)
-
-        let pair = makePair(quantity: 4, withSizeData: false)
-        context.insert(pair)
-
-        #expect(pair.normalizedDifferential == nil)
-        #expect(pair.extendedNormalizedDifferential == nil)
-
-        // The package differential still scales — only the size-adjusted one is unavailable.
-        #expect(pair.extendedDifferential == Decimal(string: "18.00")!)
     }
 
     // MARK: - ReportViewModel Aggregations

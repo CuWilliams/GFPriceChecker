@@ -21,8 +21,9 @@ DerivedData/
 *.dSYM
 
 # Swift Package Manager
+# `Packages/` is not ignored: it holds the local GFCore package's source.
 .build/
-Packages/
+.swiftpm/
 
 # Derived data from Tools/Demo/seed.sh, which builds into the repo.
 build/
