@@ -1,0 +1,15 @@
+{
+  "version": "2.0",
+  "appVersion": "1.0",
+  "timestamp": "2026-01-01T00:00:00Z",
+  "settings": {
+    "userName": "",
+    "accountantEmail": "",
+    "taxID": "",
+    "currencySymbol": "",
+    "defaultPaperSize": "",
+    "defaultDateRange": ""
+  },
+  "productPairs": [],
+  "receipts": []
+}

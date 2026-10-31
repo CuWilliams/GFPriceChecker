@@ -1,0 +1,78 @@
+{
+  "version": "1.0",
+  "appVersion": "1.0",
+  "timestamp": "2026-10-31T12:00:00Z",
+  "productPairs": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "gfProductName": "GF Soy Sauce",
+      "gfPrice": "4.99",
+      "gfSize": "946 mL",
+      "gfSizeValue": "946",
+      "gfImageUUID": null,
+      "gfImageData": null,
+      "gfOCRConfidence": 0.75,
+      "nonGFProductName": "Soy Sauce",
+      "nonGFPrice": "2.49",
+      "nonGFSize": "1 L",
+      "nonGFSizeValue": "1000",
+      "nonGFImageUUID": null,
+      "nonGFImageData": null,
+      "nonGFOCRConfidence": 0.5,
+      "sizeUnit": "mL",
+      "quantity": 3,
+      "createdDate": "2026-10-20T15:00:00Z",
+      "category": "Sauce",
+      "notes": "Comma, \"quote\" and\nnewline",
+      "verified": true,
+      "receiptID": "00000000-0000-0000-0000-000000000100"
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "gfProductName": "GF Crackers",
+      "gfPrice": "5.49",
+      "gfSize": null,
+      "gfSizeValue": null,
+      "gfImageUUID": null,
+      "gfImageData": null,
+      "gfOCRConfidence": 0,
+      "nonGFProductName": "Crackers",
+      "nonGFPrice": "3.29",
+      "nonGFSize": null,
+      "nonGFSizeValue": null,
+      "nonGFImageUUID": null,
+      "nonGFImageData": null,
+      "nonGFOCRConfidence": 0,
+      "sizeUnit": null,
+      "quantity": null,
+      "createdDate": "2026-10-21T15:00:00Z",
+      "category": null,
+      "notes": null,
+      "verified": true,
+      "receiptID": "00000000-0000-0000-0000-000000000100"
+    }
+  ],
+  "receipts": [
+    {
+      "id": "00000000-0000-0000-0000-000000000100",
+      "purchaseDate": "2026-10-19T21:15:00Z",
+      "storeName": null,
+      "receiptImageUUID": null,
+      "receiptImageData": null,
+      "totalAmount": null,
+      "extractedOCRText": null,
+      "productPairIDs": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002"
+      ]
+    }
+  ],
+  "settings": {
+    "userName": "Sam Placeholder",
+    "accountantEmail": "accountant@example.com",
+    "taxID": "000 000 000",
+    "currencySymbol": "$ CAD",
+    "defaultPaperSize": "A4",
+    "defaultDateRange": "Last 12 Months"
+  }
+}

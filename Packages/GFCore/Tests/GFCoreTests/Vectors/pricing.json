@@ -1,0 +1,527 @@
+{
+  "about": "PRODUCT_DEFINITION.md §3 and §4: the differentials, package-size back-calculation, and size text parsing",
+  "pairs": [
+    {
+      "name": "§3 worked example",
+      "note": "GF $7.99 / 400 g vs Regular $3.99 / 675 g → ($0.01997 − $0.00591) × 400",
+      "input": {
+        "gfPrice": "7.99",
+        "nonGFPrice": "3.99",
+        "gfSizeValue": "400",
+        "nonGFSizeValue": "675",
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "4.00",
+        "gfUnitPrice": "0.019975",
+        "regularUnitPrice": "0.0059111111",
+        "unitPriceDifferential": "0.0140638889",
+        "normalizedDifferential": "5.6255555556",
+        "extendedDifferential": "4.00",
+        "extendedNormalizedDifferential": "5.6255555556"
+      }
+    },
+    {
+      "name": "§3 worked example, as displayed",
+      "note": "Rounded to the cent, half-even, as every surface shows it",
+      "input": {
+        "gfPrice": "7.99",
+        "nonGFPrice": "3.99",
+        "gfSizeValue": "400",
+        "nonGFSizeValue": "675",
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "4.00",
+        "normalizedDifferential": "5.63",
+        "extendedNormalizedDifferential": "5.63"
+      }
+    },
+    {
+      "name": "Quantity scales the extended figures but not the rate",
+      "input": {
+        "gfPrice": "7.99",
+        "nonGFPrice": "3.49",
+        "gfSizeValue": "400",
+        "nonGFSizeValue": "200",
+        "quantity": 3
+      },
+      "expected": {
+        "differential": "4.50",
+        "gfUnitPrice": "0.019975",
+        "regularUnitPrice": "0.01745",
+        "unitPriceDifferential": "0.002525",
+        "normalizedDifferential": "1.01",
+        "extendedDifferential": "13.50",
+        "extendedNormalizedDifferential": "3.03"
+      }
+    },
+    {
+      "name": "A missing regular size leaves every size figure empty",
+      "input": {
+        "gfPrice": "5.49",
+        "nonGFPrice": "2.99",
+        "gfSizeValue": "500",
+        "nonGFSizeValue": null,
+        "quantity": 2
+      },
+      "expected": {
+        "differential": "2.50",
+        "gfUnitPrice": "0.01098",
+        "regularUnitPrice": null,
+        "unitPriceDifferential": null,
+        "normalizedDifferential": null,
+        "extendedDifferential": "5.00",
+        "extendedNormalizedDifferential": null
+      }
+    },
+    {
+      "name": "A zero size is no size",
+      "input": {
+        "gfPrice": "5.49",
+        "nonGFPrice": "2.99",
+        "gfSizeValue": "0",
+        "nonGFSizeValue": "500",
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "2.50",
+        "gfUnitPrice": null,
+        "regularUnitPrice": "0.00598",
+        "unitPriceDifferential": null,
+        "normalizedDifferential": null,
+        "extendedDifferential": "2.50",
+        "extendedNormalizedDifferential": null
+      }
+    },
+    {
+      "name": "No size data at all",
+      "input": {
+        "gfPrice": "4.99",
+        "nonGFPrice": "4.99",
+        "gfSizeValue": null,
+        "nonGFSizeValue": null,
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "0.00",
+        "gfUnitPrice": null,
+        "regularUnitPrice": null,
+        "unitPriceDifferential": null,
+        "normalizedDifferential": null,
+        "extendedDifferential": "0.00",
+        "extendedNormalizedDifferential": null
+      }
+    },
+    {
+      "name": "A cheaper GF product gives negative differentials",
+      "input": {
+        "gfPrice": "3.00",
+        "nonGFPrice": "4.00",
+        "gfSizeValue": "500",
+        "nonGFSizeValue": "500",
+        "quantity": 2
+      },
+      "expected": {
+        "differential": "-1.00",
+        "gfUnitPrice": "0.006",
+        "regularUnitPrice": "0.008",
+        "unitPriceDifferential": "-0.002",
+        "normalizedDifferential": "-1.00",
+        "extendedDifferential": "-2.00",
+        "extendedNormalizedDifferential": "-2.00"
+      }
+    },
+    {
+      "name": "The size-adjusted figure is per GF package",
+      "input": {
+        "gfPrice": "6.00",
+        "nonGFPrice": "4.00",
+        "gfSizeValue": "300",
+        "nonGFSizeValue": "600",
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "2.00",
+        "gfUnitPrice": "0.02",
+        "regularUnitPrice": "0.0066666667",
+        "unitPriceDifferential": "0.0133333333",
+        "normalizedDifferential": "4.0000000000",
+        "extendedDifferential": "2.00",
+        "extendedNormalizedDifferential": "4.0000000000"
+      }
+    },
+    {
+      "name": "A size-adjusted figure exactly on a half cent",
+      "note": "0.465 and 1.395: the rounding vectors in csv.json depend on these",
+      "input": {
+        "gfPrice": "1.00",
+        "nonGFPrice": "4.28",
+        "gfSizeValue": "100",
+        "nonGFSizeValue": "800",
+        "quantity": 3
+      },
+      "expected": {
+        "differential": "-3.28",
+        "gfUnitPrice": "0.01",
+        "regularUnitPrice": "0.00535",
+        "unitPriceDifferential": "0.00465",
+        "normalizedDifferential": "0.465",
+        "extendedDifferential": "-9.84",
+        "extendedNormalizedDifferential": "1.395"
+      }
+    },
+    {
+      "name": "A half cent rounds to even",
+      "note": "Half-even gives 0.46 and 1.40; half-up would give 0.47",
+      "input": {
+        "gfPrice": "1.00",
+        "nonGFPrice": "4.28",
+        "gfSizeValue": "100",
+        "nonGFSizeValue": "800",
+        "quantity": 3
+      },
+      "expected": {
+        "normalizedDifferential": "0.46",
+        "extendedNormalizedDifferential": "1.40"
+      }
+    },
+    {
+      "name": "Demo dataset: ORGANIC TORTILLA CHIPS (g)",
+      "input": {
+        "gfPrice": "6.39",
+        "nonGFPrice": "5.99",
+        "gfSizeValue": "908",
+        "nonGFSizeValue": "907",
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "0.40",
+        "gfUnitPrice": "0.0070374449",
+        "regularUnitPrice": "0.0066041896",
+        "unitPriceDifferential": "0.0004332553",
+        "normalizedDifferential": "0.3933958104",
+        "extendedDifferential": "0.40",
+        "extendedNormalizedDifferential": "0.3933958104"
+      }
+    },
+    {
+      "name": "Demo dataset: Tortilla Gf (no unit)",
+      "input": {
+        "gfPrice": "4.49",
+        "nonGFPrice": "3.99",
+        "gfSizeValue": null,
+        "nonGFSizeValue": null,
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "0.50",
+        "gfUnitPrice": null,
+        "regularUnitPrice": null,
+        "unitPriceDifferential": null,
+        "normalizedDifferential": null,
+        "extendedDifferential": "0.50",
+        "extendedNormalizedDifferential": null
+      }
+    },
+    {
+      "name": "Demo dataset: Campbell Sp Tom Bsl Oreg (mL)",
+      "input": {
+        "gfPrice": "3.69",
+        "nonGFPrice": "1.99",
+        "gfSizeValue": "284",
+        "nonGFSizeValue": "284",
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "1.70",
+        "gfUnitPrice": "0.0129929577",
+        "regularUnitPrice": "0.0070070423",
+        "unitPriceDifferential": "0.0059859155",
+        "normalizedDifferential": "1.70",
+        "extendedDifferential": "1.70",
+        "extendedNormalizedDifferential": "1.70"
+      }
+    },
+    {
+      "name": "Demo dataset: GLUTEN FREE FLOUR (kg)",
+      "input": {
+        "gfPrice": "15.99",
+        "nonGFPrice": "9.95",
+        "gfSizeValue": "2",
+        "nonGFSizeValue": "10",
+        "quantity": 1
+      },
+      "expected": {
+        "differential": "6.04",
+        "gfUnitPrice": "7.995",
+        "regularUnitPrice": "0.995",
+        "unitPriceDifferential": "7.00",
+        "normalizedDifferential": "14.00",
+        "extendedDifferential": "6.04",
+        "extendedNormalizedDifferential": "14.00"
+      }
+    }
+  ],
+  "packageSize": [
+    {
+      "name": "A unit price in cents",
+      "input": {
+        "price": "4.99",
+        "unitPrice": "1.25",
+        "basis": "cents"
+      },
+      "expected": "399.20"
+    },
+    {
+      "name": "The same unit price in dollars",
+      "input": {
+        "price": "4.99",
+        "unitPrice": "0.0125",
+        "basis": "dollars"
+      },
+      "expected": "399.20"
+    },
+    {
+      "name": "A size that does not divide evenly",
+      "input": {
+        "price": "5.00",
+        "unitPrice": "0.75",
+        "basis": "dollars"
+      },
+      "expected": "6.6666666667"
+    },
+    {
+      "name": "A zero unit price is not a size",
+      "input": {
+        "price": "3.00",
+        "unitPrice": "0",
+        "basis": "dollars"
+      },
+      "expected": null
+    },
+    {
+      "name": "A negative unit price is not a size",
+      "input": {
+        "price": "3.00",
+        "unitPrice": "-1",
+        "basis": "cents"
+      },
+      "expected": null
+    }
+  ],
+  "parseSize": [
+    {
+      "input": "400g",
+      "expected": {
+        "value": "400",
+        "unit": "g"
+      }
+    },
+    {
+      "input": "400 g",
+      "expected": {
+        "value": "400",
+        "unit": "g"
+      }
+    },
+    {
+      "input": "1.5 L",
+      "expected": {
+        "value": "1.5",
+        "unit": "L"
+      }
+    },
+    {
+      "input": "750mL",
+      "expected": {
+        "value": "750",
+        "unit": "mL"
+      }
+    },
+    {
+      "input": "2.5kg",
+      "expected": {
+        "value": "2.5",
+        "unit": "kg"
+      }
+    },
+    {
+      "input": "12oz",
+      "expected": {
+        "value": "12",
+        "unit": "oz"
+      }
+    },
+    {
+      "input": "16 fl oz",
+      "expected": {
+        "value": "16",
+        "unit": "fl oz"
+      }
+    },
+    {
+      "input": "16 fl. oz",
+      "expected": {
+        "value": "16",
+        "unit": "fl oz"
+      }
+    },
+    {
+      "input": "1.5 lb",
+      "expected": {
+        "value": "1.5",
+        "unit": "lb"
+      }
+    },
+    {
+      "input": "24 count",
+      "expected": {
+        "value": "24",
+        "unit": "count"
+      }
+    },
+    {
+      "input": "400G",
+      "expected": {
+        "value": "400",
+        "unit": "g"
+      }
+    },
+    {
+      "input": "Net 675 g",
+      "expected": {
+        "value": "675",
+        "unit": "g"
+      }
+    },
+    {
+      "input": "500 net g",
+      "expected": {
+        "value": "500 net g",
+        "unit": null
+      }
+    },
+    {
+      "input": "Family Pack",
+      "expected": {
+        "value": "Family Pack",
+        "unit": null
+      }
+    }
+  ],
+  "parseUnitPrice": [
+    {
+      "input": "$1.49/100g",
+      "expected": {
+        "value": "1.49",
+        "unit": "g"
+      }
+    },
+    {
+      "input": "0.99/oz",
+      "expected": {
+        "value": "0.99",
+        "unit": "oz"
+      }
+    },
+    {
+      "input": "$3.50 / kg",
+      "expected": {
+        "value": "3.50",
+        "unit": "kg"
+      }
+    },
+    {
+      "input": "$0.45/100 mL",
+      "expected": {
+        "value": "0.45",
+        "unit": "mL"
+      }
+    },
+    {
+      "input": "$2.19/fl oz",
+      "expected": {
+        "value": "2.19",
+        "unit": "fl oz"
+      }
+    },
+    {
+      "input": "$1.10/L",
+      "expected": {
+        "value": "1.10",
+        "unit": "L"
+      }
+    },
+    {
+      "input": "$4.40/lb",
+      "expected": {
+        "value": "4.40",
+        "unit": "lb"
+      }
+    },
+    {
+      "input": "$0.50/count",
+      "expected": {
+        "value": "0.50",
+        "unit": "count"
+      }
+    },
+    {
+      "input": "$1.49/each 100 g",
+      "expected": {
+        "value": "$1.49/each 100 g",
+        "unit": null
+      }
+    },
+    {
+      "input": "per package",
+      "expected": {
+        "value": "per package",
+        "unit": null
+      }
+    }
+  ],
+  "sizeUnits": [
+    {
+      "unit": "g",
+      "unitPriceScaleFactor": "100",
+      "unitPriceLabel": "100g"
+    },
+    {
+      "unit": "kg",
+      "unitPriceScaleFactor": "1",
+      "unitPriceLabel": "kg"
+    },
+    {
+      "unit": "mL",
+      "unitPriceScaleFactor": "1",
+      "unitPriceLabel": "mL"
+    },
+    {
+      "unit": "L",
+      "unitPriceScaleFactor": "1",
+      "unitPriceLabel": "L"
+    },
+    {
+      "unit": "oz",
+      "unitPriceScaleFactor": "1",
+      "unitPriceLabel": "oz"
+    },
+    {
+      "unit": "lb",
+      "unitPriceScaleFactor": "1",
+      "unitPriceLabel": "lb"
+    },
+    {
+      "unit": "fl oz",
+      "unitPriceScaleFactor": "1",
+      "unitPriceLabel": "fl oz"
+    },
+    {
+      "unit": "count",
+      "unitPriceScaleFactor": "1",
+      "unitPriceLabel": "count"
+    }
+  ]
+}

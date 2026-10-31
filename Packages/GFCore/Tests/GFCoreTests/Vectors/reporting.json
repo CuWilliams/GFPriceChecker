@@ -1,0 +1,2537 @@
+{
+  "about": "PRODUCT_DEFINITION.md §1 and §3: totals over report rows, year and range filters, export presets, groupings",
+  "totals": [
+    {
+      "name": "No rows",
+      "input": {
+        "rows": []
+      },
+      "expected": {
+        "count": 0,
+        "unitCount": 0,
+        "verifiedCount": 0,
+        "unverifiedCount": 0,
+        "totalDifferential": "0.00",
+        "totalNormalizedDifferential": null,
+        "normalizedExcludedCount": 0,
+        "normalizedUnitCount": 0,
+        "averageDifferential": "0.00",
+        "averageNormalizedDifferential": null
+      }
+    },
+    {
+      "name": "Sizes, quantities and verification mixed",
+      "input": {
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-02-10T17:00:00Z",
+            "gfPrice": "7.99",
+            "nonGFPrice": "3.49",
+            "quantity": 3,
+            "verified": true,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "200",
+            "category": "Bread"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-02-11T17:00:00Z",
+            "gfPrice": "5.49",
+            "nonGFPrice": "2.99",
+            "quantity": 2,
+            "verified": false,
+            "gfSizeValue": "500",
+            "category": "Pasta"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-02-12T17:00:00Z",
+            "gfPrice": "4.00",
+            "nonGFPrice": "4.50",
+            "quantity": 1,
+            "verified": true
+          }
+        ]
+      },
+      "expected": {
+        "count": 3,
+        "unitCount": 6,
+        "verifiedCount": 2,
+        "unverifiedCount": 1,
+        "totalDifferential": "18.00",
+        "totalNormalizedDifferential": "3.03",
+        "normalizedExcludedCount": 2,
+        "normalizedUnitCount": 3,
+        "averageDifferential": "3.00",
+        "averageNormalizedDifferential": "1.01"
+      }
+    },
+    {
+      "name": "No row has size data, so there is no size-adjusted total",
+      "input": {
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-02-10T17:00:00Z",
+            "gfPrice": "6.49",
+            "nonGFPrice": "3.99",
+            "quantity": 2,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-02-11T17:00:00Z",
+            "gfPrice": "5.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": {
+        "count": 2,
+        "unitCount": 3,
+        "verifiedCount": 0,
+        "unverifiedCount": 2,
+        "totalDifferential": "6.00",
+        "totalNormalizedDifferential": null,
+        "normalizedExcludedCount": 2,
+        "normalizedUnitCount": 0,
+        "averageDifferential": "2.00",
+        "averageNormalizedDifferential": null
+      }
+    },
+    {
+      "name": "Three §3 worked examples",
+      "input": {
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-03-01T17:00:00Z",
+            "gfPrice": "7.99",
+            "nonGFPrice": "3.99",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "675"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-03-02T17:00:00Z",
+            "gfPrice": "7.99",
+            "nonGFPrice": "3.99",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "675"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-03-03T17:00:00Z",
+            "gfPrice": "7.99",
+            "nonGFPrice": "3.99",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "675"
+          }
+        ]
+      },
+      "expected": {
+        "count": 3,
+        "unitCount": 3,
+        "verifiedCount": 0,
+        "unverifiedCount": 3,
+        "totalDifferential": "12.00",
+        "totalNormalizedDifferential": "16.8766666667",
+        "normalizedExcludedCount": 0,
+        "normalizedUnitCount": 3,
+        "averageDifferential": "4.00",
+        "averageNormalizedDifferential": "5.6255555556"
+      }
+    },
+    {
+      "name": "Three §3 worked examples: the final sum is rounded, not the rows",
+      "note": "Each row shows 5.63, and 3 × 5.63 = 16.89, but the total is 16.88",
+      "input": {
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-03-01T17:00:00Z",
+            "gfPrice": "7.99",
+            "nonGFPrice": "3.99",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "675"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-03-02T17:00:00Z",
+            "gfPrice": "7.99",
+            "nonGFPrice": "3.99",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "675"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-03-03T17:00:00Z",
+            "gfPrice": "7.99",
+            "nonGFPrice": "3.99",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "675"
+          }
+        ]
+      },
+      "expected": {
+        "totalNormalizedDifferential": "16.88",
+        "totalDifferential": "12.00"
+      }
+    }
+  ],
+  "yearFilter": [
+    {
+      "name": "23:30 on New Year's Eve in Toronto is still the old year",
+      "input": {
+        "timeZone": "America/Toronto",
+        "year": 2025,
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": [
+        "00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    {
+      "name": "Midnight in Toronto starts the new year",
+      "input": {
+        "timeZone": "America/Toronto",
+        "year": 2026,
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": [
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000003"
+      ]
+    },
+    {
+      "name": "A year with no rows",
+      "input": {
+        "timeZone": "America/Toronto",
+        "year": 2023,
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": []
+    },
+    {
+      "name": "The same instants in UTC fall differently",
+      "input": {
+        "timeZone": "UTC",
+        "year": 2026,
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000003"
+      ]
+    }
+  ],
+  "availableYears": [
+    {
+      "name": "Newest first, in Toronto",
+      "input": {
+        "timeZone": "America/Toronto",
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": [
+        2026,
+        2025,
+        2024
+      ]
+    },
+    {
+      "name": "Newest first, in UTC",
+      "input": {
+        "timeZone": "UTC",
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": [
+        2026,
+        2024
+      ]
+    },
+    {
+      "name": "No rows",
+      "input": {
+        "timeZone": "America/Toronto",
+        "rows": []
+      },
+      "expected": []
+    }
+  ],
+  "rangeFilter": [
+    {
+      "name": "Both ends are included",
+      "input": {
+        "range": {
+          "start": "2026-01-01T05:00:00Z",
+          "end": "2026-06-15T16:00:00Z"
+        },
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": [
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000003"
+      ]
+    },
+    {
+      "name": "One second past an end excludes it",
+      "input": {
+        "range": {
+          "start": "2026-01-01T05:00:01Z",
+          "end": "2026-06-15T15:59:59Z"
+        },
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": []
+    },
+    {
+      "name": "No range keeps every row",
+      "input": {
+        "range": null,
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-01-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-01-01T05:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-06-15T16:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2024-03-01T17:00:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          }
+        ]
+      },
+      "expected": [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000003",
+        "00000000-0000-0000-0000-000000000004"
+      ]
+    }
+  ],
+  "dateRange": [
+    {
+      "name": "Current year in Toronto",
+      "input": {
+        "preset": "Current Year",
+        "now": "2026-06-15T12:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2026-01-01T05:00:00Z",
+        "end": "2027-01-01T04:59:59Z"
+      }
+    },
+    {
+      "name": "Current year is the local year, which UTC has already left",
+      "input": {
+        "preset": "Current Year",
+        "now": "2027-01-01T03:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2026-01-01T05:00:00Z",
+        "end": "2027-01-01T04:59:59Z"
+      }
+    },
+    {
+      "name": "Current year in St. John's, on a half-hour offset",
+      "input": {
+        "preset": "Current Year",
+        "now": "2026-10-31T12:00:00Z",
+        "timeZone": "America/St_Johns"
+      },
+      "expected": {
+        "start": "2026-01-01T03:30:00Z",
+        "end": "2027-01-01T03:29:59Z"
+      }
+    },
+    {
+      "name": "Last 12 months",
+      "input": {
+        "preset": "Last 12 Months",
+        "now": "2026-03-31T12:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2025-03-31T12:00:00Z",
+        "end": "2026-03-31T12:00:00Z"
+      }
+    },
+    {
+      "name": "Last 12 months keeps the wall-clock time across a DST change",
+      "note": "Noon EST back to noon EDT: 12 calendar months, not 365 days",
+      "input": {
+        "preset": "Last 12 Months",
+        "now": "2026-11-01T17:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2025-11-01T16:00:00Z",
+        "end": "2026-11-01T17:00:00Z"
+      }
+    },
+    {
+      "name": "Last 12 months from a leap day ends on 28 February",
+      "input": {
+        "preset": "Last 12 Months",
+        "now": "2028-02-29T17:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": {
+        "start": "2027-02-28T17:00:00Z",
+        "end": "2028-02-29T17:00:00Z"
+      }
+    },
+    {
+      "name": "All time has no range",
+      "input": {
+        "preset": "All Time",
+        "now": "2026-06-15T12:00:00Z",
+        "timeZone": "America/Toronto"
+      },
+      "expected": null
+    }
+  ],
+  "byCategory": [
+    {
+      "name": "Largest package differential first, ties by name, no category as Uncategorized",
+      "input": {
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-02-01T17:00:00Z",
+            "gfPrice": "8.00",
+            "nonGFPrice": "5.00",
+            "quantity": 1,
+            "verified": true,
+            "gfSizeValue": "500",
+            "nonGFSizeValue": "500",
+            "category": "Bread"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-02-02T17:00:00Z",
+            "gfPrice": "7.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false,
+            "category": "Bread"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2026-02-03T17:00:00Z",
+            "gfPrice": "5.00",
+            "nonGFPrice": "3.00",
+            "quantity": 3,
+            "verified": true,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "450",
+            "category": "Pasta"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2026-02-04T17:00:00Z",
+            "gfPrice": "4.00",
+            "nonGFPrice": "2.00",
+            "quantity": 1,
+            "verified": false,
+            "category": "Snacks"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000005",
+            "reportingDate": "2026-02-05T17:00:00Z",
+            "gfPrice": "3.00",
+            "nonGFPrice": "2.50",
+            "quantity": 2,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000006",
+            "reportingDate": "2026-02-06T17:00:00Z",
+            "gfPrice": "2.00",
+            "nonGFPrice": "3.00",
+            "quantity": 1,
+            "verified": false,
+            "category": "Cereal"
+          }
+        ]
+      },
+      "expected": [
+        {
+          "key": "Bread",
+          "count": 2,
+          "unitCount": 2,
+          "verifiedCount": 1,
+          "totalDifferential": "6.00",
+          "totalNormalizedDifferential": "3.00"
+        },
+        {
+          "key": "Pasta",
+          "count": 1,
+          "unitCount": 3,
+          "verifiedCount": 1,
+          "totalDifferential": "6.00",
+          "totalNormalizedDifferential": "7.0000000000"
+        },
+        {
+          "key": "Snacks",
+          "count": 1,
+          "unitCount": 1,
+          "verifiedCount": 0,
+          "totalDifferential": "2.00",
+          "totalNormalizedDifferential": null
+        },
+        {
+          "key": "Uncategorized",
+          "count": 1,
+          "unitCount": 2,
+          "verifiedCount": 0,
+          "totalDifferential": "1.00",
+          "totalNormalizedDifferential": null
+        },
+        {
+          "key": "Cereal",
+          "count": 1,
+          "unitCount": 1,
+          "verifiedCount": 0,
+          "totalDifferential": "-1.00",
+          "totalNormalizedDifferential": null
+        }
+      ]
+    },
+    {
+      "name": "No rows",
+      "input": {
+        "rows": []
+      },
+      "expected": []
+    }
+  ],
+  "byMonth": [
+    {
+      "name": "Oldest first, months in Toronto",
+      "input": {
+        "timeZone": "America/Toronto",
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-02-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "500"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-02-01T05:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.50",
+            "quantity": 2,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2025-12-15T17:00:00Z",
+            "gfPrice": "5.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2026-01-20T17:00:00Z",
+            "gfPrice": "7.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "300",
+            "nonGFSizeValue": "300"
+          }
+        ]
+      },
+      "expected": [
+        {
+          "monthStart": "2025-12-01T05:00:00Z",
+          "count": 1,
+          "unitCount": 1,
+          "totalDifferential": "1.00",
+          "totalNormalizedDifferential": null
+        },
+        {
+          "monthStart": "2026-01-01T05:00:00Z",
+          "count": 2,
+          "unitCount": 2,
+          "totalDifferential": "5.00",
+          "totalNormalizedDifferential": "5.80"
+        },
+        {
+          "monthStart": "2026-02-01T05:00:00Z",
+          "count": 1,
+          "unitCount": 2,
+          "totalDifferential": "3.00",
+          "totalNormalizedDifferential": null
+        }
+      ]
+    },
+    {
+      "name": "The same rows in UTC",
+      "input": {
+        "timeZone": "UTC",
+        "rows": [
+          {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "reportingDate": "2026-02-01T04:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "400",
+            "nonGFSizeValue": "500"
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "reportingDate": "2026-02-01T05:30:00Z",
+            "gfPrice": "6.00",
+            "nonGFPrice": "4.50",
+            "quantity": 2,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000003",
+            "reportingDate": "2025-12-15T17:00:00Z",
+            "gfPrice": "5.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000004",
+            "reportingDate": "2026-01-20T17:00:00Z",
+            "gfPrice": "7.00",
+            "nonGFPrice": "4.00",
+            "quantity": 1,
+            "verified": false,
+            "gfSizeValue": "300",
+            "nonGFSizeValue": "300"
+          }
+        ]
+      },
+      "expected": [
+        {
+          "monthStart": "2025-12-01T00:00:00Z",
+          "count": 1,
+          "unitCount": 1,
+          "totalDifferential": "1.00",
+          "totalNormalizedDifferential": null
+        },
+        {
+          "monthStart": "2026-01-01T00:00:00Z",
+          "count": 1,
+          "unitCount": 1,
+          "totalDifferential": "3.00",
+          "totalNormalizedDifferential": "3.00"
+        },
+        {
+          "monthStart": "2026-02-01T00:00:00Z",
+          "count": 2,
+          "unitCount": 3,
+          "totalDifferential": "5.00",
+          "totalNormalizedDifferential": "2.80"
+        }
+      ]
+    }
+  ],
+  "demoDataset": {
+    "name": "Tools/Demo/demo-dataset.json, with each pair's reporting date taken from its receipt",
+    "input": {
+      "timeZone": "America/Toronto",
+      "rows": [
+        {
+          "id": "FCE9AB3E-D7A8-42E1-A2DE-E50ED6BCA8D9",
+          "reportingDate": "2026-01-20T16:59:32Z",
+          "gfPrice": "6.39",
+          "nonGFPrice": "5.99",
+          "gfSizeValue": "908",
+          "nonGFSizeValue": "907",
+          "quantity": 1,
+          "gfProductName": "ORGANIC TORTILLA CHIPS",
+          "gfSize": "908g",
+          "nonGFProductName": "CORN CHIP DIPPERS",
+          "nonGFSize": "907g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "16A0AAE9-3387-4C87-A2F1-DFA5788BB28D",
+          "reportingDate": "2026-03-14T18:52:54Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "5.99",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "709",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "Quaker Quick Steel Cut Oats",
+          "nonGFSize": "709g",
+          "sizeUnit": "g",
+          "category": "Cereal",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "466B357A-91D8-483B-8A9A-F5A1881F4340",
+          "reportingDate": "2026-01-09T03:30:00Z",
+          "gfPrice": "6.66",
+          "nonGFPrice": "2.99",
+          "gfSizeValue": "160",
+          "nonGFSizeValue": "343",
+          "quantity": 1,
+          "gfProductName": "PromisGF Sandwich Thins Seeded",
+          "gfSize": "160g",
+          "nonGFProductName": "Comp Orign English Muffins 6S",
+          "nonGFSize": "343g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": "Price for GF recalculated based on buy 2 get 1 free. Three products were bought today."
+        },
+        {
+          "id": "3D95D894-E0A4-4E3C-AF99-C2EFA752948A",
+          "reportingDate": "2026-01-09T03:30:00Z",
+          "gfPrice": "6.66",
+          "nonGFPrice": "3.49",
+          "gfSizeValue": "480",
+          "nonGFSizeValue": "600",
+          "quantity": 1,
+          "gfProductName": "PromisGF Loaf Multigrain",
+          "gfSize": "480g",
+          "nonGFProductName": "Dempster Brd Whl/Grn M/Gr",
+          "nonGFSize": "600g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": "Price for GF recalculated based on buy 2 get 1 free. Three products were bought today."
+        },
+        {
+          "id": "F7986066-1792-40B3-A2A6-9F755686191E",
+          "reportingDate": "2026-01-07T18:11:40Z",
+          "gfPrice": "8.49",
+          "nonGFPrice": "5.79",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "610",
+          "quantity": 1,
+          "gfProductName": "BFREE HIGH PROTEIN WRAP",
+          "gfSize": "504g",
+          "nonGFProductName": "Dempster Tortilla Plain",
+          "nonGFSize": "610g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "749DE4B2-4A78-4AF7-9468-0D7A84933128",
+          "reportingDate": "2025-12-30T14:57:12Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "5.99",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "914",
+          "quantity": 1,
+          "gfProductName": "BFREE HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "DEMPSTER'S TORTILLAS",
+          "nonGFSize": "914g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "9814722A-CE18-424A-B55F-BA743F4DD068",
+          "reportingDate": "2026-01-09T03:30:00Z",
+          "gfPrice": "6.66",
+          "nonGFPrice": "2.99",
+          "gfSizeValue": "280",
+          "nonGFSizeValue": "450",
+          "quantity": 1,
+          "gfProductName": "PromisGF Bagels Multi Seed",
+          "gfSize": "280g",
+          "nonGFProductName": "Comp Bagel Sesame 6S",
+          "nonGFSize": "450g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": "Price for GF recalculated based on buy 2 get 1 free. Three products were bought today."
+        },
+        {
+          "id": "09459797-B782-47F6-AF5D-75381494C318",
+          "reportingDate": "2026-02-12T16:23:39Z",
+          "gfPrice": "4.49",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "350",
+          "nonGFSizeValue": "250",
+          "quantity": 1,
+          "gfProductName": "VOLCANIC STONE GROUND TORTILLA CHIPS",
+          "gfSize": "350g",
+          "nonGFProductName": "Comp Tortilla Chip White Rest",
+          "nonGFSize": "250g",
+          "sizeUnit": "g",
+          "category": "Snacks",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "B66BA900-4843-45A9-9F79-D25766CB8DB8",
+          "reportingDate": "2026-01-26T03:30:00Z",
+          "gfPrice": "4.49",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": null,
+          "nonGFSizeValue": null,
+          "quantity": 1,
+          "gfProductName": "Tortilla Gf",
+          "gfSize": null,
+          "nonGFProductName": "Comp Tortilla",
+          "nonGFSize": null,
+          "sizeUnit": null,
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "39045959-84FB-4A02-81DE-D5CEA2A77631",
+          "reportingDate": "2026-02-01T20:56:15Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "2.99",
+          "gfSizeValue": "303",
+          "nonGFSizeValue": "342",
+          "quantity": 1,
+          "gfProductName": "Sandwich Rolls",
+          "gfSize": "303g",
+          "nonGFProductName": "Comp English Muffin Wh/Wht 6s",
+          "nonGFSize": "342g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "5F962C1C-99C0-4F20-841B-4C945D7BA4E6",
+          "reportingDate": "2026-02-01T20:56:15Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3.69",
+          "gfSizeValue": "303",
+          "nonGFSizeValue": "570",
+          "quantity": 1,
+          "gfProductName": "PROMISE",
+          "gfSize": "303g",
+          "nonGFProductName": "Dempster Bread Holsum",
+          "nonGFSize": "570g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "D294A8F7-A118-4B4B-83AE-D0E9C53EF50F",
+          "reportingDate": "2026-02-01T20:56:15Z",
+          "gfPrice": "9.49",
+          "nonGFPrice": "4.99",
+          "gfSizeValue": "303",
+          "nonGFSizeValue": "340",
+          "quantity": 1,
+          "gfProductName": "PromisGF Tortillas Original",
+          "gfSize": "303g",
+          "nonGFProductName": "Demp Tortilla Whole Wheat",
+          "nonGFSize": "340g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "654BEF6B-7372-4300-A753-5D69237D1974",
+          "reportingDate": "2026-02-01T20:56:15Z",
+          "gfPrice": "4.29",
+          "nonGFPrice": "2.99",
+          "gfSizeValue": "340",
+          "nonGFSizeValue": "375",
+          "quantity": 1,
+          "gfProductName": "LINGUINE",
+          "gfSize": "340g",
+          "nonGFProductName": "Catelli Smart Spaghettini",
+          "nonGFSize": "375g",
+          "sizeUnit": "g",
+          "category": "Pasta",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "172BC867-6230-4414-A915-5BDBB0831C0B",
+          "reportingDate": "2026-02-03T17:45:05Z",
+          "gfPrice": "11.89",
+          "nonGFPrice": "4.99",
+          "gfSizeValue": "720",
+          "nonGFSizeValue": "1260",
+          "quantity": 1,
+          "gfProductName": "MADE GOOD",
+          "gfSize": "720g",
+          "nonGFProductName": "NATURE VALLEY",
+          "nonGFSize": "1260g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "AAB6F0F9-BCF6-449E-AFF9-8A546C473EE1",
+          "reportingDate": "2026-02-03T17:45:05Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "5.79",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "750",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "WHOLE WHEAT PITA",
+          "nonGFSize": "750g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "C8363A17-B487-4449-8BBB-071982934748",
+          "reportingDate": "2026-02-03T17:45:05Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "5.99",
+          "gfSizeValue": "908",
+          "nonGFSizeValue": "907",
+          "quantity": 1,
+          "gfProductName": "ORGANIC TORTILLA CHIPS",
+          "gfSize": "908g",
+          "nonGFProductName": "CORN CHIP DIPPERS",
+          "nonGFSize": "907g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "0DA6C46E-9A3F-493B-9B6D-3F26D683E686",
+          "reportingDate": "2026-02-06T03:30:00Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "709",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "Quaker Quick Steel Cut Oats",
+          "nonGFSize": "709g",
+          "sizeUnit": "g",
+          "category": "Cereal",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "D9D08322-F754-41D3-B9FF-46A661AA5952",
+          "reportingDate": "2026-03-20T16:43:54Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "5.49",
+          "gfSizeValue": "908",
+          "nonGFSizeValue": "826",
+          "quantity": 1,
+          "gfProductName": "KIRKLAND SIGNATURE",
+          "gfSize": "908g",
+          "nonGFProductName": "TOSTITOS",
+          "nonGFSize": "826g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "DE371F17-1A58-4E0E-B0B6-C7D7F484C6BF",
+          "reportingDate": "2026-02-15T17:52:08Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "6.49",
+          "gfSizeValue": "800",
+          "nonGFSizeValue": "2500",
+          "quantity": 1,
+          "gfProductName": "CompGrn Flour All/Purp GlutFr",
+          "gfSize": "800g",
+          "nonGFProductName": "RobinHd Flour Bst/Brd Wt",
+          "nonGFSize": "2500g",
+          "sizeUnit": "g",
+          "category": "Flour",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "FBFB4BE4-54EE-471B-8D00-FFB483ADB372",
+          "reportingDate": "2026-02-15T17:52:08Z",
+          "gfPrice": "3.5",
+          "nonGFPrice": "2.99",
+          "gfSizeValue": "135",
+          "nonGFSizeValue": "225",
+          "quantity": 1,
+          "gfProductName": "D Dare Breton Gluten Ft OrigFlax",
+          "gfSize": "135g",
+          "nonGFProductName": "Comp Garden Vegetable Crackers",
+          "nonGFSize": "225g",
+          "sizeUnit": "g",
+          "category": "Crackers",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "DC16EF9B-00B6-4919-8AB6-5AA1993B48CF",
+          "reportingDate": "2026-02-15T17:52:08Z",
+          "gfPrice": "3.99",
+          "nonGFPrice": "2.69",
+          "gfSizeValue": "340",
+          "nonGFSizeValue": "500",
+          "quantity": 1,
+          "gfProductName": "Barilla Pasta Elbows Gluten Fr",
+          "gfSize": "340g",
+          "nonGFProductName": "Catelli Macaroni Ready Cut",
+          "nonGFSize": "500g",
+          "sizeUnit": "g",
+          "category": "Pasta",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "740BDB0C-C2C6-485B-B74D-491F67DC3527",
+          "reportingDate": "2026-02-17T16:47:40Z",
+          "gfPrice": "5.49",
+          "nonGFPrice": "3.29",
+          "gfSizeValue": "250",
+          "nonGFSizeValue": "375",
+          "quantity": 1,
+          "gfProductName": "Catelli Lasagna Pasta GIt/Fr",
+          "gfSize": "250g",
+          "nonGFProductName": "Comp Oven Ready Lasagna",
+          "nonGFSize": "375g",
+          "sizeUnit": "g",
+          "category": "Pasta",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "5C8E8A7D-6B93-4950-B2B7-C2B78DCA4495",
+          "reportingDate": "2026-02-20T03:30:00Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "4.79",
+          "gfSizeValue": "280",
+          "nonGFSizeValue": "450",
+          "quantity": 1,
+          "gfProductName": "PromisGF Bagels Multi Seed",
+          "gfSize": "280g",
+          "nonGFProductName": "Dempster Bagel Everything 6Pk",
+          "nonGFSize": "450g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "FF1F8112-6AB9-425B-8558-1E990124BB50",
+          "reportingDate": "2026-02-20T03:30:00Z",
+          "gfPrice": "8.99",
+          "nonGFPrice": "4.99",
+          "gfSizeValue": "168",
+          "nonGFSizeValue": "340",
+          "quantity": 1,
+          "gfProductName": "BFree Wraps High Protein GF",
+          "gfSize": "168g",
+          "nonGFProductName": "Demp Tortilla Whole Wheat",
+          "nonGFSize": "340g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "8255408E-C620-4472-8195-D72E55FB0DE4",
+          "reportingDate": "2026-02-20T03:30:00Z",
+          "gfPrice": "5.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "300",
+          "nonGFSizeValue": "405",
+          "quantity": 1,
+          "gfProductName": "NatuPath Cereal Sunrse Hny",
+          "gfSize": "300g",
+          "nonGFProductName": "Kelloggs Cereal All Bran Flake",
+          "nonGFSize": "405g",
+          "sizeUnit": "g",
+          "category": "Cereal",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "17BCF75B-C71A-4B35-98DC-22841A43B632",
+          "reportingDate": "2026-02-23T21:11:44Z",
+          "gfPrice": "5.79",
+          "nonGFPrice": "5.29",
+          "gfSizeValue": "300",
+          "nonGFSizeValue": "290",
+          "quantity": 1,
+          "gfProductName": "QuePasa Tortilla Chips S/SIt",
+          "gfSize": "300g",
+          "nonGFProductName": "OldDutch Chips Rstrnte DeliRnd",
+          "nonGFSize": "290g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "63736E88-F9C1-4F2B-8F27-36999794FE47",
+          "reportingDate": "2026-03-09T13:41:04Z",
+          "gfPrice": "8.49",
+          "nonGFPrice": "5.99",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "1100",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "10\" OR NAL TORTILLAS",
+          "nonGFSize": "1100g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "894F654F-0A15-4BBD-BEE6-6A9ACFBB7FA8",
+          "reportingDate": "2026-03-09T15:13:59Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "4.99",
+          "gfSizeValue": "800",
+          "nonGFSizeValue": "2500",
+          "quantity": 1,
+          "gfProductName": "CompGrn Flour All/Purp GlutFr",
+          "gfSize": "800g",
+          "nonGFProductName": "Comp Flour All Purpose",
+          "nonGFSize": "2500g",
+          "sizeUnit": "g",
+          "category": "Flour",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "70283882-D862-496A-89E0-E0DFD211216B",
+          "reportingDate": "2026-03-20T16:41:11Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "4.49",
+          "gfSizeValue": "280",
+          "nonGFSizeValue": "450",
+          "quantity": 1,
+          "gfProductName": "PromisGF Bagels Multi Seed",
+          "gfSize": "280g",
+          "nonGFProductName": "Dempster Bagl Mpl French Toast",
+          "nonGFSize": "450g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "B311C7E5-31C0-4689-B1FE-1E6B77C3B937",
+          "reportingDate": "2026-03-20T16:41:11Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3",
+          "gfSizeValue": "480",
+          "nonGFSizeValue": "675",
+          "quantity": 1,
+          "gfProductName": "PromisGF Loaf Multigrain",
+          "gfSize": "480g",
+          "nonGFProductName": "Dempster Bread Thin Whi/Wht",
+          "nonGFSize": "675g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "3CE30001-FE68-4DA5-A612-011E7699C9E8",
+          "reportingDate": "2026-03-20T16:41:11Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "2",
+          "gfSizeValue": "260",
+          "nonGFSizeValue": "342",
+          "quantity": 1,
+          "gfProductName": "PromisGF Rolls Sandwich 4Pk",
+          "gfSize": "260g",
+          "nonGFProductName": "100% WHOLE WHEA",
+          "nonGFSize": "342g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "CB4A7D63-4FC2-4DCF-89D3-1BD8215EC65E",
+          "reportingDate": "2026-03-20T16:41:11Z",
+          "gfPrice": "4.49",
+          "nonGFPrice": "3",
+          "gfSizeValue": "135",
+          "nonGFSizeValue": "173",
+          "quantity": 1,
+          "gfProductName": "Dare Breton Gluten Fr OrigFlax",
+          "gfSize": "135g",
+          "nonGFProductName": "Dare Breton Crkis Crisp/Buttry",
+          "nonGFSize": "173g",
+          "sizeUnit": "g",
+          "category": "Crackers",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "CB519B5E-2C96-4D06-9184-45B3D1588797",
+          "reportingDate": "2026-03-20T16:41:11Z",
+          "gfPrice": "4.29",
+          "nonGFPrice": "2.99",
+          "gfSizeValue": "340",
+          "nonGFSizeValue": "454",
+          "quantity": 1,
+          "gfProductName": "Catelli Pasta Macaroni G/F",
+          "gfSize": "340g",
+          "nonGFProductName": "Catelli Pasta Ready Cut Macr",
+          "nonGFSize": "454g",
+          "sizeUnit": "g",
+          "category": "Pasta",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "5FC68C67-2808-463A-A6DF-72DC775C7687",
+          "reportingDate": "2026-03-20T16:41:11Z",
+          "gfPrice": "3.69",
+          "nonGFPrice": "1.99",
+          "gfSizeValue": "284",
+          "nonGFSizeValue": "284",
+          "quantity": 1,
+          "gfProductName": "Campbell Sp Tom Bsl Oreg",
+          "gfSize": "284mL",
+          "nonGFProductName": "Aylmer Lw Sd Tom Soup",
+          "nonGFSize": "284mL",
+          "sizeUnit": "mL",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "920E0487-B9D2-4471-A619-4C0DC83746AE",
+          "reportingDate": "2026-03-25T02:30:00Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "6.99",
+          "gfSizeValue": "800",
+          "nonGFSizeValue": "2500",
+          "quantity": 1,
+          "gfProductName": "CompGrn Flour All/Purp GlutFr",
+          "gfSize": "800g",
+          "nonGFProductName": "Robind Flour Unbleached",
+          "nonGFSize": "2500g",
+          "sizeUnit": "g",
+          "category": "Flour",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "EBA75931-1115-48A8-BABB-0A77BBEF7382",
+          "reportingDate": "2026-03-28T14:36:34Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "5.99",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "914",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "DEMPSTER'S TORTILLAS",
+          "nonGFSize": "914g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "70EFFAF4-FC2C-4163-BA5E-524CE2465C04",
+          "reportingDate": "2026-03-28T13:47:32Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3.49",
+          "gfSizeValue": "280",
+          "nonGFSizeValue": "450",
+          "quantity": 1,
+          "gfProductName": "PromisGF Bagels Multi Seed",
+          "gfSize": "280g",
+          "nonGFProductName": "Comp Bagel Everything 6S",
+          "nonGFSize": "450g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "D1B24B74-8745-472F-897B-7643CAD9A010",
+          "reportingDate": "2026-03-28T18:39:56Z",
+          "gfPrice": "5.99",
+          "nonGFPrice": "6",
+          "gfSizeValue": "340",
+          "nonGFSizeValue": "890",
+          "quantity": 1,
+          "gfProductName": "Hellman’s Mayo",
+          "gfSize": "340mL",
+          "nonGFProductName": "Miracle Whip",
+          "nonGFSize": "890mL",
+          "sizeUnit": "mL",
+          "category": "Sauce",
+          "verified": true,
+          "storeName": "Dominion",
+          "notes": null
+        },
+        {
+          "id": "59F59A69-3F0F-40E2-906A-15BBDAA4F14B",
+          "reportingDate": "2026-03-28T18:39:56Z",
+          "gfPrice": "5.99",
+          "nonGFPrice": "6",
+          "gfSizeValue": "340",
+          "nonGFSizeValue": "890",
+          "quantity": 1,
+          "gfProductName": "Hellmans mayo",
+          "gfSize": "340mL",
+          "nonGFProductName": "Miracle Whip",
+          "nonGFSize": "890mL",
+          "sizeUnit": "mL",
+          "category": "Sauce",
+          "verified": true,
+          "storeName": "Dominion",
+          "notes": null
+        },
+        {
+          "id": "ADDE9D98-972E-4780-8A6E-C17507144371",
+          "reportingDate": "2026-03-30T15:13:13Z",
+          "gfPrice": "7.47",
+          "nonGFPrice": "4.49",
+          "gfSizeValue": "907",
+          "nonGFSizeValue": "2500",
+          "quantity": 1,
+          "gfProductName": "Gluten free flour",
+          "gfSize": "907g",
+          "nonGFProductName": "RH Flour",
+          "nonGFSize": "2500g",
+          "sizeUnit": "g",
+          "category": "Flour",
+          "verified": true,
+          "storeName": "Walmart",
+          "notes": null
+        },
+        {
+          "id": "1419B636-A95A-4E62-A7C7-FA337DB54DF7",
+          "reportingDate": "2026-04-02T14:04:55Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "4.49",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "511",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "Quaker SprGrn Hot Cereal Oats",
+          "nonGFSize": "511g",
+          "sizeUnit": "g",
+          "category": "Cereal",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "349DAB85-9258-4217-A33E-1C88B59C4D54",
+          "reportingDate": "2026-04-02T14:04:55Z",
+          "gfPrice": "7.79",
+          "nonGFPrice": "4.29",
+          "gfSizeValue": "227",
+          "nonGFSizeValue": "227",
+          "quantity": 1,
+          "gfProductName": "Kikkoman Bread Crumbs",
+          "gfSize": "227g",
+          "nonGFProductName": "Kikkoman Whole Wheat",
+          "nonGFSize": "227g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "3A5D0910-2E3E-4F18-8F6A-B0573054890C",
+          "reportingDate": "2026-04-06T19:01:46Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "915",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "DEMPSTER'S TORTILLAS",
+          "nonGFSize": "915g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "AD811B19-416D-4DBB-AD3B-01FABCC9339E",
+          "reportingDate": "2026-04-06T19:01:46Z",
+          "gfPrice": "15.99",
+          "nonGFPrice": "9.95",
+          "gfSizeValue": "2",
+          "nonGFSizeValue": "10",
+          "quantity": 1,
+          "gfProductName": "GLUTEN FREE FLOUR",
+          "gfSize": "2kg",
+          "nonGFProductName": "ALL PURPOSE FLOUR",
+          "nonGFSize": "10kg",
+          "sizeUnit": "kg",
+          "category": "Flour",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "48BD3093-F156-4975-9127-73DEF039F10D",
+          "reportingDate": "2026-04-11T14:20:07Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "4.79",
+          "gfSizeValue": "400",
+          "nonGFSizeValue": "450",
+          "quantity": 1,
+          "gfProductName": "PromisGF Loaf Rustc Seeded Cob",
+          "gfSize": "400g",
+          "nonGFProductName": "SOURDOUGH BREAD",
+          "nonGFSize": "450g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "7F293095-A418-4589-AED7-ED98D45570C2",
+          "reportingDate": "2026-04-15T17:21:33Z",
+          "gfPrice": "5.99",
+          "nonGFPrice": "7.99",
+          "gfSizeValue": "340",
+          "nonGFSizeValue": "890",
+          "quantity": 1,
+          "gfProductName": "HELLMANNS VEGAN MAYO 340",
+          "gfSize": "340mL",
+          "nonGFProductName": "MIRACLE POP",
+          "nonGFSize": "890mL",
+          "sizeUnit": "mL",
+          "category": "Sauce",
+          "verified": true,
+          "storeName": "Dominion",
+          "notes": null
+        },
+        {
+          "id": "51AEB0A8-0293-4E78-80FD-7D2C54BEACEE",
+          "reportingDate": "2026-04-21T02:30:00Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "2",
+          "gfSizeValue": "260",
+          "nonGFSizeValue": "342",
+          "quantity": 1,
+          "gfProductName": "PromisGF Rolls Sandwich 4Pk",
+          "gfSize": "260g",
+          "nonGFProductName": "Comp English Muffin Whi/ Wht 6s",
+          "nonGFSize": "342g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "DE6C6823-A2E0-46EA-AFBA-88BE48EF170E",
+          "reportingDate": "2026-04-21T02:30:00Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "480",
+          "nonGFSizeValue": "675",
+          "quantity": 1,
+          "gfProductName": "PromisGF Loaf Multigrain",
+          "gfSize": "480g",
+          "nonGFProductName": "Dempster Bread Thin Whi/Wht",
+          "nonGFSize": "675g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "430FED56-E493-402A-BD89-284F3333A411",
+          "reportingDate": "2026-04-21T02:30:00Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "4.49",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "511",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "Quaker SprGrn Hot Cereal Oats",
+          "nonGFSize": "511g",
+          "sizeUnit": "g",
+          "category": "Cereal",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "8AE040E5-6D97-4852-A866-C0D78978BF6D",
+          "reportingDate": "2026-05-02T16:50:45Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "7.49",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "615",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "KETO 7\" TORTILLAS",
+          "nonGFSize": "615g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "C667B00D-A73A-4876-A8F6-983A92FB4215",
+          "reportingDate": "2026-04-28T02:30:00Z",
+          "gfPrice": "5.49",
+          "nonGFPrice": "3.29",
+          "gfSizeValue": "375",
+          "nonGFSizeValue": "375",
+          "quantity": 1,
+          "gfProductName": "GF Catelli Lasagna Noodle",
+          "gfSize": "375g",
+          "nonGFProductName": "OC Oven Ready Lasagana",
+          "nonGFSize": "375g",
+          "sizeUnit": "g",
+          "category": "Pasta",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "701DCB57-A7EC-454F-BE7A-A553B01AB309",
+          "reportingDate": "2026-05-02T16:48:42Z",
+          "gfPrice": "9.49",
+          "nonGFPrice": "2.77",
+          "gfSizeValue": "260",
+          "nonGFSizeValue": "360",
+          "quantity": 1,
+          "gfProductName": "PromisGF Brioche Hmbrg Buns4Pk",
+          "gfSize": "260g",
+          "nonGFProductName": "HAMBURGER",
+          "nonGFSize": "360g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "E163BBC5-EC78-410E-903E-E73ED4A4D476",
+          "reportingDate": "2026-05-12T15:10:10Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "7.49",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "615",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "KETO 7\" TORTILLAS",
+          "nonGFSize": "615g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "7205C5B7-A7DE-471F-9863-85A960B00C18",
+          "reportingDate": "2026-05-12T02:30:00Z",
+          "gfPrice": "9.49",
+          "nonGFPrice": "4.49",
+          "gfSizeValue": "260",
+          "nonGFSizeValue": "528",
+          "quantity": 1,
+          "gfProductName": "PromisGF Rolls Sandwich 4Pk",
+          "gfSize": "260g",
+          "nonGFProductName": "Villagio Toscana Hambrgr Buns",
+          "nonGFSize": "528g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "CD4FF83A-B819-40BD-8D4D-E7EDC453202D",
+          "reportingDate": "2026-05-12T02:30:00Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "709",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "Quaker Quick Steel Cut Oats",
+          "nonGFSize": "709g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "68F253D5-9E8B-4D40-8DFF-ECFE26B7C139",
+          "reportingDate": "2026-09-13T20:44:22Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "7.49",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "615",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "KETO 7\" TORTILLAS",
+          "nonGFSize": "615g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "CF305F1C-D459-4E15-B28B-F00651A0D9EB",
+          "reportingDate": "2026-05-23T02:30:00Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3",
+          "gfSizeValue": "480",
+          "nonGFSizeValue": "550",
+          "quantity": 1,
+          "gfProductName": "PromisGF Loaf 12 Seeds & Grain",
+          "gfSize": "480g",
+          "nonGFProductName": "Villaggio Bread Hrv Multigrain",
+          "nonGFSize": "550g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "33FDB13E-6125-41AD-AF56-F3FB906DA48F",
+          "reportingDate": "2020-05-30T02:30:00Z",
+          "gfPrice": "5.99",
+          "nonGFPrice": "3.49",
+          "gfSizeValue": "400",
+          "nonGFSizeValue": "450",
+          "quantity": 1,
+          "gfProductName": "Doughs Deluxe Hamburger Buns",
+          "gfSize": "400g",
+          "nonGFProductName": "Dempster Bagel Everything 6Pk",
+          "nonGFSize": "450g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "3F191AAA-44F6-4EC8-98CC-ADAEBB77CB62",
+          "reportingDate": "2020-05-30T02:30:00Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "709",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "Quaker Quick Steel Cut Oats",
+          "nonGFSize": "709g",
+          "sizeUnit": "g",
+          "category": "Cereal",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "8F126A00-78F6-4F47-AF34-60A85EAE65DA",
+          "reportingDate": "2020-05-30T02:30:00Z",
+          "gfPrice": "8.99",
+          "nonGFPrice": "5.29",
+          "gfSizeValue": "450",
+          "nonGFSizeValue": "298",
+          "quantity": 1,
+          "gfProductName": "Gluten free pizza crusts",
+          "gfSize": "450g",
+          "nonGFProductName": "Compliments pizza crust",
+          "nonGFSize": "298g",
+          "sizeUnit": "g",
+          "category": "Bread",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "8335C6E1-E7B1-40C2-9DE0-EC9FD56C7645",
+          "reportingDate": "2020-05-30T02:30:00Z",
+          "gfPrice": "2.5",
+          "nonGFPrice": "1.99",
+          "gfSizeValue": "284",
+          "nonGFSizeValue": "284",
+          "quantity": 1,
+          "gfProductName": "Tomato Soup GF",
+          "gfSize": "284mL",
+          "nonGFProductName": "Tonato soup",
+          "nonGFSize": "284mL",
+          "sizeUnit": "mL",
+          "category": "Soup & Broth",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "CD4C50F3-782A-442E-B3C8-8DC6F4A790B8",
+          "reportingDate": "2020-05-30T02:30:00Z",
+          "gfPrice": "2.5",
+          "nonGFPrice": "1.99",
+          "gfSizeValue": "284",
+          "nonGFSizeValue": "284",
+          "quantity": 1,
+          "gfProductName": "Tomato soup",
+          "gfSize": "284mL",
+          "nonGFProductName": "Tomato soup",
+          "nonGFSize": "284mL",
+          "sizeUnit": "mL",
+          "category": "Soup & Broth",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "3BCE70CE-7553-4EFC-A796-C5E8B543EAC0",
+          "reportingDate": "2026-06-11T15:03:56Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "480",
+          "nonGFSizeValue": "675",
+          "quantity": 1,
+          "gfProductName": "12 SEEDS & GRAINS LOAF",
+          "gfSize": "480g",
+          "nonGFProductName": "Dempster Bread Thin Whl/Wht",
+          "nonGFSize": "675g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "3119F325-6D2B-424B-88FE-AB76DAA2E82A",
+          "reportingDate": "2026-06-11T15:03:56Z",
+          "gfPrice": "8.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "168",
+          "nonGFSizeValue": "100",
+          "quantity": 1,
+          "gfProductName": "BFree Wraps High Protein GF",
+          "gfSize": "168g",
+          "nonGFProductName": "Dempster Bread or Tortilla",
+          "nonGFSize": "100g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "40BDE79A-AD4D-48B4-9C17-32741918B608",
+          "reportingDate": "2026-07-02T02:30:00Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3.49",
+          "gfSizeValue": null,
+          "nonGFSizeValue": null,
+          "quantity": 1,
+          "gfProductName": "PromisGF English Muffins 4Pk",
+          "gfSize": null,
+          "nonGFProductName": "Demp Erglis Muffins Org 6S",
+          "nonGFSize": null,
+          "sizeUnit": null,
+          "category": null,
+          "verified": true,
+          "storeName": "Grocery Store",
+          "notes": null
+        },
+        {
+          "id": "AA6C30C3-E034-40D5-879F-9C7B8A217215",
+          "reportingDate": "2026-07-02T02:30:00Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "4",
+          "gfSizeValue": null,
+          "nonGFSizeValue": null,
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": null,
+          "nonGFProductName": "CompGrn Steel Cut Oats Qk Cook",
+          "nonGFSize": null,
+          "sizeUnit": null,
+          "category": null,
+          "verified": true,
+          "storeName": "Grocery Store",
+          "notes": null
+        },
+        {
+          "id": "B30A63E1-B174-4115-A48E-CF727ECE8F49",
+          "reportingDate": "2026-07-02T02:30:00Z",
+          "gfPrice": "5.49",
+          "nonGFPrice": "3.29",
+          "gfSizeValue": "500",
+          "nonGFSizeValue": "500",
+          "quantity": 1,
+          "gfProductName": "Catelli Lasagna",
+          "gfSize": "500g",
+          "nonGFProductName": "Compliments Lasagna",
+          "nonGFSize": "500g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Grocery Store",
+          "notes": null
+        },
+        {
+          "id": "AB842AB4-45CB-4910-85B2-7FEB263EF91F",
+          "reportingDate": "2026-09-13T20:38:38Z",
+          "gfPrice": "10",
+          "nonGFPrice": "6.99",
+          "gfSizeValue": null,
+          "nonGFSizeValue": null,
+          "quantity": 1,
+          "gfProductName": "CompGrn Flour All/Purp GlutFr",
+          "gfSize": null,
+          "nonGFProductName": "RobinHd Flour Bst/Brd Wt",
+          "nonGFSize": null,
+          "sizeUnit": null,
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "E68A0A0F-C434-4C20-AB73-B92093D6B38B",
+          "reportingDate": "2026-07-22T18:50:01Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "1000",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "Comp Quick Oats",
+          "nonGFSize": "1000g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "C0636367-D2EE-4E5F-819C-F41A4795D8CC",
+          "reportingDate": "2026-09-13T20:35:57Z",
+          "gfPrice": "10.99",
+          "nonGFPrice": "5.99",
+          "gfSizeValue": "504",
+          "nonGFSizeValue": "1100",
+          "quantity": 1,
+          "gfProductName": "HIGH PROTEIN WRAPS",
+          "gfSize": "504g",
+          "nonGFProductName": "HEAT TORTILLA",
+          "nonGFSize": "1100g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        },
+        {
+          "id": "6FFF6BA1-5C3B-4077-B6C4-26396E96B2E1",
+          "reportingDate": "2026-07-31T13:52:48Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "3.99",
+          "gfSizeValue": "480",
+          "nonGFSizeValue": "675",
+          "quantity": 1,
+          "gfProductName": "PromisGF Loaf 12 Seeds & Grain",
+          "gfSize": "480g",
+          "nonGFProductName": "Dempster Bread Xtr Thk WW",
+          "nonGFSize": "675g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "67B034DF-5E6C-42C3-A5B5-88BAF4B1309B",
+          "reportingDate": "2026-09-13T20:27:55Z",
+          "gfPrice": "9.99",
+          "nonGFPrice": "6.79",
+          "gfSizeValue": "907",
+          "nonGFSizeValue": "1000",
+          "quantity": 1,
+          "gfProductName": "BobRdMil Rolled Oats GF",
+          "gfSize": "907g",
+          "nonGFProductName": "Quaker Quick Oats",
+          "nonGFSize": "1000g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "C7FEB3E5-D93A-4482-B3D7-C251E2150766",
+          "reportingDate": "2026-08-28T02:30:00Z",
+          "gfPrice": "4.29",
+          "nonGFPrice": "2.99",
+          "gfSizeValue": "340",
+          "nonGFSizeValue": "454",
+          "quantity": 1,
+          "gfProductName": "CATELLI",
+          "gfSize": "340g",
+          "nonGFProductName": "Catelli Pasta Ready Cut Macr",
+          "nonGFSize": "454g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "E92FC461-9F15-42A1-969C-1DC6C011C255",
+          "reportingDate": "2026-08-28T02:30:00Z",
+          "gfPrice": "3.49",
+          "nonGFPrice": "0.99",
+          "gfSizeValue": "284",
+          "nonGFSizeValue": "284",
+          "quantity": 1,
+          "gfProductName": "Campbell Sp Tom Bsl Oreg",
+          "gfSize": "284mL",
+          "nonGFProductName": "Campa",
+          "nonGFSize": "284mL",
+          "sizeUnit": "mL",
+          "category": null,
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "7E126EB6-A9F3-4E5E-8FE2-20FB8E060C4D",
+          "reportingDate": "2026-09-05T19:48:18Z",
+          "gfPrice": "7.98",
+          "nonGFPrice": "3.47",
+          "gfSizeValue": "480",
+          "nonGFSizeValue": "500",
+          "quantity": 1,
+          "gfProductName": "PGF BROWN LOAF",
+          "gfSize": "480 GR",
+          "nonGFProductName": "YEM CRANBERRY SILCED",
+          "nonGFSize": "500",
+          "sizeUnit": null,
+          "category": null,
+          "verified": true,
+          "storeName": "Walmart",
+          "notes": null
+        },
+        {
+          "id": "85981294-3E74-4411-A278-9897BC40B269",
+          "reportingDate": "2026-09-05T19:48:18Z",
+          "gfPrice": "6.28",
+          "nonGFPrice": "2.67",
+          "gfSizeValue": "250",
+          "nonGFSizeValue": "250",
+          "quantity": 1,
+          "gfProductName": "BFREEWRAPS",
+          "gfSize": "250g",
+          "nonGFProductName": "YFM KAAN ORIG 1PK",
+          "nonGFSize": "250g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Walmart",
+          "notes": null
+        },
+        {
+          "id": "5356CE21-63B2-4ED1-AAD4-186AD72355D1",
+          "reportingDate": "2026-09-13T20:13:30Z",
+          "gfPrice": "6.99",
+          "nonGFPrice": "4.99",
+          "gfSizeValue": "511",
+          "nonGFSizeValue": "709",
+          "quantity": 1,
+          "gfProductName": "Quaker Quick Oats Gluten Free",
+          "gfSize": "511g",
+          "nonGFProductName": "CompGrn Steel Cut Oats Qk Cook",
+          "nonGFSize": "709g",
+          "sizeUnit": "g",
+          "category": "Cereal",
+          "verified": true,
+          "storeName": "Sobeys",
+          "notes": null
+        },
+        {
+          "id": "5061143F-2A85-4814-9D62-0EF522BA0B31",
+          "reportingDate": "2026-09-13T20:11:57Z",
+          "gfPrice": "13.99",
+          "nonGFPrice": "5.59",
+          "gfSizeValue": "550",
+          "nonGFSizeValue": "675",
+          "quantity": 1,
+          "gfProductName": "GLUTEN FREE WHITE BR.",
+          "gfSize": "550g",
+          "nonGFProductName": "100% WHOLE WHEAT",
+          "nonGFSize": "675g",
+          "sizeUnit": "g",
+          "category": null,
+          "verified": true,
+          "storeName": "Costco",
+          "notes": null
+        }
+      ]
+    },
+    "expected": {
+      "totals": {
+        "count": 78,
+        "unitCount": 78,
+        "verifiedCount": 78,
+        "unverifiedCount": 0,
+        "totalDifferential": "278.03",
+        "totalNormalizedDifferential": "355.5835765230",
+        "normalizedExcludedCount": 4,
+        "normalizedUnitCount": 74,
+        "averageDifferential": "3.5644871795",
+        "averageNormalizedDifferential": "4.8051834665"
+      },
+      "totalsAsDisplayed": {
+        "totalDifferential": "278.03",
+        "totalNormalizedDifferential": "355.58"
+      },
+      "availableYears": [
+        2026,
+        2025,
+        2020
+      ],
+      "byCategory": [
+        {
+          "key": "Bread",
+          "count": 25,
+          "unitCount": 25,
+          "verifiedCount": 25,
+          "totalDifferential": "124.28",
+          "totalNormalizedDifferential": "153.5327750039"
+        },
+        {
+          "key": "Uncategorized",
+          "count": 28,
+          "unitCount": 28,
+          "verifiedCount": 28,
+          "totalDifferential": "104.43",
+          "totalNormalizedDifferential": "107.4211782485"
+        },
+        {
+          "key": "Flour",
+          "count": 5,
+          "unitCount": 5,
+          "verifiedCount": 5,
+          "totalDifferential": "23.52",
+          "totalNormalizedDifferential": "46.900628"
+        },
+        {
+          "key": "Cereal",
+          "count": 7,
+          "unitCount": 7,
+          "verifiedCount": 7,
+          "totalDifferential": "16.00",
+          "totalNormalizedDifferential": "22.3293386617"
+        },
+        {
+          "key": "Pasta",
+          "count": 5,
+          "unitCount": 5,
+          "verifiedCount": 5,
+          "totalDifferential": "8.30",
+          "totalNormalizedDifferential": "11.2873262849"
+        },
+        {
+          "key": "Crackers",
+          "count": 2,
+          "unitCount": 2,
+          "verifiedCount": 2,
+          "totalDifferential": "2.00",
+          "totalNormalizedDifferential": "3.8549595376"
+        },
+        {
+          "key": "Soup & Broth",
+          "count": 2,
+          "unitCount": 2,
+          "verifiedCount": 2,
+          "totalDifferential": "1.02",
+          "totalNormalizedDifferential": "1.02"
+        },
+        {
+          "key": "Snacks",
+          "count": 1,
+          "unitCount": 1,
+          "verifiedCount": 1,
+          "totalDifferential": "0.50",
+          "totalNormalizedDifferential": "-1.0960000000"
+        },
+        {
+          "key": "Sauce",
+          "count": 3,
+          "unitCount": 3,
+          "verifiedCount": 3,
+          "totalDifferential": "-2.02",
+          "totalNormalizedDifferential": "10.3333707865"
+        }
+      ],
+      "byMonth": [
+        {
+          "monthStart": "2020-05-01T04:00:00Z",
+          "count": 5,
+          "unitCount": 5,
+          "totalDifferential": "10.22",
+          "totalNormalizedDifferential": "9.0237963690"
+        },
+        {
+          "monthStart": "2025-12-01T05:00:00Z",
+          "count": 1,
+          "unitCount": 1,
+          "totalDifferential": "5.00",
+          "totalNormalizedDifferential": "7.6869803063"
+        },
+        {
+          "monthStart": "2026-01-01T05:00:00Z",
+          "count": 6,
+          "unitCount": 6,
+          "totalDifferential": "14.11",
+          "totalNormalizedDifferential": "18.0323303269"
+        },
+        {
+          "monthStart": "2026-02-01T05:00:00Z",
+          "count": 17,
+          "unitCount": 17,
+          "totalDifferential": "55.91",
+          "totalNormalizedDifferential": "75.1035013534"
+        },
+        {
+          "monthStart": "2026-03-01T05:00:00Z",
+          "count": 16,
+          "unitCount": 16,
+          "totalDifferential": "54.43",
+          "totalNormalizedDifferential": "85.6840422023"
+        },
+        {
+          "monthStart": "2026-04-01T04:00:00Z",
+          "count": 10,
+          "unitCount": 10,
+          "totalDifferential": "40.93",
+          "totalNormalizedDifferential": "57.7842910103"
+        },
+        {
+          "monthStart": "2026-05-01T04:00:00Z",
+          "count": 6,
+          "unitCount": 6,
+          "totalDifferential": "28.71",
+          "totalNormalizedDifferential": "35.9582587197"
+        },
+        {
+          "monthStart": "2026-06-01T04:00:00Z",
+          "count": 2,
+          "unitCount": 2,
+          "totalDifferential": "11.00",
+          "totalNormalizedDifferential": "9.4394666667"
+        },
+        {
+          "monthStart": "2026-07-01T04:00:00Z",
+          "count": 5,
+          "unitCount": 5,
+          "totalDifferential": "20.69",
+          "totalNormalizedDifferential": "14.3037766667"
+        },
+        {
+          "monthStart": "2026-08-01T04:00:00Z",
+          "count": 2,
+          "unitCount": 2,
+          "totalDifferential": "3.80",
+          "totalNormalizedDifferential": "4.5507929515"
+        },
+        {
+          "monthStart": "2026-09-01T04:00:00Z",
+          "count": 8,
+          "unitCount": 8,
+          "totalDifferential": "33.23",
+          "totalNormalizedDifferential": "38.0163399503"
+        }
+      ]
+    }
+  }
+}

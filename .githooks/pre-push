@@ -1,0 +1,14 @@
+#!/bin/sh
+# Refuses a push while GFCore's vendored test vectors differ from shared-docs.
+# Enable once per clone with:  git config core.hooksPath .githooks
+#
+# A missing shared-docs checkout only warns, so a clone without it can still push.
+
+repo=$(git rev-parse --show-toplevel)
+"$repo/scripts/sync-vectors.sh" --check
+status=$?
+if [ $status -eq 2 ]; then
+    echo "pre-push: vector drift not checked" >&2
+    exit 0
+fi
+exit $status

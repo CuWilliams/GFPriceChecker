@@ -1,0 +1,278 @@
+{
+  "about": "PRODUCT_DEFINITION.md §7: the JSON backup. Each case names a file in this directory and what reading it gives. Every file that reads must survive being written and read again unchanged",
+  "files": [
+    {
+      "name": "The empty dataset",
+      "file": "empty.json",
+      "expected": {
+        "version": "1.0",
+        "appVersion": "1.0",
+        "timestamp": "2026-01-01T00:00:00Z",
+        "productPairCount": 0,
+        "receiptCount": 0,
+        "settings": {
+          "userName": "",
+          "accountantEmail": "",
+          "taxID": "",
+          "currencySymbol": "",
+          "defaultPaperSize": "",
+          "defaultDateRange": ""
+        },
+        "productPairs": [],
+        "receipts": []
+      }
+    },
+    {
+      "name": "The demo dataset, images removed",
+      "file": "demo.json",
+      "expected": {
+        "version": "1.0",
+        "appVersion": "1.0",
+        "timestamp": "2026-09-14T14:07:43Z",
+        "productPairCount": 78,
+        "receiptCount": 47,
+        "settings": {
+          "accountantEmail": "accountant@example.com",
+          "currencySymbol": "$ CAD",
+          "defaultDateRange": "Current Year",
+          "defaultPaperSize": "US Letter",
+          "taxID": "000 000 000",
+          "userName": "Alex Demo"
+        },
+        "productPairs": [
+          {
+            "index": 0,
+            "id": "FCE9AB3E-D7A8-42E1-A2DE-E50ED6BCA8D9",
+            "gfProductName": "ORGANIC TORTILLA CHIPS",
+            "gfPrice": "6.39",
+            "gfSize": "908g",
+            "gfSizeValue": "908",
+            "nonGFProductName": "CORN CHIP DIPPERS",
+            "nonGFPrice": "5.99",
+            "nonGFSize": "907g",
+            "nonGFSizeValue": "907",
+            "sizeUnit": "g",
+            "quantity": null,
+            "createdDate": "2026-01-20T15:22:07Z",
+            "category": null,
+            "notes": null,
+            "verified": true,
+            "receiptID": "0BA835BF-7C20-465F-AF09-84CE0C636B11",
+            "effectiveQuantity": 1
+          },
+          {
+            "index": 77,
+            "id": "5061143F-2A85-4814-9D62-0EF522BA0B31",
+            "gfProductName": "GLUTEN FREE WHITE BR.",
+            "gfPrice": "13.99",
+            "gfSize": "550g",
+            "gfSizeValue": "550",
+            "nonGFProductName": "100% WHOLE WHEAT",
+            "nonGFPrice": "5.59",
+            "nonGFSize": "675g",
+            "nonGFSizeValue": "675",
+            "sizeUnit": "g",
+            "quantity": null,
+            "createdDate": "2026-09-11T12:55:16Z",
+            "category": null,
+            "notes": null,
+            "verified": true,
+            "receiptID": "D7136662-38ED-4D6B-AC81-76F128D6489C",
+            "effectiveQuantity": 1
+          }
+        ],
+        "receipts": [
+          {
+            "index": 0,
+            "id": "0BA835BF-7C20-465F-AF09-84CE0C636B11",
+            "purchaseDate": "2026-01-20T16:59:32Z",
+            "storeName": "Costco",
+            "totalAmount": "6.39",
+            "productPairIDs": [
+              "FCE9AB3E-D7A8-42E1-A2DE-E50ED6BCA8D9"
+            ]
+          },
+          {
+            "index": 46,
+            "id": "9E9D5DBB-3E12-4B91-83D4-6D7ECC9ECD2E",
+            "purchaseDate": "2026-09-13T20:44:22Z",
+            "storeName": "Costco",
+            "totalAmount": "10.99",
+            "productPairIDs": [
+              "68F253D5-9E8B-4D40-8DFF-ECFE26B7C139"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Written before sizes, units and quantity existed: quantity reads as 1",
+      "file": "legacy-pre-quantity.json",
+      "expected": {
+        "version": "1.0",
+        "appVersion": "0.9",
+        "timestamp": "2025-11-02T14:30:00Z",
+        "productPairCount": 1,
+        "receiptCount": 0,
+        "settings": {
+          "userName": "Sam Placeholder",
+          "accountantEmail": "accountant@example.com",
+          "taxID": "000 000 000",
+          "currencySymbol": "$ CAD",
+          "defaultPaperSize": "",
+          "defaultDateRange": ""
+        },
+        "productPairs": [
+          {
+            "index": 0,
+            "id": "00000000-0000-0000-0000-000000000001",
+            "gfProductName": "GF Bread",
+            "gfPrice": "6.99",
+            "gfSize": "400g",
+            "gfSizeValue": null,
+            "nonGFProductName": "White Bread",
+            "nonGFPrice": "3.49",
+            "nonGFSize": "675g",
+            "nonGFSizeValue": null,
+            "sizeUnit": null,
+            "quantity": null,
+            "createdDate": "2025-11-01T18:00:00Z",
+            "category": "Bread",
+            "notes": null,
+            "verified": false,
+            "receiptID": null,
+            "effectiveQuantity": 1
+          }
+        ],
+        "receipts": []
+      }
+    },
+    {
+      "name": "Every field, with a quantity, a missing quantity and an empty receipt",
+      "file": "current.json",
+      "expected": {
+        "version": "1.0",
+        "appVersion": "1.0",
+        "timestamp": "2026-10-31T12:00:00Z",
+        "productPairCount": 2,
+        "receiptCount": 1,
+        "settings": {
+          "userName": "Sam Placeholder",
+          "accountantEmail": "accountant@example.com",
+          "taxID": "000 000 000",
+          "currencySymbol": "$ CAD",
+          "defaultPaperSize": "A4",
+          "defaultDateRange": "Last 12 Months"
+        },
+        "productPairs": [
+          {
+            "index": 0,
+            "id": "00000000-0000-0000-0000-000000000001",
+            "gfProductName": "GF Soy Sauce",
+            "gfPrice": "4.99",
+            "gfSize": "946 mL",
+            "gfSizeValue": "946",
+            "nonGFProductName": "Soy Sauce",
+            "nonGFPrice": "2.49",
+            "nonGFSize": "1 L",
+            "nonGFSizeValue": "1000",
+            "sizeUnit": "mL",
+            "quantity": 3,
+            "createdDate": "2026-10-20T15:00:00Z",
+            "category": "Sauce",
+            "notes": "Comma, \"quote\" and\nnewline",
+            "verified": true,
+            "receiptID": "00000000-0000-0000-0000-000000000100",
+            "effectiveQuantity": 3
+          },
+          {
+            "index": 1,
+            "id": "00000000-0000-0000-0000-000000000002",
+            "gfProductName": "GF Crackers",
+            "gfPrice": "5.49",
+            "gfSize": null,
+            "gfSizeValue": null,
+            "nonGFProductName": "Crackers",
+            "nonGFPrice": "3.29",
+            "nonGFSize": null,
+            "nonGFSizeValue": null,
+            "sizeUnit": null,
+            "quantity": null,
+            "createdDate": "2026-10-21T15:00:00Z",
+            "category": null,
+            "notes": null,
+            "verified": true,
+            "receiptID": "00000000-0000-0000-0000-000000000100",
+            "effectiveQuantity": 1
+          }
+        ],
+        "receipts": [
+          {
+            "index": 0,
+            "id": "00000000-0000-0000-0000-000000000100",
+            "purchaseDate": "2026-10-19T21:15:00Z",
+            "storeName": null,
+            "totalAmount": null,
+            "productPairIDs": [
+              "00000000-0000-0000-0000-000000000001",
+              "00000000-0000-0000-0000-000000000002"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Another version is refused, naming it",
+      "file": "other-version.json",
+      "expected": {
+        "error": "incompatibleVersion",
+        "version": "2.0"
+      }
+    },
+    {
+      "name": "JSON that is not a backup is refused",
+      "file": "not-a-backup.json",
+      "expected": {
+        "error": "malformed"
+      }
+    }
+  ],
+  "decimalStrings": [
+    {
+      "input": "6.39",
+      "expected": "6.39"
+    },
+    {
+      "input": "908",
+      "expected": "908"
+    },
+    {
+      "input": "1234.5",
+      "expected": "1234.5"
+    },
+    {
+      "input": "0.0125",
+      "expected": "0.0125"
+    },
+    {
+      "input": "-2.50",
+      "expected": "-2.50"
+    },
+    {
+      "input": "10000",
+      "expected": "10000"
+    },
+    {
+      "input": "0.0059111111111111111111111111111111111111",
+      "expected": "0.0059111111111111111111111111111111111111"
+    },
+    {
+      "input": "abc",
+      "expected": null
+    },
+    {
+      "input": "",
+      "expected": null
+    }
+  ]
+}

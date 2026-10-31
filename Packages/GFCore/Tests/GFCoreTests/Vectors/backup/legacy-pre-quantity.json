@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "appVersion": "0.9",
+  "timestamp": "2025-11-02T14:30:00Z",
+  "productPairs": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "gfProductName": "GF Bread",
+      "gfPrice": "6.99",
+      "gfSize": "400g",
+      "gfImageUUID": null,
+      "gfImageData": null,
+      "gfOCRConfidence": 0.92,
+      "nonGFProductName": "White Bread",
+      "nonGFPrice": "3.49",
+      "nonGFSize": "675g",
+      "nonGFImageUUID": null,
+      "nonGFImageData": null,
+      "nonGFOCRConfidence": 0.88,
+      "createdDate": "2025-11-01T18:00:00Z",
+      "category": "Bread",
+      "notes": null,
+      "verified": false,
+      "receiptID": null
+    }
+  ],
+  "receipts": [],
+  "settings": {
+    "userName": "Sam Placeholder",
+    "accountantEmail": "accountant@example.com",
+    "taxID": "000 000 000",
+    "currencySymbol": "$ CAD",
+    "defaultPaperSize": "",
+    "defaultDateRange": ""
+  }
+}
