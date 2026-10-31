@@ -9,13 +9,14 @@ import SwiftUI
 
 /// App logo component for branding
 ///
-/// Displays the GFPriceChecker logo.
+/// Displays the GF monogram: the app icon's artwork as a rounded tile, the same file as the
+/// website's logo. Used on the launch screen, the onboarding welcome page and the PDF cover.
 /// Can be rendered to UIImage for use in PDF reports.
 struct AppLogo: View {
     var size: CGFloat = 100
 
     var body: some View {
-        Image("GFPC_Logo")
+        Image("GFMonogram")
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)

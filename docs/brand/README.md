@@ -20,5 +20,19 @@ To regenerate them, download Manrope's variable font from
 swift docs/brand/render-app-icon.swift 'Manrope[wght].ttf' GFPriceChecker/Assets.xcassets/AppIcon.appiconset
 ```
 
-It also writes `AppIcon.svg` there; move it here, or delete it. The wordmark (`GFPC_Logo`) on the
-launch screen, onboarding and PDF cover is separate and unchanged.
+It also writes `AppIcon.svg` there; move it here, or delete it.
+
+## In-app logo
+
+The launch screen, the onboarding welcome page and the PDF report cover all draw `AppLogo`
+(`GFPriceChecker/Resources/AppLogo.swift`), which shows the `GFMonogram` image set: this
+`AppIcon.svg` with the tile's corners rounded (`rx="22.5"`), kept as vector data. It is the same
+file as the website's `assets/images/logos/logo.svg`. If the icon's geometry changes, regenerate
+it with:
+
+```bash
+sed 's|<rect width="100" height="100" fill="#0000FF"/>|<rect width="100" height="100" rx="22.5" fill="#0000FF"/>|' \
+  docs/brand/AppIcon.svg > GFPriceChecker/Assets.xcassets/GFMonogram.imageset/GFMonogram.svg
+```
+
+The italic "GF / PriceChecker" wordmark that used to sit there (`GFPC_Logo`) was removed in #100.
