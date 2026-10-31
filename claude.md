@@ -49,6 +49,7 @@ GFPriceChecker/
 │   └── Receipt.swift           # Receipt verification model
 ├── ViewModels/
 │   ├── CaptureFlowViewModel.swift  # Product capture flow state and logic
+│   ├── ReceiptCaptureViewModel.swift  # Receipt verification flow state, OCR and save
 │   ├── ReportViewModel.swift       # Dashboard year selection; totals come from GFCore
 │   └── AppRouter.swift             # Selected tab, Library path, each tab's sheet; show(_:)
 ├── Views/
@@ -328,8 +329,9 @@ Ranks price candidates by:
 
 `ProductCaptureFlowView` was 986 lines with ~35 `@State` properties and its handlers as
 private view methods — untestable and undriveable. `ViewModels/CaptureFlowViewModel.swift`
-is the result of lifting that out. Follow the same shape for the flows still holding their
-own state: `ReceiptCaptureView` (17 `@State`) and `ExportView` (18).
+is the result of lifting that out, and `ReceiptCaptureViewModel.swift` did the same for
+`ReceiptCaptureView`'s 17. Follow the same shape for the one flow still holding its own
+state: `ExportView` (18 `@State`).
 
 **Inject services, don't call singletons.** A `Dependencies` struct of closures standing in
 for `OCRService` and `ImageStorageService` is what lets a test run a whole capture with

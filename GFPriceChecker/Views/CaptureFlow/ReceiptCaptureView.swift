@@ -5,7 +5,6 @@
 //  Created by Claude Code on 2025-12-27.
 //
 
-import GFCore
 import SwiftUI
 import SwiftData
 
@@ -17,6 +16,9 @@ import SwiftData
 /// 3. Process OCR and extract receipt data
 /// 4. Sequential tap-to-select verification for each product
 /// 5. Confirm matches and save receipt
+///
+/// The steps, their state and the save live in `ReceiptCaptureViewModel`. The
+/// view keeps the `@Query` of unverified pairs and hands it to the view model.
 struct ReceiptCaptureView: View {
 
     // MARK: - Environment
@@ -32,59 +34,9 @@ struct ReceiptCaptureView: View {
 
     // MARK: - State
 
-    /// Current step in the receipt capture flow
-    @State private var currentStep: ReceiptStep = .selectProducts
-
-    /// Selected product pairs to verify with this receipt
-    @State private var selectedProducts: Set<UUID> = []
-
-    /// Whether to show the document scanner
-    @State private var showingScanner = false
-
-    /// Loading state during OCR processing
-    @State private var isProcessingOCR = false
-
-    /// Receipt data
-    @State private var receiptImage: UIImage?
-    @State private var receiptImageUUID: String?
-    @State private var receiptText: String = ""
-    @State private var storeName: String = ""
-    @State private var purchaseDate: Date = Date()
-    @State private var totalAmount: String = ""
-
-    /// OCR observations for tap-to-select
-    @State private var receiptOCRObservations: [SelectableTextObservation] = []
-
-    /// Track which product is currently being verified
-    @State private var currentVerificationIndex: Int = 0
-
-    /// Store confirmed matches: ProductPair.id -> selected receipt line text
-    @State private var confirmedMatches: [UUID: String] = [:]
-
-    /// Alert state
-    @State private var showingAlert = false
-    @State private var alertMessage = ""
-
-    /// Receipt viewer state
-    @State private var showingReceiptViewer = false
-
-    // MARK: - Computed Properties
-
-    /// Products selected for verification
-    private var productsToVerify: [ProductPair] {
-        unverifiedProducts.filter { selectedProducts.contains($0.id) }
-    }
-
-    /// Current product being verified
-    private var currentProductToVerify: ProductPair? {
-        guard currentVerificationIndex < productsToVerify.count else { return nil }
-        return productsToVerify[currentVerificationIndex]
-    }
-
-    /// Count of confirmed matches
-    private var confirmedCount: Int {
-        confirmedMatches.count
-    }
+    /// All of the flow's state and logic lives in `ReceiptCaptureViewModel`;
+    /// this view only draws it.
+    @State private var viewModel = ReceiptCaptureViewModel()
 
     // MARK: - Body
 
@@ -94,7 +46,7 @@ struct ReceiptCaptureView: View {
                 stepView
 
                 // Loading overlay
-                if isProcessingOCR {
+                if viewModel.isProcessingOCR {
                     ocrLoadingOverlay
                 }
             }
@@ -107,20 +59,21 @@ struct ReceiptCaptureView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingScanner) {
+            .sheet(isPresented: $viewModel.showingScanner) {
                 DocumentScannerView { image in
-                    if let image = image {
-                        handleScannedReceipt(image)
-                    } else {
-                        // User cancelled or scan failed - close the scanner
-                        showingScanner = false
-                    }
+                    Task { await viewModel.handleScannedReceipt(image) }
                 }
             }
-            .alert("Error", isPresented: $showingAlert) {
+            .alert("Error", isPresented: $viewModel.showingAlert) {
                 Button("OK", role: .cancel) { }
             } message: {
-                Text(alertMessage)
+                Text(viewModel.alertMessage)
+            }
+            .onChange(of: unverifiedProducts, initial: true) { _, products in
+                viewModel.unverifiedProducts = products
+            }
+            .onChange(of: viewModel.didSave) { _, saved in
+                if saved { dismiss() }
             }
         }
     }
@@ -129,7 +82,7 @@ struct ReceiptCaptureView: View {
 
     @ViewBuilder
     private var stepView: some View {
-        switch currentStep {
+        switch viewModel.currentStep {
         case .selectProducts:
             productSelectionView
         case .scanReceipt:
@@ -158,7 +111,7 @@ struct ReceiptCaptureView: View {
                     // Bulk selection buttons
                     HStack(spacing: 12) {
                         Button {
-                            selectAllProducts()
+                            viewModel.selectAllProducts()
                         } label: {
                             Label("Select All", systemImage: "checkmark.circle")
                                 .font(.caption)
@@ -167,7 +120,7 @@ struct ReceiptCaptureView: View {
                         .controlSize(.small)
 
                         Button {
-                            deselectAllProducts()
+                            viewModel.deselectAllProducts()
                         } label: {
                             Label("Deselect All", systemImage: "circle")
                                 .font(.caption)
@@ -177,7 +130,7 @@ struct ReceiptCaptureView: View {
 
                         Spacer()
 
-                        Text("\(selectedProducts.count) selected")
+                        Text("\(viewModel.selectedProducts.count) selected")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -199,20 +152,20 @@ struct ReceiptCaptureView: View {
             if !unverifiedProducts.isEmpty {
                 VStack(spacing: 12) {
                     Button {
-                        currentStep = .scanReceipt
+                        viewModel.continueToScan()
                     } label: {
                         Label("Scan Receipt", systemImage: "doc.text.viewfinder")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(selectedProducts.isEmpty)
+                    .disabled(viewModel.selectedProducts.isEmpty)
 
-                    if selectedProducts.isEmpty {
+                    if viewModel.selectedProducts.isEmpty {
                         Text("Select at least one product to continue")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("\(selectedProducts.count) product\(selectedProducts.count == 1 ? "" : "s") selected")
+                        Text("\(viewModel.selectedProducts.count) product\(viewModel.selectedProducts.count == 1 ? "" : "s") selected")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -225,13 +178,13 @@ struct ReceiptCaptureView: View {
 
     private func productSelectionRow(_ product: ProductPair) -> some View {
         Button {
-            toggleProductSelection(product)
+            viewModel.toggleProductSelection(product)
         } label: {
             HStack(spacing: 12) {
                 // Checkbox
-                Image(systemName: selectedProducts.contains(product.id) ? "checkmark.circle.fill" : "circle")
+                Image(systemName: viewModel.selectedProducts.contains(product.id) ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundStyle(selectedProducts.contains(product.id) ? .blue : .secondary)
+                    .foregroundStyle(viewModel.selectedProducts.contains(product.id) ? .blue : .secondary)
 
                 // Product info
                 VStack(alignment: .leading, spacing: 4) {
@@ -277,14 +230,6 @@ struct ReceiptCaptureView: View {
         .buttonStyle(.plain)
     }
 
-    private func toggleProductSelection(_ product: ProductPair) {
-        if selectedProducts.contains(product.id) {
-            selectedProducts.remove(product.id)
-        } else {
-            selectedProducts.insert(product.id)
-        }
-    }
-
     // MARK: - Scan Receipt Prompt View
 
     private var scanReceiptPromptView: some View {
@@ -313,7 +258,7 @@ struct ReceiptCaptureView: View {
 
             // Scan button
             Button {
-                showingScanner = true
+                viewModel.openScanner()
             } label: {
                 Label("Open Scanner", systemImage: "camera")
                     .frame(maxWidth: .infinity)
@@ -324,7 +269,7 @@ struct ReceiptCaptureView: View {
 
             // Back button
             Button {
-                currentStep = .selectProducts
+                viewModel.backToProductSelection()
             } label: {
                 Text("Back to Product Selection")
             }
@@ -340,15 +285,15 @@ struct ReceiptCaptureView: View {
             verificationProgressHeader
 
             // Main content
-            if let product = currentProductToVerify {
+            if let product = viewModel.currentProductToVerify {
                 productVerificationView(product: product)
             } else {
                 // All products verified - show summary
                 verificationCompleteView
             }
         }
-        .sheet(isPresented: $showingReceiptViewer) {
-            if let image = receiptImage {
+        .sheet(isPresented: $viewModel.showingReceiptViewer) {
+            if let image = viewModel.receiptImage {
                 ImageViewer(image: image, title: "Receipt")
             }
         }
@@ -359,7 +304,7 @@ struct ReceiptCaptureView: View {
     private var verificationProgressHeader: some View {
         VStack(spacing: 8) {
             // Progress text
-            Text("Verifying product \(min(currentVerificationIndex + 1, productsToVerify.count)) of \(productsToVerify.count)")
+            Text("Verifying product \(min(viewModel.currentVerificationIndex + 1, viewModel.productsToVerify.count)) of \(viewModel.productsToVerify.count)")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -373,7 +318,7 @@ struct ReceiptCaptureView: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(Color.blue)
                         .frame(
-                            width: geometry.size.width * CGFloat(confirmedCount) / CGFloat(max(productsToVerify.count, 1)),
+                            width: geometry.size.width * CGFloat(viewModel.confirmedCount) / CGFloat(max(viewModel.productsToVerify.count, 1)),
                             height: 8
                         )
                 }
@@ -417,9 +362,9 @@ struct ReceiptCaptureView: View {
             .background(Color(.secondarySystemGroupedBackground))
 
             // View receipt button
-            if receiptImage != nil {
+            if viewModel.receiptImage != nil {
                 Button {
-                    showingReceiptViewer = true
+                    viewModel.showReceiptViewer()
                 } label: {
                     Label("Tap to View Receipt", systemImage: "doc.text.viewfinder")
                         .font(.subheadline)
@@ -433,16 +378,16 @@ struct ReceiptCaptureView: View {
             }
 
             // Receipt line selector
-            if let image = receiptImage {
+            if let image = viewModel.receiptImage {
                 ReceiptLineSelector(
                     image: image,
-                    observations: receiptOCRObservations,
+                    observations: viewModel.receiptOCRObservations,
                     productName: product.gfProductName,
                     onLineSelected: { selectedText in
-                        confirmMatch(for: product, withLine: selectedText)
+                        viewModel.confirmMatch(for: product, withLine: selectedText)
                     },
                     onSkip: {
-                        skipProduct(product)
+                        viewModel.skipProduct(product)
                     }
                 )
             }
@@ -462,22 +407,22 @@ struct ReceiptCaptureView: View {
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("\(confirmedCount) of \(productsToVerify.count) products matched")
+                Text("\(viewModel.confirmedCount) of \(viewModel.productsToVerify.count) products matched")
                     .foregroundStyle(.secondary)
 
                 // Summary of matches
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(productsToVerify, id: \.id) { product in
+                    ForEach(viewModel.productsToVerify, id: \.id) { product in
                         HStack {
-                            Image(systemName: confirmedMatches[product.id] != nil ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundStyle(confirmedMatches[product.id] != nil ? .green : .orange)
+                            Image(systemName: viewModel.confirmedMatches[product.id] != nil ? "checkmark.circle.fill" : "xmark.circle")
+                                .foregroundStyle(viewModel.confirmedMatches[product.id] != nil ? .green : .orange)
 
                             Text(product.gfProductName)
                                 .lineLimit(1)
 
                             Spacer()
 
-                            if confirmedMatches[product.id] != nil {
+                            if viewModel.confirmedMatches[product.id] != nil {
                                 Text("Matched")
                                     .font(.caption)
                                     .foregroundStyle(.green)
@@ -496,17 +441,17 @@ struct ReceiptCaptureView: View {
 
                 // Save button
                 Button {
-                    confirmAndSave()
+                    Task { await viewModel.save(into: modelContext) }
                 } label: {
                     Label("Save Receipt", systemImage: "square.and.arrow.down")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(confirmedCount == 0)
+                .disabled(viewModel.confirmedCount == 0)
                 .padding(.horizontal)
 
-                if confirmedCount == 0 {
+                if viewModel.confirmedCount == 0 {
                     Text("Match at least one product to save the receipt")
                         .font(.caption)
                         .foregroundStyle(.orange)
@@ -568,132 +513,6 @@ struct ReceiptCaptureView: View {
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 20))
         }
-    }
-
-    // MARK: - Helper Methods
-
-    /// Selects all unverified products
-    private func selectAllProducts() {
-        selectedProducts = Set(unverifiedProducts.map { $0.id })
-    }
-
-    /// Deselects all products
-    private func deselectAllProducts() {
-        selectedProducts.removeAll()
-    }
-
-    /// Confirms a match and moves to next product
-    private func confirmMatch(for product: ProductPair, withLine text: String) {
-        confirmedMatches[product.id] = text
-        currentVerificationIndex += 1
-    }
-
-    /// Skips current product without matching
-    private func skipProduct(_ product: ProductPair) {
-        // Don't add to confirmedMatches
-        currentVerificationIndex += 1
-    }
-
-    /// Handles scanned receipt image
-    private func handleScannedReceipt(_ image: UIImage) {
-        receiptImage = image
-        showingScanner = false
-        isProcessingOCR = true
-
-        Task {
-            await processReceipt(image)
-        }
-    }
-
-    /// Processes receipt with OCR
-    private func processReceipt(_ image: UIImage) async {
-        do {
-            // Extract full receipt text (for display and store/date parsing)
-            let fullText = try await OCRService.shared.extractReceiptText(from: image)
-            receiptText = fullText
-
-            // Extract selectable observations for tap-to-select
-            let observations = try await OCRService.shared.extractSelectableText(from: image)
-            receiptOCRObservations = observations
-
-            // Parse receipt metadata (keep this functionality)
-            if let store = ReceiptParser.extractStoreName(from: fullText) {
-                storeName = store
-            }
-
-            if let date = ReceiptParser.extractDate(from: fullText) {
-                purchaseDate = date
-            }
-
-            if let total = ReceiptParser.extractTotal(from: fullText) {
-                totalAmount = "\(total)"
-            }
-
-            // Reset verification state
-            currentVerificationIndex = 0
-            confirmedMatches = [:]
-
-            isProcessingOCR = false
-            currentStep = .reviewMatches
-
-        } catch {
-            isProcessingOCR = false
-            alertMessage = "Failed to process receipt: \(error.localizedDescription)"
-            showingAlert = true
-        }
-    }
-
-    /// Confirms matches and saves receipt to SwiftData
-    private func confirmAndSave() {
-        Task {
-            // Save receipt image
-            guard let image = receiptImage,
-                  let imageUUID = await ImageStorageService.shared.saveImage(image, type: .receipt) else {
-                alertMessage = "Failed to save receipt image"
-                showingAlert = true
-                return
-            }
-
-            receiptImageUUID = imageUUID
-
-            // Parse total amount
-            let totalDecimal = totalAmount.isEmpty ? nil : Decimal(string: totalAmount)
-
-            // Create Receipt
-            let receipt = Receipt(
-                purchaseDate: purchaseDate,
-                storeName: storeName.isEmpty ? nil : storeName,
-                receiptImageUUID: imageUUID,
-                totalAmount: totalDecimal,
-                extractedOCRText: receiptText
-            )
-
-            // Associate confirmed products with receipt
-            for product in productsToVerify {
-                if confirmedMatches[product.id] != nil {
-                    product.receipt = receipt
-                    product.verified = true
-                }
-            }
-
-            modelContext.insert(receipt)
-
-            do {
-                try modelContext.save()
-                dismiss()
-            } catch {
-                alertMessage = "Failed to save: \(error.localizedDescription)"
-                showingAlert = true
-            }
-        }
-    }
-
-    // MARK: - Step Enum
-
-    enum ReceiptStep {
-        case selectProducts
-        case scanReceipt
-        case reviewMatches
     }
 }
 
