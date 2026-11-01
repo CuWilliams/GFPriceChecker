@@ -57,6 +57,7 @@ struct AppRouterTests {
         router.showingCaptureFlow = true
         router.librarySheet = .manualEntry
         router.reportsSheet = .settings
+        router.showingOnboarding = true
         return router
     }
 
@@ -71,6 +72,7 @@ struct AppRouterTests {
         #expect(router.showingCaptureFlow == false)
         #expect(router.librarySheet == nil)
         #expect(router.reportsSheet == nil)
+        #expect(router.showingOnboarding == false)
     }
 
     // MARK: - show(_:)
@@ -88,6 +90,23 @@ struct AppRouterTests {
         #expect(router.showingCaptureFlow == false)
         #expect(router.librarySheet == nil)
         #expect(router.reportsSheet == nil)
+        #expect(router.showingOnboarding == false)
+    }
+
+    @Test("Onboarding opens over the Capture tab, as on a first launch")
+    func showOnboarding() throws {
+        let store = try Self.makeStore()
+        let router = Self.clutteredRouter(store: store)
+        router.showingOnboarding = false
+
+        router.show(.onboarding)
+
+        #expect(router.selectedTab == .capture)
+        #expect(router.showingOnboarding)
+        #expect(router.showingCaptureFlow == false)
+        #expect(router.librarySheet == nil)
+        #expect(router.reportsSheet == nil)
+        #expect(router.libraryPath.isEmpty)
     }
 
     @Test("The capture flow opens over the Capture tab")
@@ -164,6 +183,7 @@ struct AppRouterTests {
             "receiptCapture": .receiptCapture,
             "export": .export,
             "settings": .settings,
+            "onboarding": .onboarding,
         ]
 
         for (name, destination) in expected {

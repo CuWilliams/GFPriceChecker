@@ -458,7 +458,10 @@ What it turned up, all written up in `Tools/Demo/README.md`:
   save, because saving emptied its query. `ReceiptCaptureViewModel` now stops following the
   query once it has saved.
 - **Question 3 answered (stills):** yes. `stills.sh` cuts the three carousel screenshots
-  whose screens the videos show, from the same scripts.
+  whose screens the videos show, from the same scripts. Issue #98 extended it to every
+  screenshot but 01 and 07: more marks in the three scripts, and an `onboarding` script for
+  04–06, made reachable by moving the onboarding sheet and its page into `AppRouter` and
+  `OnboardingViewModel`.
 
 ### Stage 7 — compositing — **done**
 - ~~The stage TrendFit does not have: portrait capture → 1920×1080 frame, burned-in captions

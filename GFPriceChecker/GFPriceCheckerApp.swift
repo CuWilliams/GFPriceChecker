@@ -21,10 +21,7 @@ struct GFPriceCheckerApp: App {
     /// Controls whether the launch screen is displayed
     @State private var showLaunchScreen = true
 
-    /// Controls whether the onboarding view is presented
-    @State private var showOnboarding = false
-
-    /// Which tab, Library screen and sheet the app is on
+    /// Which tab, Library screen and sheet the app is on, onboarding included
     @State private var router = AppRouter()
 
     // MARK: - Init
@@ -79,8 +76,8 @@ struct GFPriceCheckerApp: App {
                 // Main app content
                 ContentView()
                     .environment(router)
-                    .sheet(isPresented: $showOnboarding) {
-                        OnboardingView(isPresented: $showOnboarding)
+                    .sheet(isPresented: $router.showingOnboarding) {
+                        OnboardingView(isPresented: $router.showingOnboarding)
                     }
                     .onAppear {
                         #if DEBUG
@@ -101,7 +98,7 @@ struct GFPriceCheckerApp: App {
                             // Small delay to ensure smooth transition
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                 if !AppSettings.shared.hasCompletedOnboarding {
-                                    showOnboarding = true
+                                    router.showingOnboarding = true
                                 }
                             }
                         }

@@ -268,7 +268,7 @@ Tools/Demo/record.sh price-tracking           # build, seed, record, cut, report
 Tools/Demo/record.sh receipt-management --no-build
 Tools/Demo/record.sh price-tracking --keep    # leave the raw recording beside the take
 Tools/Demo/record.sh price-tracking --recut   # cut the kept recording again, no re-record
-Tools/Demo/stills.sh all                      # the three site screenshots
+Tools/Demo/stills.sh all                      # every carousel screenshot but 01 and 07
 ```
 
 Takes land in `$GFPC_DEMO_HOME/takes/` and stills in `$GFPC_DEMO_HOME/stills/` (default
@@ -276,13 +276,33 @@ Takes land in `$GFPC_DEMO_HOME/takes/` and stills in `$GFPC_DEMO_HOME/stills/` (
 `--appearance` and `--out`, as `play.sh` does. They launch through the same `lib.sh`
 `launch_script`, so a take is what `play.sh` plays, with a recorder running around it.
 
-| Script | Site video | Site screenshot (`assets/images/screenshots/`) | Still |
-| --- | --- | --- | --- |
-| `price-tracking` | `price-tracking.mp4` | `screenshot-08-ProductCaptureFlowView.png` | The finalize screen |
-| `receipt-management` | `receipt-management.mp4` | `screenshot-10-ReceiptCaptureView.png` | Matching, the first line selected |
-| `reporting-exporting` | `reporting-exporting.mp4` | `screenshot-14-SummaryDashBoardView.png` | The dashboard |
+| Script | Site video |
+| --- | --- |
+| `price-tracking` | `price-tracking.mp4` |
+| `receipt-management` | `receipt-management.mp4` |
+| `reporting-exporting` | `reporting-exporting.mp4` |
 
-The storyboards are the three scripts in
+The carousel's screenshots (`assets/images/screenshots/`) are cut from the same scripts,
+and from `onboarding`, which has no video. Each row is one launch of `stills.sh`; the table
+itself is the `STILLS` block in [`stills.sh`](stills.sh).
+
+| Script | Mark | Site screenshot | The frame |
+| --- | --- | --- | --- |
+| `price-tracking` | `tile` | `screenshot-08-ProductCaptureFlowView.png` | The finalize screen |
+| `price-tracking` | `library` | `screenshot-12-ProductPairListingView.png` | The Library, the new pair on top |
+| `price-tracking` | `product` | `screenshot-11-ProductPairDetailView.png` | The new pair's detail |
+| `receipt-management` | `tile` | `screenshot-10-ReceiptCaptureView.png` | Matching, the first line selected |
+| `receipt-management` | `receipt` | `screenshot-09-ReceiptDetailView.png` | The saved receipt's detail |
+| `reporting-exporting` | `tile` | `screenshot-14-SummaryDashBoardView.png` | The dashboard |
+| `reporting-exporting` | `export` | `screenshot-13-ExportView.png` | The export sheet, CSV |
+| `onboarding` | `scanning` | `screenshot-04-smartscanning-how-it-works.png` | Smart Scanning |
+| `onboarding` | `camera` | `screenshot-05-onboarding-camera.png` | Camera Access, not yet asked |
+| `onboarding` | `ready` | `screenshot-06-onboarding-complete.png` | You're All Set |
+
+01 (the launch screen) and 07 (the Capture tab) are not cut: neither is a frame any script
+reaches.
+
+The storyboards are the scripts in
 [`DemoScripts.swift`](../../GFPriceChecker/Dev/DemoScripts.swift). Each one's doc comment
 says what the video shows and where its still is. The capture takes scan
 `SampleScanImages`' drawn shelf tags and receipt, so real Vision OCR runs on every take, and
@@ -336,11 +356,24 @@ On camera that looks like a scan landing.
 
 ### Stills
 
-`stills.sh` launches each script in stills mode, waits for its `still()`, screenshots it and
-terminates. `--mark NAME` stops at `still("NAME")` instead, and adds `-NAME` to the file name.
+`stills.sh` launches once per row in stills mode, waits for that row's `still()`, screenshots
+it and terminates. A `still()` returns at once in a video take, so marking a frame never
+changes a take's timing. `--mark NAME` stops each named script at `still("NAME")` instead, and
+lands as `<script>-NAME.png`, for a look at a frame the site does not use.
+
+Each launch first resets the app's camera permission, so the Camera Access page shows its
+"Enable Camera Access" button whatever an earlier run granted. The pair `price-tracking` saves
+is dated the morning after the dataset's newest pair, so the Library keeps it on top and the
+detail's "Created" line is the same every run. The receipt sheet lists its unverified pairs
+oldest first; unsorted, `receipt-management` verified them in either order from one launch to
+the next.
+
+Run twice, every still comes out pixel-identical, but for a few dozen pixels of the receipt
+sheet's glass header on the first launch after an install.
+
 The carousel shows each screenshot whole at 1206×2622, so nothing is cropped. Each file is
 quantised to 256 colours, at about half the size of the site's current RGB files, and the RMSE
-is printed beside it. The three came in at 0.004–0.006. Copy a still over its namesake in the
+is printed beside it. The ten came in at 0.004–0.008. Copy a still over its namesake in the
 site repo.
 
 ## Stage 7 — composite the site's videos

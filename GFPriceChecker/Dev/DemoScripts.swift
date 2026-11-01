@@ -14,9 +14,15 @@ import SwiftUI
 /// The scripts `DemoDirector` plays, one per take. The timings are the
 /// storyboard: retiming a take is an edit here and a rebuild, never a re-shoot.
 ///
-/// `tour` is Stage 5's, and exists to prove the mechanism end to end. The other
+/// `tour` is Stage 5's, and exists to prove the mechanism end to end. The next
 /// three are Stage 6's storyboards for the website's three videos, one each:
 /// `price-tracking`, `receipt-management` and `reporting-exporting`.
+/// `onboarding` is never recorded. It turns the onboarding sheet's pages for
+/// the site's onboarding slides.
+///
+/// Every screenshot on the site's carousel but the launch screen and the
+/// Capture tab is a `still(_:)` mark in one of these. `Tools/Demo/stills.sh`
+/// holds the table of which mark becomes which file.
 ///
 /// The capture takes scan `SampleScanImages`' drawn shelf tags and receipt
 /// through `ScannerImageProvider`, so real Vision OCR runs on every take and
@@ -26,7 +32,7 @@ enum DemoScripts {
 
     /// Every script `run` knows, which is what `GFPC_DEMO_SCRIPT` is checked
     /// against. `nonisolated` so a parameterized test can take it as arguments.
-    nonisolated static let names = ["tour", "price-tracking", "receipt-management", "reporting-exporting"]
+    nonisolated static let names = ["tour", "price-tracking", "receipt-management", "reporting-exporting", "onboarding"]
 
     static func run(_ name: String, on d: DemoDirector) async throws {
         guard let script = script(named: name) else { throw DemoDirector.DemoError.unknownScript(name) }
@@ -41,6 +47,7 @@ enum DemoScripts {
         case "price-tracking": priceTracking
         case "receipt-management": receiptManagement
         case "reporting-exporting": reportingExporting
+        case "onboarding": onboarding
         default: nil
         }
     }
@@ -97,8 +104,9 @@ enum DemoScripts {
     /// shelf tag, pick its name, price and size from what the scan read, do the
     /// same for the regular loaf, pick a category, save, and open the new pair.
     ///
-    /// Still: the finalize screen, which carries both products and the
-    /// differential.
+    /// Stills: the finalize screen, which carries both products and the
+    /// differential (`tile`); the Library with the new pair on top
+    /// (`library`); and the new pair's detail (`product`).
     private static func priceTracking(_ d: DemoDirector) async throws {
         // The Capture tab, as the app opens
         await d.caption("Capturing a product pair: a gluten-free product and its regular equivalent")
@@ -134,15 +142,39 @@ enum DemoScripts {
 
         // Saving dismisses the sheet
         guard let context = d.context else { throw DemoDirector.DemoError.notAttached }
-        capture.save(into: context)
+        try saveDated(in: context) { capture.save(into: context) }
         await d.wait(1.0)
 
         await d.push(.tab(.library))
         await d.caption("The pair is in your Library")
         await d.wait(1.5)
+        await d.still("library")
         await d.push(try d.destination("product"))
         await d.caption("Ready to be verified against a receipt")
-        await d.wait(2.5)
+        await d.wait(1.5)
+        await d.still("product")
+        await d.wait(1.0)
+    }
+
+    /// Saves the captured pair, then dates it 9:41 on the day after the
+    /// newest pair already in the library, the status bar's time.
+    ///
+    /// The pair's detail screen shows when it was created, and left at the
+    /// moment of saving that would differ between two runs a minute apart.
+    /// The day after the newest keeps it at the top of the Library, where
+    /// `destination("product")` and the take expect it.
+    private static func saveDated(in context: ModelContext, _ save: () -> Bool) throws {
+        var newest = FetchDescriptor<ProductPair>(sortBy: [SortDescriptor(\.createdDate, order: .reverse)])
+        newest.fetchLimit = 1
+        let before = try context.fetch(newest).first?.createdDate ?? .now
+
+        guard save(), let saved = try context.fetch(newest).first else {
+            throw DemoDirector.DemoError.timedOut("the pair to save")
+        }
+        let calendar = Calendar.current
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: before)) ?? before
+        saved.createdDate = calendar.date(bySettingHour: 9, minute: 41, second: 0, of: nextDay) ?? nextDay
+        try context.save()
     }
 
     /// Waits for one product's scan to be read, then taps its name, price and
@@ -218,7 +250,8 @@ enum DemoScripts {
     /// pairs, scan the receipt, confirm the line each one was bought on, save,
     /// and open the receipt with its products.
     ///
-    /// Still: the matching screen with the first pair's line selected.
+    /// Stills: the matching screen with the first pair's line selected
+    /// (`tile`), and the saved receipt's detail (`receipt`).
     private static func receiptManagement(_ d: DemoDirector) async throws {
         await d.caption("Verifying product pairs against a receipt")
         await d.wait(1.0)
@@ -279,7 +312,9 @@ enum DemoScripts {
         await d.wait(1.5)
         await d.push(.receipt(saved))
         await d.caption("The receipt is kept with its image and the products it verifies")
-        await d.wait(3.0)
+        await d.wait(1.5)
+        await d.still("receipt")
+        await d.wait(1.5)
     }
 
     // MARK: - Warm-up
@@ -301,7 +336,8 @@ enum DemoScripts {
     /// export sheet switched to a PDF of the year, generated and handed to the
     /// share sheet.
     ///
-    /// Still: the dashboard.
+    /// Stills: the dashboard (`tile`), and the export sheet on CSV, its
+    /// default, before the take switches it to PDF (`export`).
     private static func reportingExporting(_ d: DemoDirector) async throws {
         await d.caption("Exporting your records")
         await d.wait(1.0)
@@ -317,6 +353,7 @@ enum DemoScripts {
         let export = try await d.screen(ExportViewModel.self)
         await d.caption("Export a CSV spreadsheet, or a PDF report")
         await d.wait(2.0)
+        await d.still("export")
         d.animate { export.exportFormat = .pdf }
         await d.caption("The PDF includes each receipt's image")
         await d.wait(2.0)
@@ -331,6 +368,36 @@ enum DemoScripts {
         }
         try await d.waitUntil("the share sheet") { export.showingShareSheet }
         await d.wait(3.0)
+    }
+
+    // MARK: - onboarding
+
+    /// The marks for the onboarding pages the site's carousel shows, by page.
+    static let onboardingMarks: [(page: OnboardingViewModel.Page, mark: String)] = [
+        (.smartScanning, "scanning"),
+        (.camera, "camera"),
+        (.ready, "ready"),
+    ]
+
+    /// The onboarding sheet, turned to each page the site shows. Stills only:
+    /// no site video covers onboarding.
+    ///
+    /// The director marks onboarding complete at launch so the sheet never
+    /// arrives over a take, and this presents it through the router instead.
+    /// The Camera page shows whatever the Simulator's camera permission is, so
+    /// `stills.sh` resets it first, to the prompt a new user sees.
+    ///
+    /// Stills: `scanning`, `camera` and `ready`.
+    private static func onboarding(_ d: DemoDirector) async throws {
+        await d.push(.onboarding)
+        let onboarding = try await d.screen(OnboardingViewModel.self)
+        await d.wait(1.0)
+
+        for (page, mark) in onboardingMarks {
+            d.animate { onboarding.page = page }
+            await d.wait(1.0)
+            await d.still(mark)
+        }
     }
 }
 #endif

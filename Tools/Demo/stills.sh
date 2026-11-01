@@ -1,7 +1,6 @@
 #!/bin/bash
 #
-# The website's screenshots of the three walkthrough screens, cut from the same
-# scripts as its videos.
+# The website's carousel screenshots, cut from the same scripts as its videos.
 #
 #     Tools/Demo/stills.sh <script>... | all  [--dataset PATH | --no-seed]
 #                          [--no-build] [--udid UDID] [--appearance light|dark]
@@ -13,10 +12,14 @@
 # launches the script with GFPC_DEMO_STILL_FILE set, waits for that marker,
 # screenshots, and terminates. Nothing is aimed by hand.
 #
-# `all` runs the three. Each lands as <out>/<site name>.png, by default in
-# ~/GFPCDemoData/stills, named for the carousel file on features.html it
-# replaces (the table below). `--mark NAME` stops at a script's `still("NAME")`
-# instead, and lands as <site name>-<NAME>.png.
+# Each row of the table below is one launch: a script, the mark it stops at,
+# and the carousel file on features.html the frame replaces. Naming a script
+# cuts every row it has; `all` cuts every row. Each lands as
+# <out>/<site name>.png, by default in ~/GFPCDemoData/stills.
+#
+# `--mark NAME` stops each named script at its `still("NAME")` instead of its
+# rows, for a look at a frame the site does not use, and lands as
+# <script>-<NAME>.png.
 #
 # play.sh --still takes one screenshot of one script, for a look; this is the
 # version for the site.
@@ -35,7 +38,7 @@ APPEARANCE=light
 OUT_DIR="${GFPC_DEMO_HOME:-$HOME/GFPCDemoData}/stills"
 MARK=""
 SCRIPTS=()
-ALL=(price-tracking receipt-management reporting-exporting)
+ALL=(price-tracking receipt-management reporting-exporting onboarding)
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -57,20 +60,40 @@ command -v magick >/dev/null || { echo "magick not found (brew install imagemagi
 
 # MARK: - The site's file names
 #
-# The carousel on features.html shows each screenshot whole, at the 1206x2622
-# a Pro-size iPhone takes, so there is nothing to crop. A file is copied over
-# its namesake in the site's assets/images/screenshots/ as it stands.
-site_name() {
-    case "$1" in
-        price-tracking) echo screenshot-08-ProductCaptureFlowView ;;
-        receipt-management) echo screenshot-10-ReceiptCaptureView ;;
-        reporting-exporting) echo screenshot-14-SummaryDashBoardView ;;
-        *) return 1 ;;
-    esac
-}
+# script, mark, and the carousel file the frame replaces. The carousel on
+# features.html shows each screenshot whole, at the 1206x2622 a Pro-size iPhone
+# takes, so there is nothing to crop. A file is copied over its namesake in the
+# site's assets/images/screenshots/ as it stands.
+#
+# Not here: 01, the launch screen, which a take replaces with a flat curtain,
+# and 07, the Capture tab, a JPEG on the site.
+STILLS="
+price-tracking      tile      screenshot-08-ProductCaptureFlowView
+price-tracking      library   screenshot-12-ProductPairListingView
+price-tracking      product   screenshot-11-ProductPairDetailView
+receipt-management  tile      screenshot-10-ReceiptCaptureView
+receipt-management  receipt   screenshot-09-ReceiptDetailView
+reporting-exporting tile      screenshot-14-SummaryDashBoardView
+reporting-exporting export    screenshot-13-ExportView
+onboarding          scanning  screenshot-04-smartscanning-how-it-works
+onboarding          camera    screenshot-05-onboarding-camera
+onboarding          ready     screenshot-06-onboarding-complete
+"
 
+# One launch per line, "script mark file name", in the order asked for
+ROWS=()
 for SCRIPT_NAME in "${SCRIPTS[@]}"; do
-    site_name "$SCRIPT_NAME" >/dev/null || { echo "no site screenshot for script '$SCRIPT_NAME'" >&2; exit 2; }
+    if [[ -n "$MARK" ]]; then
+        ROWS+=("$SCRIPT_NAME $MARK $SCRIPT_NAME-$MARK")
+        continue
+    fi
+    FOUND=0
+    while read -r ROW_SCRIPT ROW_MARK ROW_NAME; do
+        [[ "$ROW_SCRIPT" == "$SCRIPT_NAME" ]] || continue
+        ROWS+=("$ROW_SCRIPT $ROW_MARK $ROW_NAME")
+        FOUND=1
+    done <<< "$STILLS"
+    (( FOUND )) || { echo "no site screenshot for script '$SCRIPT_NAME'" >&2; exit 2; }
 done
 
 mkdir -p "$OUT_DIR"
@@ -81,20 +104,24 @@ UDID=$(resolve_udid "$DEVICE")
 xcrun simctl bootstatus "$UDID" -b >/dev/null
 xcrun simctl ui "$UDID" appearance "$APPEARANCE"
 
-for SCRIPT_NAME in "${SCRIPTS[@]}"; do
+for ROW in "${ROWS[@]}"; do
+    read -r SCRIPT_NAME ROW_MARK ROW_NAME <<< "$ROW"
     STILL_FILE="$OUT_DIR/$SCRIPT_NAME.still"
     DONE_FILE="$OUT_DIR/$SCRIPT_NAME.done"
     RAW="$OUT_DIR/$SCRIPT_NAME.raw.png"
-    FINAL="$OUT_DIR/$(site_name "$SCRIPT_NAME")${MARK:+-$MARK}.png"
+    FINAL="$OUT_DIR/$ROW_NAME.png"
     rm -f "$STILL_FILE" "$DONE_FILE" "$RAW"
 
     # The same status bar the takes carry, so a still and its video agree on
     # the time of day as well as on the data.
     clean_status_bar "$UDID"
 
-    EXTRA=(STILL_FILE="$STILL_FILE")
-    [[ -n "$MARK" ]] && EXTRA+=(STILL_MARK="$MARK")
-    echo "==> $SCRIPT_NAME"
+    # Onboarding's Camera page shows the camera permission as it stands, and a
+    # Simulator remembers it. Reset, it shows the prompt a new user sees.
+    xcrun simctl privacy "$UDID" reset camera "$BUNDLE_ID" 2>/dev/null || true
+
+    EXTRA=(STILL_FILE="$STILL_FILE" STILL_MARK="$ROW_MARK")
+    echo "==> $SCRIPT_NAME at $ROW_MARK"
     launch_script "$UDID" "$SCRIPT_NAME" "$DONE_FILE" "$DATASET" "${EXTRA[@]}"
 
     # The done file is the failure case here: a script that finished without
