@@ -29,7 +29,10 @@ struct ReceiptCaptureView: View {
     // MARK: - Query
 
     /// Fetch all unverified product pairs
-    @Query(filter: #Predicate<ProductPair> { !$0.verified })
+    /// Oldest first, the order they were captured in. Unsorted, SwiftData
+    /// returns them in no fixed order, so the list and which pair is verified
+    /// first changed from one launch to the next.
+    @Query(filter: #Predicate<ProductPair> { !$0.verified }, sort: \ProductPair.createdDate)
     private var unverifiedProducts: [ProductPair]
 
     // MARK: - State

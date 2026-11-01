@@ -23,17 +23,13 @@ struct OnboardingView: View {
     @Binding var isPresented: Bool
 
     /// Current page in the onboarding flow
-    @State private var currentPage = 0
+    @State private var viewModel = OnboardingViewModel()
 
     /// Camera permission status
     @State private var cameraPermissionStatus: AVAuthorizationStatus = .notDetermined
 
     /// Shows alert if camera permission is denied
     @State private var showingPermissionAlert = false
-
-    // MARK: - Constants
-
-    private let totalPages = 5
 
     // MARK: - Body
 
@@ -48,8 +44,8 @@ struct OnboardingView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Skip button (only on first 3 pages)
-                if currentPage < totalPages - 1 {
+                // Skip button (every page but the last)
+                if !viewModel.isLastPage {
                     HStack {
                         Spacer()
                         Button("Skip") {
@@ -63,21 +59,21 @@ struct OnboardingView: View {
                 }
 
                 // Page content
-                TabView(selection: $currentPage) {
+                TabView(selection: $viewModel.page) {
                     welcomePage
-                        .tag(0)
+                        .tag(OnboardingViewModel.Page.welcome)
 
                     howItWorksPage
-                        .tag(1)
+                        .tag(OnboardingViewModel.Page.howItWorks)
 
                     smartScanningPage
-                        .tag(2)
+                        .tag(OnboardingViewModel.Page.smartScanning)
 
                     permissionsPage
-                        .tag(3)
+                        .tag(OnboardingViewModel.Page.camera)
 
                     readyPage
-                        .tag(4)
+                        .tag(OnboardingViewModel.Page.ready)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
@@ -85,10 +81,10 @@ struct OnboardingView: View {
                 // Navigation buttons
                 HStack {
                     // Back button
-                    if currentPage > 0 {
+                    if !viewModel.isFirstPage {
                         Button {
                             withAnimation {
-                                currentPage -= 1
+                                viewModel.back()
                             }
                         } label: {
                             Label("Back", systemImage: "chevron.left")
@@ -103,15 +99,15 @@ struct OnboardingView: View {
 
                     // Next/Get Started button
                     Button {
-                        if currentPage < totalPages - 1 {
+                        if !viewModel.isLastPage {
                             withAnimation {
-                                currentPage += 1
+                                viewModel.next()
                             }
                         } else {
                             completeOnboarding()
                         }
                     } label: {
-                        Text(currentPage == totalPages - 1 ? "Get Started" : "Next")
+                        Text(viewModel.isLastPage ? "Get Started" : "Next")
                             .font(.headline)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 30)
@@ -119,8 +115,8 @@ struct OnboardingView: View {
                             .background(Color.blue)
                             .clipShape(Capsule())
                     }
-                    .accessibilityLabel(currentPage == totalPages - 1 ? "Get started" : "Next page")
-                    .accessibilityHint(currentPage == totalPages - 1 ? "Complete onboarding and start using the app" : "Continue to next page")
+                    .accessibilityLabel(viewModel.isLastPage ? "Get started" : "Next page")
+                    .accessibilityHint(viewModel.isLastPage ? "Complete onboarding and start using the app" : "Continue to next page")
                 }
                 .padding()
             }
@@ -138,6 +134,7 @@ struct OnboardingView: View {
         .onAppear {
             checkCameraPermission()
         }
+        .demoRegistered(viewModel)
     }
 
     // MARK: - Pages

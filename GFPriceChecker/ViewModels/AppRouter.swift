@@ -69,6 +69,7 @@ final class AppRouter {
         case receiptCapture
         case export
         case settings
+        case onboarding
     }
 
     // MARK: - State
@@ -85,6 +86,10 @@ final class AppRouter {
 
     var reportsSheet: ReportsSheet?
 
+    /// Whether the onboarding sheet is up. `GFPriceCheckerApp` presents it on a
+    /// first launch, and a demo script through `show(.onboarding)`.
+    var showingOnboarding = false
+
     // MARK: - Navigation
 
     /// Puts the app on `destination` from wherever it is.
@@ -98,6 +103,7 @@ final class AppRouter {
     /// should go to `.tab` first and let the dismissal settle.
     func show(_ destination: Destination) {
         showingCaptureFlow = false
+        showingOnboarding = false
         librarySheet = nil
         reportsSheet = nil
         libraryPath = []
@@ -126,6 +132,10 @@ final class AppRouter {
         case .settings:
             selectedTab = .reports
             reportsSheet = .settings
+        case .onboarding:
+            // Over the Capture tab, as on a first launch
+            selectedTab = .capture
+            showingOnboarding = true
         }
     }
 }

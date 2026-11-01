@@ -66,6 +66,7 @@ enum DemoRoute {
         case "receiptCapture": return .receiptCapture
         case "export": return .export
         case "settings": return .settings
+        case "onboarding": return .onboarding
         case "product":
             // The Library's own order, so this is the top row
             var descriptor = FetchDescriptor<ProductPair>(
