@@ -18,7 +18,7 @@ November 2026. The code is published here under the MIT License for anyone who s
 for it, for example a household whose costs run well above $1,000 and who would rather itemize.
 Issues and pull requests are not being worked on.
 
-**Website:** [gfpricechecker.com](https://gfpricechecker.com) — the announcement, features, FAQ, privacy policy and terms.
+**Website:** retired at the end of December 2026, when the gfpricechecker.com domain lapsed. Its source and content (announcements, blog, FAQ, privacy policy and terms) are archived at [CuWilliams/GFPriceChecker.github.io](https://github.com/CuWilliams/GFPriceChecker.github.io).
 
 ### The Problem
 
@@ -243,7 +243,8 @@ the cross-platform test vectors from shared-docs.
 
 - **Existing beta testers:** export a backup from Settings, and your PDF or CSV records from the
   Reports tab. TestFlight builds expire, and once the last one does, the app won't open.
-- **Email:** support@gfpricechecker.com
+- **Email:** none. support@gfpricechecker.com went with the domain at the end of December 2026,
+  and the app's Settings screen still links to it.
 
 ---
 

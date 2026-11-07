@@ -54,6 +54,9 @@ Neither replaces the other.
   Expense Tax Credit, so 1.0 will not be submitted to the App Store. The repository is open
   source under the MIT License (`LICENSE`), and the README and `claude.md` say so. Any further
   TestFlight upload only keeps the beta from expiring.
+- The gfpricechecker.com domain is not renewed past December 29, 2026, so the website and
+  support@gfpricechecker.com end with it. The README points to the archived website repository
+  instead. The Settings screen's support link is left in the code, which is no longer developed.
 
 ---
 
