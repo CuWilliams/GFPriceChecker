@@ -49,6 +49,12 @@ Neither replaces the other.
 
 ## [Unreleased]
 
+### Changed
+- Development has ended. Budget 2026 proposes a flat $1,000 celiac claim under the Medical
+  Expense Tax Credit, so 1.0 will not be submitted to the App Store. The repository is open
+  source under the MIT License (`LICENSE`), and the README and `claude.md` say so. Any further
+  TestFlight upload only keeps the beta from expiring.
+
 ---
 
 ## [1.0.0-build.11] - 2026-10-31
