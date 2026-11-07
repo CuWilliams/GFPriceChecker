@@ -21,8 +21,13 @@ CAD. Don't plan, test or write tester instructions for other countries' regions 
 machine-readable output, such as CSV numbers, in a fixed format anyway, because that is about the
 file, not the user.
 
-**Current Status:** Public TestFlight beta since January 2026. 1.0 App Store submission is the
-current milestone — see issue #49 and the issues it is blocked by.
+**Current Status: no longer in development (November 2026).** Budget 2026 proposed an optional
+flat $1,000 celiac claim under the Medical Expense Tax Credit, which removes most of the
+record-keeping the app exists for. There will be no App Store release; issue #49 and the rest
+were closed as not planned. The public beta is closed to new testers, and the repo is open source
+under the MIT License. The current TestFlight build is kept alive for the owner's household until
+the measure is law and claimed, then the app record is retired. Expect only maintenance uploads
+(a fresh build before the last one expires), not feature work.
 
 ---
 

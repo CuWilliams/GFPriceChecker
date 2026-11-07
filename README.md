@@ -10,9 +10,15 @@ Track price differentials between gluten-free and regular products.
 
 GFPriceChecker is an iOS app that helps people with celiac disease document what gluten-free food actually costs them compared to the regular equivalent. Canada's Medical Expense Tax Credit lets that incremental cost be claimed as a medical expense, and the tedious part is the record-keeping, not the arithmetic.
 
-**Status:** Public TestFlight beta since January 2026. The 1.0 App Store submission is the current milestone.
+**Status: no longer in development.** Budget 2026 (November 5, 2026) proposes an optional flat
+$1,000 claim for celiac disease under the Medical Expense Tax Credit, with no calculation and no
+receipts. That removes most of the record-keeping this app was built for, so it will not be
+released on the App Store or Google Play. The public TestFlight beta closed to new testers in
+November 2026. The code is published here under the MIT License for anyone who still sees a need
+for it, for example a household whose costs run well above $1,000 and who would rather itemize.
+Issues and pull requests are not being worked on.
 
-**Website:** [gfpricechecker.com](https://gfpricechecker.com) — features, FAQ, beta signup, privacy policy and terms.
+**Website:** [gfpricechecker.com](https://gfpricechecker.com) — the announcement, features, FAQ, privacy policy and terms.
 
 ### The Problem
 
@@ -205,11 +211,10 @@ and the run dies on insufficient system resources. Drop `-only-testing:` to incl
 
 ## Roadmap
 
-Tracked in [GitHub Issues](https://github.com/CuWilliams/GFPriceChecker/issues) and the
-GFPriceChecker Roadmap project. The 1.0 App Store submission is milestone `1.0 - App Store`.
-
-Longer-term ideas, none of them committed: iCloud sync, a home screen widget, bulk operations,
-and continued OCR accuracy work.
+None. Development stopped in November 2026, and the open issues, including the 1.0 App Store
+submission (milestone `1.0 - App Store`), were closed as not planned. They stay readable as a
+record of what was left. Ideas that were never committed: iCloud sync, a home screen widget,
+bulk operations, and continued OCR accuracy work.
 
 ---
 
@@ -227,25 +232,24 @@ and continued OCR accuracy work.
 
 ## Contributing
 
-This is a personal project and the repository is private. Contributions are not open at this time.
-
-Feedback from beta testers is very welcome — through TestFlight, or by email.
+The project is finished and isn't accepting contributions. You're welcome to fork it and build
+on it under the license below. `claude.md` is the most complete guide to how it fits together,
+and `Packages/GFCore` holds the platform-independent arithmetic, parsing and backup format, with
+the cross-platform test vectors from shared-docs.
 
 ---
 
 ## Support & Feedback
 
-- **Beta testers:** submit feedback via TestFlight, and include a screenshot with bug reports
+- **Existing beta testers:** export a backup from Settings, and your PDF or CSV records from the
+  Reports tab. TestFlight builds expire, and once the last one does, the app won't open.
 - **Email:** support@gfpricechecker.com
-- **Issues:** GitHub Issues
 
 ---
 
 ## License
 
-Not yet chosen. The repository is private and no license is granted for reuse.
-
-Copyright © 2026 Curtis Williams
+[MIT](LICENSE). Copyright © 2026 Curtis Williams
 
 ---
 
